@@ -1,0 +1,310 @@
+{
+  "schemaVersion": 1,
+  "catalogVersion": "2026-11-26.daechi-1",
+  "checkedAt": "2026-11-26",
+  "center": {
+    "label": "서울 강남구 대치동",
+    "lat": 37.4945,
+    "lng": 127.0628
+  },
+  "purpose": "Curated facts copied from official pages for places whose TourAPI identity was observed read-only. Served by /api/rich-tour?action=detail only when the live TourAPI detail adapter is disabled or has no key. Not field verification, not a walking-route or step-free guarantee.",
+  "rules": [
+    "Every field has its own official sourceUrl and checkedAt.",
+    "Unconfirmed items are omitted, never guessed (no stairs/slope/walking distance).",
+    "No image URLs; photos are handled by the photo pipeline.",
+    "Identity (id/name/address/coordinates) comes from TourAPI responses, not from the official pages."
+  ],
+  "records": [
+    {
+      "id": "tour-126525",
+      "contentTypeId": "12",
+      "name": "서울 선릉과 정릉 [유네스코 세계유산]",
+      "address": "서울특별시 강남구 선릉로100길 1",
+      "lat": 37.5088,
+      "lng": 127.0486,
+      "region": "서울",
+      "identitySource": "nearby-landmark-supplement.v1.json (TourAPI searchKeyword2 관찰)",
+      "fields": {
+        "overview": {
+          "value": "조선 성종과 정현왕후의 선릉, 중종의 정릉이 있는 조선왕릉으로 유네스코 세계유산이다.",
+          "sourceUrl": "https://visitgangnam.net/places/seolleung-and-jeongneung-royal-tombs-unesco-world-heritage-site-in-gangnam",
+          "sourceName": "Visit Gangnam(강남구 공식 관광 포털)",
+          "checkedAt": "2026-11-26"
+        },
+        "hours": {
+          "value": "3~10월 06:00~21:00(입장마감 20:00) / 11~1월 06:30~17:30(입장마감 16:30) / 2월 06:00~18:00(입장마감 17:00)",
+          "sourceUrl": "https://royal.khs.go.kr/ROYAL/contents/R702000000.do?schGroupCode=rtm",
+          "sourceName": "국가유산청 궁능유적본부 관람안내",
+          "checkedAt": "2026-11-26",
+          "scope": "기관 사정에 따라 단축·조정될 수 있음"
+        },
+        "closed": {
+          "value": "매주 월요일 (정기휴일이 공휴일·대체공휴일과 겹치면 개방하고 그다음 첫 비공휴일 휴무)",
+          "sourceUrl": "https://royal.khs.go.kr/ROYAL/contents/R702000000.do?schGroupCode=rtm",
+          "sourceName": "국가유산청 궁능유적본부 관람안내",
+          "checkedAt": "2026-11-26"
+        },
+        "admission": {
+          "value": "대인(내국인 만25~64세, 외국인 만19~64세) 1,000원, 10인 이상 단체 800원",
+          "sourceUrl": "https://royal.khs.go.kr/ROYAL/contents/R703000000.do?schGroupCode=rtm",
+          "sourceName": "국가유산청 궁능유적본부 관람안내",
+          "checkedAt": "2026-11-26"
+        },
+        "seniorDiscount": {
+          "value": "만 65세 이상 내국인 무료관람(신분증 지참)",
+          "sourceUrl": "https://royal.khs.go.kr/ROYAL/contents/R703000000.do?schGroupCode=rtm",
+          "sourceName": "국가유산청 궁능유적본부 관람안내",
+          "checkedAt": "2026-11-26"
+        },
+        "phone": {
+          "value": "02-568-1291",
+          "sourceUrl": "https://visitgangnam.net/places/seolleung-and-jeongneung-royal-tombs-unesco-world-heritage-site-in-gangnam",
+          "sourceName": "Visit Gangnam(강남구 공식 관광 포털)",
+          "checkedAt": "2026-11-26"
+        }
+      }
+    },
+    {
+      "id": "tour-126504",
+      "contentTypeId": "12",
+      "name": "봉은사(서울)",
+      "address": "서울특별시 강남구 봉은사로 531 (삼성동)",
+      "lat": 37.514861,
+      "lng": 127.057317,
+      "region": "서울",
+      "identitySource": "nearby-landmark-supplement.v1.json (TourAPI searchKeyword2 관찰)",
+      "fields": {
+        "overview": {
+          "value": "신라 때 견성사라는 이름으로 창건된 것으로 전해지는 사찰로, 경내에 대웅전 등 여러 전각이 있다.",
+          "sourceUrl": "https://visitgangnam.net/places/bongeunsa-temple-millennium-temple-in-the-city",
+          "sourceName": "Visit Gangnam(강남구 공식 관광 포털)",
+          "checkedAt": "2026-11-26"
+        },
+        "hours": {
+          "value": "05:00~22:00",
+          "sourceUrl": "https://visitgangnam.net/places/bongeunsa-temple-millennium-temple-in-the-city",
+          "sourceName": "Visit Gangnam(강남구 공식 관광 포털)",
+          "checkedAt": "2026-11-26",
+          "scope": "관광 포털 표기 시간이며 법회·행사 일정은 별도"
+        },
+        "phone": {
+          "value": "0507-1429-4800",
+          "sourceUrl": "https://visitgangnam.net/places/bongeunsa-temple-millennium-temple-in-the-city",
+          "sourceName": "Visit Gangnam(강남구 공식 관광 포털)",
+          "checkedAt": "2026-11-26"
+        }
+      }
+    },
+    {
+      "id": "tour-3080852",
+      "contentTypeId": "14",
+      "name": "한생연 실험누리과학관",
+      "address": "서울특별시 강남구 도곡로 408 (대치동)",
+      "lat": 37.4966637406,
+      "lng": 127.0552604534,
+      "region": "서울",
+      "identitySource": "production GET /api/nearby.js?lat=37.4945&lng=127.0628&category=spot (TourAPI locationBasedList2), fetchedAt 2026-11-25T23:18:57.159Z",
+      "fields": {
+        "overview": {
+          "value": "유아·초등·중등·고등학생이 수준별 실험 프로그램을 진행하는 실험 수행 전문 과학관(디마크빌딩 6층)이다.",
+          "sourceUrl": "https://www.hlsi.co.kr/sub/sub05_01.php",
+          "sourceName": "한생연(한국생명과학연구원) 공식 홈페이지",
+          "checkedAt": "2026-11-26"
+        },
+        "phone": {
+          "value": "02-552-3166",
+          "sourceUrl": "https://www.hlsi.co.kr/sub/sub02_01.php",
+          "sourceName": "한생연(한국생명과학연구원) 공식 홈페이지",
+          "checkedAt": "2026-11-26"
+        }
+      }
+    },
+    {
+      "id": "tour-231897",
+      "contentTypeId": "12",
+      "name": "서울 삼전도비",
+      "address": "서울특별시 송파구 삼학사로 136 (잠실동)",
+      "lat": 37.5091158401,
+      "lng": 127.0978839997,
+      "region": "서울",
+      "identitySource": "production GET /api/nearby.js?lat=37.4945&lng=127.0628&category=spot (TourAPI locationBasedList2), fetchedAt 2026-11-25T23:18:57.159Z",
+      "fields": {
+        "overview": {
+          "value": "병자호란 뒤 1639년(인조 17년)에 세워진 높이 3.95m의 비석으로, 비문이 몽골·만주·한자 세 문자로 새겨진 국가지정 사적이다.",
+          "sourceUrl": "https://www.songpa.go.kr/culture/contents.do?key=3854",
+          "sourceName": "송파구청 문화관광 누리집",
+          "checkedAt": "2026-11-26"
+        },
+        "phone": {
+          "value": "02-2147-2001",
+          "sourceUrl": "https://www.songpa.go.kr/culture/contents.do?key=3854",
+          "sourceName": "송파구청 문화관광 누리집",
+          "checkedAt": "2026-11-26",
+          "scope": "송파구 문화유산과 문화유산보존팀(안내 페이지 담당부서)"
+        }
+      }
+    },
+    {
+      "id": "tour-3432213",
+      "contentTypeId": "14",
+      "name": "논현문화마루도서관",
+      "address": "서울특별시 강남구 논현로131길 40 (논현동)",
+      "lat": 37.5139001229,
+      "lng": 127.0271208603,
+      "region": "서울",
+      "identitySource": "production GET /api/nearby.js?lat=37.4945&lng=127.0628&category=spot (TourAPI locationBasedList2), fetchedAt 2026-11-25T23:18:57.159Z",
+      "fields": {
+        "hours": {
+          "value": "성인 자료실(4층) 화~금 09:00~22:00, 토·일 09:00~18:00 / 어린이 자료실(5층) 화~일 09:00~18:00",
+          "sourceUrl": "https://library.gangnam.go.kr/nmmlib/menu/13478/contents/41489/contents.do",
+          "sourceName": "강남구립도서관 논현문화마루도서관 누리집",
+          "checkedAt": "2026-11-26"
+        },
+        "closed": {
+          "value": "매주 월요일, 일요일을 제외한 법정공휴일, 장서점검 등 도서관이 정한 날",
+          "sourceUrl": "https://library.gangnam.go.kr/nmmlib/menu/13478/contents/41489/contents.do",
+          "sourceName": "강남구립도서관 논현문화마루도서관 누리집",
+          "checkedAt": "2026-11-26"
+        },
+        "parking": {
+          "value": "논현문화마루 공영주차장(B2~B6) 이용 가능",
+          "sourceUrl": "https://library.gangnam.go.kr/nmmlib/menu/13476/contents/41488/contents.do",
+          "sourceName": "강남구립도서관 논현문화마루도서관 누리집",
+          "checkedAt": "2026-11-26"
+        },
+        "parkingFee": {
+          "value": "도서관 이용자에게 주차할인권(60분) 지급",
+          "sourceUrl": "https://library.gangnam.go.kr/nmmlib/menu/13476/contents/41488/contents.do",
+          "sourceName": "강남구립도서관 논현문화마루도서관 누리집",
+          "checkedAt": "2026-11-26"
+        },
+        "phone": {
+          "value": "02-512-8580",
+          "sourceUrl": "https://library.gangnam.go.kr/nmmlib/menu/13478/contents/41489/contents.do",
+          "sourceName": "강남구립도서관 논현문화마루도서관 누리집",
+          "checkedAt": "2026-11-26"
+        }
+      }
+    },
+    {
+      "id": "tour-126532",
+      "contentTypeId": "12",
+      "name": "올림픽공원",
+      "address": "서울특별시 송파구 올림픽로 424 (방이동)",
+      "lat": 37.5205340629,
+      "lng": 127.1208127833,
+      "region": "서울",
+      "identitySource": "production GET /api/featured.js?lat=37.4945&lng=127.0628 (TourAPI detailCommon2), fetchedAt 2026-11-25T23:17:43.980Z",
+      "fields": {
+        "hours": {
+          "value": "도보·자전거 출입 05:00~22:00(광장지역 24:00), 차량 출입 06:00~22:00",
+          "sourceUrl": "https://www.ksponco.or.kr/olympicpark/menu.es?mid=a20101000000",
+          "sourceName": "올림픽공원 공식 홈페이지(한국체육산업개발)",
+          "checkedAt": "2026-11-26",
+          "scope": "22시 이후 공원 안쪽 출입 금지, 심야 행사 시 출입문 개방 조정"
+        },
+        "closed": {
+          "value": "연중무휴",
+          "sourceUrl": "https://www.ksponco.or.kr/olympicpark/menu.es?mid=a20101000000",
+          "sourceName": "올림픽공원 공식 홈페이지(한국체육산업개발)",
+          "checkedAt": "2026-11-26"
+        },
+        "admission": {
+          "value": "무료",
+          "sourceUrl": "https://www.ksponco.or.kr/olympicpark/menu.es?mid=a20101000000",
+          "sourceName": "올림픽공원 공식 홈페이지(한국체육산업개발)",
+          "checkedAt": "2026-11-26"
+        },
+        "parking": {
+          "value": "공원 주차장 운영(목적지별 주차장 안내). 대형행사 시 주차 혼잡으로 대중교통 이용 권장",
+          "sourceUrl": "https://www.ksponco.or.kr/olympicpark/menu.es?mid=a20111000000",
+          "sourceName": "올림픽공원 공식 홈페이지(한국체육산업개발)",
+          "checkedAt": "2026-11-26"
+        },
+        "parkingFee": {
+          "value": "소형 10분당 600원(일 최대 20,000원), 대형 10분당 1,200원(일 최대 24,000원), 10분 이내 출차 무료. 경차·장애인·저공해·국가유공자 등 50% 할인(중복할인 불가)",
+          "sourceUrl": "https://www.ksponco.or.kr/olympicpark/menu.es?mid=a20111000000",
+          "sourceName": "올림픽공원 공식 홈페이지(한국체육산업개발)",
+          "checkedAt": "2026-11-26"
+        },
+        "amenities": {
+          "value": "평화의광장·만남의광장 안내센터(09:00~19:00, 휴게 12:00~13:00): 휠체어 무료 대여 각 3대(신분증 맡기고 3시간), 평화의광장 안내센터 수유실",
+          "sourceUrl": "https://www.ksponco.or.kr/olympicpark/menu.es?mid=a20106010000",
+          "sourceName": "올림픽공원 공식 홈페이지(한국체육산업개발)",
+          "checkedAt": "2026-11-26"
+        },
+        "phone": {
+          "value": "02-2180-3564~5",
+          "sourceUrl": "https://www.ksponco.or.kr/olympicpark/menu.es?mid=a20106010000",
+          "sourceName": "올림픽공원 공식 홈페이지(한국체육산업개발)",
+          "checkedAt": "2026-11-26",
+          "scope": "평화의광장 안내센터"
+        }
+      },
+      "accessibility": {
+        "wheelchairRental": {
+          "value": "평화의광장·만남의광장 안내센터 휠체어 각 3대 무료 대여(신분증 필요, 3시간)",
+          "sourceUrl": "https://www.ksponco.or.kr/olympicpark/menu.es?mid=a20106010000",
+          "sourceName": "올림픽공원 공식 홈페이지(한국체육산업개발)",
+          "checkedAt": "2026-11-26"
+        }
+      }
+    },
+    {
+      "id": "tour-128611",
+      "contentTypeId": "12",
+      "name": "서울숲",
+      "address": "서울특별시 성동구 뚝섬로 273",
+      "lat": 37.5430715815,
+      "lng": 127.041798446,
+      "region": "서울",
+      "identitySource": "production GET /api/featured.js?lat=37.4945&lng=127.0628 (TourAPI detailCommon2), fetchedAt 2026-11-25T23:17:43.980Z",
+      "fields": {
+        "hours": {
+          "value": "생태숲 05:30~21:30, 방문자센터 10:00~18:00(11~2월 10:00~17:00), 곤충식물원 11:00~16:00(월·화 휴관)",
+          "sourceUrl": "https://seoulforest.or.kr/info/park-info/",
+          "sourceName": "서울숲 공식 홈페이지(서울숲컨서번시)",
+          "checkedAt": "2026-11-26"
+        },
+        "closed": {
+          "value": "연중무휴(일부 시설 월요일 휴관)",
+          "sourceUrl": "https://seoulforest.or.kr/info/park-info/",
+          "sourceName": "서울숲 공식 홈페이지(서울숲컨서번시)",
+          "checkedAt": "2026-11-26"
+        },
+        "parking": {
+          "value": "공원 주차장 24시간 운영, 총 211면(장애인 주차 별도 6면). 협소하여 만차 시 이용 제한",
+          "sourceUrl": "https://seoulforest.or.kr/info/park-info/",
+          "sourceName": "서울숲 공식 홈페이지(서울숲컨서번시)",
+          "checkedAt": "2026-11-26"
+        },
+        "parkingFee": {
+          "value": "소형 5분당 150원, 대형 5분당 300원 (할인은 주차장 관리사무소 문의)",
+          "sourceUrl": "https://seoulforest.or.kr/info/park-info/",
+          "sourceName": "서울숲 공식 홈페이지(서울숲컨서번시)",
+          "checkedAt": "2026-11-26"
+        },
+        "amenities": {
+          "value": "방문자센터 휠체어·유모차 최대 2시간 무료 대여(신분증 필요), 방문자센터·커뮤니티센터 수유실",
+          "sourceUrl": "https://seoulforest.or.kr/info/park-info/",
+          "sourceName": "서울숲 공식 홈페이지(서울숲컨서번시)",
+          "checkedAt": "2026-11-26"
+        },
+        "phone": {
+          "value": "02-460-2905",
+          "sourceUrl": "https://seoulforest.or.kr/info/park-info/",
+          "sourceName": "서울숲 공식 홈페이지(서울숲컨서번시)",
+          "checkedAt": "2026-11-26"
+        }
+      },
+      "accessibility": {
+        "wheelchairRental": {
+          "value": "방문자센터 휠체어 최대 2시간 무료 대여(신분증 필요)",
+          "sourceUrl": "https://seoulforest.or.kr/info/park-info/",
+          "sourceName": "서울숲 공식 홈페이지(서울숲컨서번시)",
+          "checkedAt": "2026-11-26"
+        }
+      }
+    }
+  ]
+}

@@ -55,3 +55,13 @@
 회귀 테스트: 'node --test tests/server_travel.test.cjs tests/frontend_map_center_search.test.cjs tests/frontend_place_exploration.test.cjs' 및 'python3 scripts/verify_api_contract.py'.
 
 변경파일은 이 디렉터리와 'web/server/place-catalog.cjs', 'web/api/{data,nearby,featured}.js', 'tests/place_data_api.test.cjs'로 한정한다. 'AGENTS.md', 'STATUS.md', TODO/CI/routing은 이 에이전트의 독점 수정 범위 밖이므로 통합 담당자가 기록·변경해야 한다.
+
+## 대치동 인근 장소 보강 (2026-11-26, MVP)
+
+- 'daechi-area-details.v1.json': 대치동(37.4945, 127.0628) 반경 약 6km 안의 7곳에 대해 **공식 페이지에서 확인한 값만** 기록한다. 각 값에 'sourceUrl'·'sourceName'·'checkedAt'(확인일)을 둔다. 확인되지 않은 항목(계단·경사·보행거리·입구, 일부 운영시간·요금)은 넣지 않는다.
+- 식별(ID·이름·주소·좌표)은 운영 사이트 공개 API의 읽기 전용 GET 응답(TourAPI)에서만 가져온다: '/api/nearby.js'(locationBasedList2), '/api/featured.js'(detailCommon2), 기존 키워드 보강 파일. 공식 페이지 값으로 좌표·주소를 바꾸지 않는다.
+- 'nearby-landmark-supplement.v1.json'에 올림픽공원(tour-126532)·서울숲(tour-128611)을 추가했다. 운영 위치 조회(locationBasedList2) 응답에 빠져 있던 곳이다. 레코드별 'source'·'observedVia'·'collectedDate'가 있으면 그것이 출처다(없으면 파일 상단의 키워드 조회). 프런트 호환을 위해 'discoverySource'는 기존 값 'keyword_snapshot'을 유지한다.
+- 앱 반영 경로: 주변 탐색은 실시간 모드에서 보강 레코드를 반경 10km 안에 합친다. 상세 '운영시간·요금·시설 더 보기'는 '/api/rich-tour?action=detail'이 **실시간 상세가 꺼져 있거나 키가 없을 때만** 이 파일의 값을 'sourceMode:curated_snapshot', 'partial:true'로 돌려준다('web/server/curated-place-details.cjs'). 공급자 오류(429·시간초과·인증)는 그대로 오류로 둔다.
+- 추천 후보('/api/recommend' → 'getCatalog')에는 아직 넣지 않았다. 'getCatalog'에 보강 레코드를 합치면 일정 경로 좌표 확인(travel-times)까지 바뀌므로 일정·추천 담당과 조율 후 진행한다.
+- 사진 URL·이미지 권리는 기록하지 않는다(운영 응답에 이미지 URL이 없었고, 사진은 사진 파이프라인 소관).
+- 검증: 'node --test tests/daechi_places_catalog.test.cjs'.

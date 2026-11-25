@@ -3,7 +3,7 @@
   "source": "TourAPI KorService2 searchKeyword2 via existing live preview dpl_Ec1cKGV17m7RJvjB9dNxAZsTVtBr",
   "sourceUrl": "https://www.data.go.kr/data/15101578/openapi.do",
   "collectedDate": "2026-11-26",
-  "scope": "Observed keyword response, not live location response, popularity ranking, or verified accessibility. Local radius supplement only.",
+  "scope": "Observed keyword response, not live location response, popularity ranking, or verified accessibility. Local radius supplement only. A record with its own source/observedVia/collectedDate was observed through a different read-only TourAPI path.",
   "records": [
     {
       "id": "tour-126525",
@@ -26,6 +26,34 @@
       "kind": "spot",
       "subtype": "역사·문화유산",
       "accessStatus": "unverified"
+    },
+    {
+      "id": "tour-126532",
+      "name": "올림픽공원",
+      "address": "서울특별시 송파구 올림픽로 424 (방이동)",
+      "lat": 37.5205340629,
+      "lng": 127.1208127833,
+      "region": "서울",
+      "kind": "spot",
+      "accessStatus": "unverified",
+      "source": "한국관광공사 TourAPI 상세(detailCommon2) 조회 보강",
+      "observedVia": "production GET /api/featured.js?lat=37.4945&lng=127.0628 (TourAPI detailCommon2 with exact contentId/title/address check), fetchedAt 2026-11-25T23:17:43.980Z",
+      "sourceUpdatedAt": "2026-11-11",
+      "collectedDate": "2026-11-26"
+    },
+    {
+      "id": "tour-128611",
+      "name": "서울숲",
+      "address": "서울특별시 성동구 뚝섬로 273",
+      "lat": 37.5430715815,
+      "lng": 127.041798446,
+      "region": "서울",
+      "kind": "spot",
+      "accessStatus": "unverified",
+      "source": "한국관광공사 TourAPI 상세(detailCommon2) 조회 보강",
+      "observedVia": "production GET /api/featured.js?lat=37.4945&lng=127.0628 (TourAPI detailCommon2 with exact contentId/title/address check), fetchedAt 2026-11-25T23:17:43.980Z",
+      "sourceUpdatedAt": "2026-11-13",
+      "collectedDate": "2026-11-26"
     }
   ]
 }

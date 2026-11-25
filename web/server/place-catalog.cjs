@@ -253,7 +253,8 @@ async function nearbySearch(center,filter,options={}){
     const supplement=[];
     if(mode==='live'&&filter!=='food'){
       for(const raw of LANDMARKS.records){
-        const p=normalizePlace({...raw,source:'한국관광공사 TourAPI 키워드 조회 보강',collectedAt:LANDMARKS.collectedDate});
+        // Per-record provenance wins (e.g. detailCommon2-observed records); default is the keyword snapshot.
+        const p=normalizePlace({...raw,source:raw.source||'한국관광공사 TourAPI 키워드 조회 보강',collectedAt:raw.collectedDate||LANDMARKS.collectedDate});
         if(p&&!distinct.some(x=>x.id===p.id)&&distanceMeters(p,center)<=NEARBY_RADIUS){
           const item={...p,areaCode:REGION_CODES[p.region],subtype:raw.subtype,discoverySource:'keyword_snapshot',accessStatus:'unverified',accessFacts:[]};
           distinct.push(item);supplement.push(item.id);

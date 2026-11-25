@@ -1,7 +1,8 @@
 'use strict';
 // Agent AA — isolated, opt-in KTO adapter; not a recommendation or route certification.
 const {loadNationwideCatalog,areaFor}=require('./nationwide-tour-catalog.cjs');
-function createRichTour({env={},fetcher,now=Date.now,signalFactory=ms=>AbortSignal.timeout(ms),limit=30,enrich,loadFacilities,nationwideCatalog}={}){
+const curatedDefault=require('./curated-place-details.cjs').curatedDetail;
+function createRichTour({env={},fetcher,now=Date.now,signalFactory=ms=>AbortSignal.timeout(ms),limit=30,enrich,loadFacilities,nationwideCatalog,curatedDetail=curatedDefault}={}){
  const source='https://www.data.go.kr/data/15101578/openapi.do';
  const root='https://apis.data.go.kr/B551011/KorService2/';
  const types={'12':'spot','14':'culture','39':'food'};
@@ -97,7 +98,15 @@ function createRichTour({env={},fetcher,now=Date.now,signalFactory=ms=>AbortSign
   const contentId=id(q.contentId),type=String(q.contentTypeId??'');
   if(!contentId||!Object.hasOwn(types,type))throw error('invalid_place_identity',400);
   const p={contentId,contentTypeId:type};
-  const common=await request('detailCommon2',{contentId});
+  let common;
+  try{common=await request('detailCommon2',{contentId});}
+  catch(e){
+   // Only when live detail is switched off or has no key: serve curated official-page facts.
+   // Provider errors (quota, timeout, auth) are never masked by the snapshot.
+   const curated=['rich_tour_disabled','provider_key_missing'].includes(e?.code)&&typeof curatedDetail==='function'?curatedDetail(contentId,type):null;
+   if(curated)return curated;
+   throw e;
+  }
   const same=x=>String(x?.contentid??'')===contentId&&String(x?.contenttypeid??type)===type;
   if(common.items.length!==1||!same(common.items[0])||String(common.items[0].contenttypeid??'')!==type)throw error(common.items.length===0?'place_not_found':'provider_identity_mismatch',common.items.length===0?404:502);
   const item=common.items[0],basic=place(item);if(!basic)throw error('upstream_invalid_place');
