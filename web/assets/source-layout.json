@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "baseline": "tests/fixtures/qa-01-pre-split.html",
+  "styles": [
+    {
+      "file": "assets/styles/00-core.css",
+      "attributes": ""
+    },
+    {
+      "file": "assets/styles/01-winter-theme.css",
+      "attributes": " id=\"hamkkebom-winter-theme\""
+    },
+    {
+      "file": "assets/styles/02-pastel-theme.css",
+      "attributes": " id=\"hamkkebom-pastel-theme\""
+    },
+    {
+      "file": "assets/styles/03-landing.css",
+      "attributes": " id=\"hb-landing-20261122\""
+    },
+    {
+      "file": "assets/styles/04-dev.css",
+      "attributes": " id=\"hb-dev-1122\""
+    },
+    {
+      "file": "assets/styles/05-editorial-preview.css",
+      "attributes": " id=\"hamkkebom-editorial-preview\""
+    },
+    {
+      "file": "assets/styles/06-accessibility-evidence.css",
+      "attributes": " id=\"HB_EVIDENCE_UI_20261122\""
+    },
+    {
+      "file": "assets/styles/07-recommendation.css",
+      "attributes": " id=\"HB_RECOMMEND_V17\""
+    },
+    {
+      "file": "assets/styles/08-replan.css",
+      "attributes": " id=\"HAMKKEBOM_RPL_V1\""
+    },
+    {
+      "file": "assets/styles/09-planner.css",
+      "attributes": " id=\"HAMKKEBOM_PLAN_LOCAL_V1\""
+    },
+    {
+      "file": "assets/styles/10-place-thumbnails.css",
+      "attributes": " id=\"hb-place-thumbnails-style\""
+    }
+  ],
+  "scripts": [
+    {
+      "file": "assets/scripts/00-app-core.js",
+      "attributes": ""
+    },
+    {
+      "file": "assets/scripts/01-winter-enhancement.js",
+      "attributes": " id=\"hamkkebom-winter-enhancement\""
+    },
+    {
+      "file": "assets/scripts/02-place-thumbnails.js",
+      "attributes": " id=\"hb-place-thumbnails\""
+    }
+  ]
+}

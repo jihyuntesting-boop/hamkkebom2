@@ -1,0 +1,40 @@
+
+/* HAMKKEBOM — calm, low-clutter large text itinerary. Only impacts plan view. */
+.hb-plan-view-controls{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px}
+.hb-plan-view-controls button{min-height:48px!important;margin:0!important;padding:10px 16px;font-size:16px;border-radius:10px}
+.hb-plan-view-controls [aria-pressed="true"]{background:#304f42;color:#fff;border-color:#304f42}
+.hb-large-plan{font-size:20px;line-height:1.75;letter-spacing:-.015em}
+.hb-large-plan h1{font-size:clamp(29px,5vw,40px);line-height:1.3}
+.hb-large-plan h2{font-size:clamp(24px,4vw,30px);line-height:1.4}
+.hb-large-plan .hb-itinerary-row{padding:22px 18px;margin:14px 0;border-radius:12px;gap:14px}
+.hb-large-plan .hb-itinerary-row h3{font-size:clamp(22px,3.5vw,28px);line-height:1.4;margin:0 0 10px}
+.hb-large-plan .hb-itinerary-row p,.hb-large-plan .hb-plan-meta,
+.hb-large-plan .hb-plan-protected,.hb-large-plan .hb-plan-warnings li,
+.hb-large-plan .hb-plan-local-notice,.hb-large-plan .muted{font-size:19px!important;line-height:1.7}
+.hb-large-plan label,.hb-large-plan .hb-stop-field label{font-size:19px;font-weight:650}
+.hb-large-plan input,.hb-large-plan select,.hb-large-plan button{font-size:19px;min-height:48px}
+.hb-large-plan .hb-itinerary-flags{gap:12px}
+.hb-large-plan .hb-itinerary-flags label{display:inline-flex;align-items:center;gap:8px}
+.hb-large-plan .hb-itinerary-flags input[type="checkbox"]{width:23px;height:23px}
+.hb-large-plan .hb-plan-generator{padding:20px;background:#fafbf9}
+@media(max-width:480px){
+ .hb-plan-view-controls{display:grid;grid-template-columns:1fr}
+ .hb-large-plan .hb-itinerary-row{padding:17px 13px}
+ .hb-large-plan .hb-stop-editor{padding:12px}
+ .hb-large-plan .hb-stop-actions button{white-space:normal}
+}
+@media print{
+ @page{size:A4;margin:15mm}
+ body{background:white!important;color:#111!important}
+ header,nav,footer,.hb-plan-view-controls,.hb-plan-generator button,
+ .hb-stop-editor,.hb-itinerary-flags,.hb-plan-edit-feedback,
+ #add,#fatigue,#share,.hb-plan-generator select,.hb-plan-generator label,
+ .hb-plan-protected{display:none!important}
+ main{max-width:none!important;padding:0!important;margin:0!important}
+ .hb-regular-plan,.hb-large-plan{font-size:14pt!important;color:#111!important}
+ .hb-itinerary-row{break-inside:avoid;page-break-inside:avoid;border:1px solid #999!important;box-shadow:none!important;margin:8mm 0!important;padding:5mm!important}
+ .hb-itinerary-row h3{font-size:17pt!important}
+ .hb-plan-generator{border:0!important;background:white!important;padding:4mm 0!important}
+ .hb-plan-local-notice,.hb-plan-generator>p:first-of-type{font-size:10pt!important}
+ a{color:#111!important;text-decoration:none!important}
+}

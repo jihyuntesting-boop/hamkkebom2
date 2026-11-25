@@ -1,0 +1,17 @@
+
+/* Accessible local itinerary editing — calm, low-decoration senior-first UI. */
+.hb-plan-local-notice{font-size:15px;line-height:1.65;color:#47594d;margin:14px 0 0}
+.hb-plan-edit-feedback{min-height:1.5em;margin:10px 0 0;font-size:15px;font-weight:600;color:#324e3f}
+.hb-stop-editor{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px;width:100%;padding:14px;margin:12px 0;background:#fafaf8;border:1px solid #d9dfd7;border-radius:12px}
+.hb-stop-fields{display:flex;flex-wrap:wrap;gap:12px;flex:1 1 270px}
+.hb-stop-field{min-width:128px;flex:1 1 130px}
+.hb-stop-field label{display:block;font-size:14px;font-weight:650;color:#35483d;margin:0 0 6px}
+.hb-stop-field input{width:100%;height:46px;min-width:0;padding:8px 10px;border:1px solid #a9b6aa;border-radius:8px;background:white;color:#1e3628;font-size:16px}
+.hb-stop-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.hb-stop-actions button{min-height:46px;padding:8px 14px;border-radius:8px;font-size:15px;white-space:nowrap}
+.hb-stop-actions button:disabled{opacity:.42;cursor:not-allowed}
+.hb-stop-field input:focus-visible,.hb-stop-actions button:focus-visible{outline:3px solid #2d6252;outline-offset:2px}
+.hb-plan-protected{width:100%;padding:10px 14px;background:#f5f1e8;border-left:3px solid #99856a;border-radius:6px;color:#534a40;font-size:14px;line-height:1.6}
+.hb-itinerary-row .hb-plan-meta{font-size:14px}
+@media(max-width:560px){.hb-stop-editor{padding:12px}.hb-stop-fields{flex-basis:100%}.hb-stop-actions{width:100%}.hb-stop-actions button{flex:1}}
+@media(prefers-reduced-motion:reduce){.hb-stop-editor *{scroll-behavior:auto;transition:none}}

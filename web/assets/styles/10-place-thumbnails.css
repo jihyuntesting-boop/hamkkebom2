@@ -1,0 +1,8 @@
+
+.grid>.card.hb-has-photo{overflow:hidden;padding-top:0}
+.hb-place-photo{position:relative;height:158px;margin:0 -21px 16px;background:linear-gradient(135deg,#f5e9f4,#e0f0eb);overflow:hidden;display:flex;align-items:center;justify-content:center}
+.hb-place-photo img{width:100%;height:100%;object-fit:cover;display:block}
+.hb-place-photo .hb-photo-empty{font-size:13px;color:#695f70;text-align:center;line-height:1.6;padding:14px}
+.hb-photo-credit{position:absolute;right:8px;bottom:8px;background:#ffffffee;color:#51435e;padding:4px 7px;border-radius:6px;font-size:10px;text-decoration:none}
+@media(min-width:760px){#nearby-list .grid{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}}
+@media(max-width:700px){.hb-place-photo{height:150px;margin-left:-21px;margin-right:-21px}}

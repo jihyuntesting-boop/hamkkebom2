@@ -1,0 +1,283 @@
+{
+  "catalogVersion": "2026-11-24.snapshot-1",
+  "coverage": "partial_observed_records_only",
+  "notes": "2026-11-23 legacy API observed fixture stores only 2 records per response, not the reported complete response counts. Coordinates and addresses are historical source-reported data, not independently re-geocoded; no mobility route is verified.",
+  "records": [
+    {
+      "id": "tour-3432213",
+      "contentId": "3432213",
+      "name": "논현문화마루도서관",
+      "address": "서울특별시 강남구 논현로131길 40 (논현동)",
+      "kind": "culture",
+      "lat": 37.5139001229,
+      "lng": 127.0271208603,
+      "region": "서울",
+      "accessFacts": [
+        {
+          "label": "주차",
+          "description": "장애인 주차장 있음 (지하2층 2면, 지하3층 2면)",
+          "status": "source_reported",
+          "sourceUrl": "https://www.data.go.kr/data/15101897/openapi.do",
+          "collectedAt": "2026-11-23",
+          "verifiedAt": null
+        },
+        {
+          "label": "엘리베이터",
+          "description": "엘리베이터 있음",
+          "status": "source_reported",
+          "sourceUrl": "https://www.data.go.kr/data/15101897/openapi.do",
+          "collectedAt": "2026-11-23",
+          "verifiedAt": null
+        },
+        {
+          "label": "화장실",
+          "description": "장애인 화장실 있음 (1층,4층,5층)",
+          "status": "source_reported",
+          "sourceUrl": "https://www.data.go.kr/data/15101897/openapi.do",
+          "collectedAt": "2026-11-23",
+          "verifiedAt": null
+        }
+      ],
+      "accessStatus": "info",
+      "source": "한국관광공사 국문 관광정보 (legacy API observation)",
+      "sourceUrl": "https://www.data.go.kr/data/15101578/openapi.do",
+      "collectedAt": "2026-11-23",
+      "sourceUpdatedAt": null,
+      "imageIdentifier": "3432213",
+      "imageUrl": null,
+      "license": "TourAPI 공공데이터 기본 필드; 사진별 이용조건 미검증",
+      "featured": false
+    },
+    {
+      "id": "tour-3429640",
+      "contentId": "3429640",
+      "name": "성동책마루도서관",
+      "address": "서울특별시 성동구 고산자로 270 (행당동)",
+      "kind": "culture",
+      "lat": 37.5634750974,
+      "lng": 127.0369796686,
+      "region": "서울",
+      "accessFacts": [
+        {
+          "label": "주차",
+          "description": "장애인 주차장 있음",
+          "status": "source_reported",
+          "sourceUrl": "https://www.data.go.kr/data/15101897/openapi.do",
+          "collectedAt": "2026-11-23",
+          "verifiedAt": null
+        },
+        {
+          "label": "출입통로",
+          "description": "자동문",
+          "status": "source_reported",
+          "sourceUrl": "https://www.data.go.kr/data/15101897/openapi.do",
+          "collectedAt": "2026-11-23",
+          "verifiedAt": null
+        },
+        {
+          "label": "엘리베이터",
+          "description": "엘리베이터 있음",
+          "status": "source_reported",
+          "sourceUrl": "https://www.data.go.kr/data/15101897/openapi.do",
+          "collectedAt": "2026-11-23",
+          "verifiedAt": null
+        },
+        {
+          "label": "화장실",
+          "description": "1층에 위치슬라이딩 문손잡이, 등받이, 자동물내림, 비상 호출벨 있음",
+          "status": "source_reported",
+          "sourceUrl": "https://www.data.go.kr/data/15101897/openapi.do",
+          "collectedAt": "2026-11-23",
+          "verifiedAt": null
+        }
+      ],
+      "accessStatus": "info",
+      "source": "한국관광공사 국문 관광정보 (legacy API observation)",
+      "sourceUrl": "https://www.data.go.kr/data/15101578/openapi.do",
+      "collectedAt": "2026-11-23",
+      "sourceUpdatedAt": null,
+      "imageIdentifier": "3429640",
+      "imageUrl": null,
+      "license": "TourAPI 공공데이터 기본 필드; 사진별 이용조건 미검증",
+      "featured": false
+    },
+    {
+      "id": "tour-3428221",
+      "contentId": "3428221",
+      "name": "시흥시 대야평생학습관",
+      "address": "경기도 시흥시 은행로173번길 14 (대야동)",
+      "kind": "culture",
+      "lat": 37.4453650832,
+      "lng": 126.7969159745,
+      "region": "경기",
+      "accessFacts": [
+        {
+          "label": "주차",
+          "description": "3대 주차 가능",
+          "status": "source_reported",
+          "sourceUrl": "https://www.data.go.kr/data/15101897/openapi.do",
+          "collectedAt": "2026-11-23",
+          "verifiedAt": null
+        },
+        {
+          "label": "출입통로",
+          "description": "자동문",
+          "status": "source_reported",
+          "sourceUrl": "https://www.data.go.kr/data/15101897/openapi.do",
+          "collectedAt": "2026-11-23",
+          "verifiedAt": null
+        },
+        {
+          "label": "화장실",
+          "description": "1층 입구 인근 1개소슬라이딩문손잡이, 등받이, 자동물내림, 비상 호출벨 있음",
+          "status": "source_reported",
+          "sourceUrl": "https://www.data.go.kr/data/15101897/openapi.do",
+          "collectedAt": "2026-11-23",
+          "verifiedAt": null
+        }
+      ],
+      "accessStatus": "info",
+      "source": "한국관광공사 국문 관광정보 (legacy API observation)",
+      "sourceUrl": "https://www.data.go.kr/data/15101578/openapi.do",
+      "collectedAt": "2026-11-23",
+      "sourceUpdatedAt": null,
+      "imageIdentifier": "3428221",
+      "imageUrl": null,
+      "license": "TourAPI 공공데이터 기본 필드; 사진별 이용조건 미검증",
+      "featured": false
+    },
+    {
+      "id": "tour-3449158",
+      "contentId": "3449158",
+      "name": "시흥시립대야도서관",
+      "address": "경기도 시흥시 은행로173번길 14 (대야동)",
+      "kind": "culture",
+      "lat": 37.4453650832,
+      "lng": 126.7969159745,
+      "region": "경기",
+      "accessFacts": [
+        {
+          "label": "주차",
+          "description": "지상에 2면 있음",
+          "status": "source_reported",
+          "sourceUrl": "https://www.data.go.kr/data/15101897/openapi.do",
+          "collectedAt": "2026-11-23",
+          "verifiedAt": null
+        },
+        {
+          "label": "출입통로",
+          "description": "미닫이문",
+          "status": "source_reported",
+          "sourceUrl": "https://www.data.go.kr/data/15101897/openapi.do",
+          "collectedAt": "2026-11-23",
+          "verifiedAt": null
+        },
+        {
+          "label": "엘리베이터",
+          "description": "엘리베이터 있음",
+          "status": "source_reported",
+          "sourceUrl": "https://www.data.go.kr/data/15101897/openapi.do",
+          "collectedAt": "2026-11-23",
+          "verifiedAt": null
+        },
+        {
+          "label": "화장실",
+          "description": "장애인 화장실 있음",
+          "status": "source_reported",
+          "sourceUrl": "https://www.data.go.kr/data/15101897/openapi.do",
+          "collectedAt": "2026-11-23",
+          "verifiedAt": null
+        }
+      ],
+      "accessStatus": "info",
+      "source": "한국관광공사 국문 관광정보 (legacy API observation)",
+      "sourceUrl": "https://www.data.go.kr/data/15101578/openapi.do",
+      "collectedAt": "2026-11-23",
+      "sourceUpdatedAt": null,
+      "imageIdentifier": "3449158",
+      "imageUrl": null,
+      "license": "TourAPI 공공데이터 기본 필드; 사진별 이용조건 미검증",
+      "featured": false
+    },
+    {
+      "id": "tour-2788760",
+      "contentId": "2788760",
+      "name": "낙동강",
+      "address": "서울특별시 중구 을지로1길 34 (다동)",
+      "kind": "food",
+      "lat": 37.5676846934,
+      "lng": 126.9798764188,
+      "region": "서울",
+      "accessFacts": [],
+      "accessStatus": "unverified",
+      "source": "한국관광공사 국문 관광정보 (legacy API observation)",
+      "sourceUrl": "https://www.data.go.kr/data/15101578/openapi.do",
+      "collectedAt": "2026-11-23",
+      "sourceUpdatedAt": null,
+      "imageIdentifier": "2788760",
+      "imageUrl": null,
+      "license": "TourAPI 공공데이터 기본 필드; 사진별 이용조건 미검증",
+      "featured": false
+    },
+    {
+      "id": "tour-2853910",
+      "contentId": "2853910",
+      "name": "디라이프스타일키친 광화문점",
+      "address": "서울특별시 중구 세종대로 136 파이낸스빌딩",
+      "kind": "food",
+      "lat": 37.5685067916,
+      "lng": 126.9782987614,
+      "region": "서울",
+      "accessFacts": [],
+      "accessStatus": "unverified",
+      "source": "한국관광공사 국문 관광정보 (legacy API observation)",
+      "sourceUrl": "https://www.data.go.kr/data/15101578/openapi.do",
+      "collectedAt": "2026-11-23",
+      "sourceUpdatedAt": null,
+      "imageIdentifier": "2853910",
+      "imageUrl": null,
+      "license": "TourAPI 공공데이터 기본 필드; 사진별 이용조건 미검증",
+      "featured": false
+    },
+    {
+      "id": "tour-126508",
+      "contentId": "126508",
+      "name": "경복궁",
+      "address": "서울특별시 종로구 사직로 161 (세종로)",
+      "kind": "spot",
+      "lat": 37.5760307,
+      "lng": 126.9767218661,
+      "region": "서울",
+      "accessFacts": [],
+      "accessStatus": "unverified",
+      "source": "한국관광공사 국문 관광정보 (legacy API observation)",
+      "sourceUrl": "https://www.data.go.kr/data/15101578/openapi.do",
+      "collectedAt": "2026-11-23",
+      "sourceUpdatedAt": null,
+      "imageIdentifier": "126508",
+      "imageUrl": null,
+      "license": "TourAPI 공공데이터 기본 필드; 사진별 이용조건 미검증",
+      "featured": true
+    },
+    {
+      "id": "tour-126537",
+      "contentId": "126537",
+      "name": "북촌한옥마을",
+      "address": "서울특별시 종로구 계동길 37 (계동)",
+      "kind": "spot",
+      "lat": 37.5789989927,
+      "lng": 126.9866898118,
+      "region": "서울",
+      "accessFacts": [],
+      "accessStatus": "unverified",
+      "source": "한국관광공사 국문 관광정보 (legacy API observation)",
+      "sourceUrl": "https://www.data.go.kr/data/15101578/openapi.do",
+      "collectedAt": "2026-11-23",
+      "sourceUpdatedAt": null,
+      "imageIdentifier": "126537",
+      "imageUrl": null,
+      "license": "TourAPI 공공데이터 기본 필드; 사진별 이용조건 미검증",
+      "featured": true
+    }
+  ]
+}

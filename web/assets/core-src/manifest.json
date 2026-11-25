@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "entry": "assets/scripts/00-app-core.js",
+  "sourceRoot": "assets/core-src",
+  "description": "Ordered source fragments intentionally share one classic-script IIFE lexical scope. Do not load individually.",
+  "parts": [
+    "00-bootstrap.js",
+    "10-recommendation-and-profile.js",
+    "20-detail-and-replan.js",
+    "30-itinerary-engine-and-ui.js",
+    "40-sharing-and-data.js",
+    "50-map-and-startup.js"
+  ]
+}
