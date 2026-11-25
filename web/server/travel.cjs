@@ -1,6 +1,18 @@
 'use strict';
-const LEGACY=process.env.HB_LEGACY_API_BASE || 'https://example.invalid';
-const DIRECTIONS='https://maps.apigw.ntruss.com/map-direction/v1/driving';
+const {normalizePlaceEvidence}=require('./access-evidence.cjs');
+const {getCatalog,PlaceError,resolveRoutePlace}=require('./place-catalog.cjs');
+const {enrichCatalog}=require('./catalog-accessibility.cjs');
+const {getDrivingRoute,configuration:naverConfiguration}=require('./naver-directions.cjs');
+
+/** Use the same-release catalog only. A missing provider key yields the
+ * explicitly partial snapshot; upstream failures never trigger a remote legacy fallback.
+ */
+class CatalogError extends Error {
+  constructor(code,httpStatus=502){super(code);this.code=code;this.httpStatus=httpStatus;}
+}
+function catalogProvider(){
+  return {source:'first_party'};
+}
 const includes=(values,value)=>values.includes(value);
 const regions=['서울','경기'];
 const transports=['car','public_transit','mixed'];
@@ -36,12 +48,18 @@ function credibleVerificationDate(value,now=new Date()){
 
 function classify(place,input){
   const assessment=place.mobilityAssessment;
-  const facts=Array.isArray(place.accessFacts)?place.accessFacts:[];
-  if(place.accessStatus==='conflicting'||facts.some(f=>f?.status==='conflicting')) return {status:'needsReview',reason:'conflicting_evidence'};
+  let evidence;
+  try{evidence=normalizePlaceEvidence(place);}catch{
+    return {status:'needsReview',reason:'invalid_evidence'};
+  }
+  const facts=evidence.accessibility;
+  if(place.accessStatus==='conflicting'||facts.some(f=>f.status==='conflicting'||f.evidenceState==='conflicting'))
+    return {status:'needsReview',reason:'conflicting_evidence'};
   const aid=input.mobilityAid;
   const hasAid=Boolean(aid&&aid!=='none');
   const stepFreeRequired=aid==='wheelchair'||aid==='walker';
-  if(place.accessStatus==='stale'||facts.some(f=>f?.status==='stale')) return {status:'needsReview',reason:'stale_evidence'};
+  if(place.accessStatus==='stale'||facts.some(f=>f.stale||f.evidenceState==='stale'))
+    return {status:'needsReview',reason:'stale_evidence'};
   const verified=assessment?.status==='verified'&&typeof assessment.scope==='string'&&assessment.scope.trim()&&
     credibleVerificationDate(assessment.verifiedAt);
   if(verified&&(input.stairs==='impossible'||aid==='wheelchair')&&assessment.stairsRequired===true) return {status:'excluded',reason:'required_stairs'};
@@ -55,41 +73,59 @@ function classify(place,input){
   return {status:'needsReview',reason:'insufficient_evidence'};
 }
 
-async function catalog(region,fetcher){
-  const response=await fetcher(LEGACY+'/api/data?'+new URLSearchParams({type:'places',region}),{signal:AbortSignal.timeout(6000)});
-  if(!response.ok) throw Error('catalog unavailable');
-  const data=await response.json();
-  if(!Array.isArray(data.places)) throw Error('invalid catalog');
-  return data.places.filter(p=>validId(p?.id)&&typeof p.name==='string');
+async function catalog(region,fetcher,env={},withAccessibility=false){
+  let data;
+  try{
+    const options={env};
+    if(fetcher!==globalThis.fetch)options.fetcher=fetcher;
+    data=await getCatalog(region,options);
+    if(withAccessibility)data=await enrichCatalog(data,options);
+  }catch(error){
+    if(error instanceof PlaceError){
+      if(error.code==='upstream_unauthorized')throw new CatalogError('catalog_credentials_required',502);
+      if(error.code==='upstream_rate_limited')throw new CatalogError('catalog_rate_limited',503);
+      if(error.code==='upstream_timeout')throw new CatalogError('catalog_timeout',504);
+      if(['upstream_invalid_schema','upstream_invalid_json','upstream_invalid_response'].includes(error.code))
+        throw new CatalogError('invalid_catalog',502);
+    }
+    throw new CatalogError('catalog_unavailable');
+  }
+  if(!data||!Array.isArray(data.places))throw new CatalogError('invalid_catalog');
+  const places=data.places.filter(p=>validId(p?.id)&&typeof p.name==='string'&&p.name.trim()&&
+    (p.lat===undefined||p.lat===null||Number.isFinite(p.lat))&&
+    (p.lng===undefined||p.lng===null||Number.isFinite(p.lng)));
+  return {places,source:'first_party',mode:data.mode,partial:Boolean(data.meta?.partial),...(data.meta?.accessibility?{accessibility:data.meta.accessibility}:{})};
 }
 
 function point(place){
-  if(!Number.isFinite(place?.lng)||!Number.isFinite(place?.lat)||place.lng<124||place.lng>132||place.lat<33||place.lat>39) return null;
-  return place.lng+','+place.lat;
+  if(!Number.isFinite(place?.lng)||!Number.isFinite(place?.lat)||
+     place.lng<124||place.lng>132||place.lat<33||place.lat>39) return null;
+  return {lat:place.lat,lng:place.lng};
 }
 
 async function travelTimes(input,fetcher,env){
-  if(input.transport!=='car') return {status:'unsupported_mode',segments:[]};
-  if(env.HB_NAVER_DIRECTIONS_ENABLED!=='1'||!env.HB_NAVER_DIRECTIONS_ID||!env.HB_NAVER_DIRECTIONS_SECRET)
-    return {status:'provider_disabled',segments:[]};
-  const places=new Map((await catalog(input.region,fetcher)).map(p=>[p.id,p]));
+  if(input.transport!=='car')return {status:'unsupported_mode',segments:[]};
+  const config=naverConfiguration(env);
+  if(!config.ready)return {status:'provider_disabled',reason:config.reason,segments:[]};
+  const places=new Map((await catalog(input.region,fetcher,env)).places.map(p=>[p.id,p]));
+  // Nearby search and regional catalog have different coverage. Resolve at most the
+  // already bounded 2–3 requested IDs from the authoritative provider, not client coordinates.
+  for(const id of input.stopIds){
+    if(point(places.get(id))||!/^tour-[0-9]{1,12}$/.test(id))continue;
+    const place=await resolveRoutePlace(id,input.region,{fetcher,env});
+    if(place)places.set(id,place);
+  }
   const segments=[];
   for(let i=1;i<input.stopIds.length;i++){
     const from=input.stopIds[i-1],to=input.stopIds[i];
     const start=point(places.get(from)),goal=point(places.get(to));
-    let result={from,to,status:'unknown',minutes:null};
-    if(start&&goal){
-      try{
-        const params=new URLSearchParams({start,goal,option:'trafast'});
-        const response=await fetcher(DIRECTIONS+'?'+params,{signal:AbortSignal.timeout(5000),headers:{
-          'x-ncp-apigw-api-key-id':env.HB_NAVER_DIRECTIONS_ID,'x-ncp-apigw-api-key':env.HB_NAVER_DIRECTIONS_SECRET
-        }});
-        const data=response.ok?await response.json():null;
-        const ms=data?.route?.trafast?.[0]?.summary?.duration;
-        if(data?.code===0&&Number.isFinite(ms)&&ms>0) result={from,to,status:'estimated',minutes:Math.ceil(ms/60000),source:'naver_directions',checkedAt:new Date().toISOString()};
-      }catch{}
+    if(!start||!goal){
+      segments.push({from,to,status:'unknown',minutes:null,distanceMeters:null,reason:'invalid_coordinates',source:null,checkedAt:null});
+      continue;
     }
-    segments.push(result);
+    const result=await getDrivingRoute({start,goal,mode:input.transport},{fetcher,env});
+    segments.push({from,to,status:result.status,minutes:result.minutes,distanceMeters:result.distanceMeters,
+      reason:result.reason,source:result.source,checkedAt:result.checkedAt});
   }
   return {status:segments.every(s=>s.status==='estimated')?'estimated':'incomplete',segments};
 }
@@ -110,15 +146,21 @@ function handler(kind,{fetcher=fetch,env=process.env}={}){
       return res.status(400).json({error:'invalid_route'});
     try{
       if(kind==='travel-times')return res.status(200).json(await travelTimes(body,fetcher,env));
-      const places=await catalog(body.region,fetcher);
+      const resultCatalog=await catalog(body.region,fetcher,env,true);
+      const places=resultCatalog.places;
       const groups={eligible:[],needsReview:[],excluded:[]};
       for(const place of places){
         if(body.placePreference==='food'&&place.kind!=='food'||body.placePreference==='spot'&&place.kind==='food')continue;
         const result=classify(place,body);
         groups[result.status].push({id:place.id,name:place.name,reason:result.reason});
       }
-      return res.status(200).json({...groups,foodPreferencesApplied:false});
-    }catch{return res.status(502).json({error:'catalog_unavailable'});}
+      return res.status(200).json({...groups,foodPreferencesApplied:false,
+        catalogSource:resultCatalog.source,catalogMode:resultCatalog.mode,catalogPartial:resultCatalog.partial,
+        ...(resultCatalog.accessibility?{accessibility:resultCatalog.accessibility}:{})});
+    }catch(error){
+      const issue=error instanceof CatalogError?error:new CatalogError('catalog_unavailable');
+      return res.status(issue.httpStatus).json({error:issue.code});
+    }
   };
 }
-module.exports={handler,validProfile,classify,travelTimes};
+module.exports={handler,validProfile,classify,travelTimes,catalog,catalogProvider};

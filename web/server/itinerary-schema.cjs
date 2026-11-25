@@ -137,7 +137,7 @@ function parseStops(input, path = 'stops') {
     }
     if (stop.position !== index + 1) invalid('position_conflict', `${path}[${index}].position`);
     const begin = clock(stop.plannedArrival, `${path}[${index}].plannedArrival`).minutes;
-    if (begin < 540 || begin + stop.stayMinutes > 1080) invalid('outside_day_window', `${path}[${index}].plannedArrival`);
+    if (begin < 0 || begin + stop.stayMinutes > 1439) invalid('outside_day_window', `${path}[${index}].plannedArrival`);
     if (index > 0) {
       const prev = input[index - 1];
       const prevBegin = clock(prev.plannedArrival, `${path}[${index - 1}].plannedArrival`).minutes;

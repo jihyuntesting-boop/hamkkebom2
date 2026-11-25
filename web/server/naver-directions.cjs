@@ -1,7 +1,7 @@
 'use strict';
 
-// Isolated NAVER Directions 5 provider. Not wired into travel.cjs by design:
-// Agent D / integration owner must explicitly opt in after Preview verification.
+// NAVER Directions 5 provider. travel.cjs uses the legacy time-only contract;
+// getDrivingRoute exposes strict distance+time for explicit integration opt-in.
 const ENDPOINT='https://maps.apigw.ntruss.com/map-direction/v1/driving';
 const OPTION='trafast';
 const SOURCE='naver_directions';
@@ -37,7 +37,7 @@ function validResponse(body){
  *          reason:string|null, source:'naver_directions'|null, checkedAt:ISO|null}
  * Never converts a failure into zero or a guessed duration.
  */
-async function getDrivingTime(input,{fetcher=globalThis.fetch,env=process.env,now=()=>new Date(),timeoutMs=5000}={}){
+async function requestDriving(input,{fetcher=globalThis.fetch,env=process.env,now=()=>new Date(),timeoutMs=5000}={},includeDistance=false){
   const mode=input?.mode??input?.transport??'car';
   if(mode!=='car')return unknown('unsupported_mode');
   if(!validCoordinates(input?.start)||!validCoordinates(input?.goal))return unknown('invalid_coordinates');
@@ -54,6 +54,7 @@ async function getDrivingTime(input,{fetcher=globalThis.fetch,env=process.env,no
   try{
     const response=await fetcher(ENDPOINT+'?'+query.toString(),{
       method:'GET',
+      redirect:'error',
       headers:{
         'x-ncp-apigw-api-key-id':env.HB_NAVER_DIRECTIONS_ID,
         'x-ncp-apigw-api-key':env.HB_NAVER_DIRECTIONS_SECRET
@@ -64,20 +65,39 @@ async function getDrivingTime(input,{fetcher=globalThis.fetch,env=process.env,no
     if(response?.status===429)return unknown('rate_limited');
     if(!response?.ok)return unknown('upstream_error');
     let body;
-    try{body=await response.json();}catch{return unknown('invalid_response');}
+    try{body=await response.json();}catch(error){
+      if(error?.name==='TimeoutError'||error?.name==='AbortError')return unknown('timeout');
+      return unknown('invalid_response');
+    }
     // Official Directions 5 response: 1=same endpoints, 2=off road,
     // 3=unavailable, 4=waypoint off road, 5=route >1500 km.
     if([1,2,3,4,5].includes(body?.code))return unknown('no_route');
     const duration=validResponse(body);
     if(duration===null)return unknown('invalid_response');
+    const distance=body?.route?.[OPTION]?.[0]?.summary?.distance;
+    if(includeDistance&&(!Number.isSafeInteger(distance)||distance<=0||distance>1500000))
+      return unknown('invalid_response');
     let timestamp;
     try{timestamp=now().toISOString();}catch{return unknown('upstream_error');}
     return {status:'estimated',minutes:Math.ceil(duration/60000),
-      reason:null,source:SOURCE,checkedAt:timestamp};
+      reason:null,source:SOURCE,checkedAt:timestamp,
+      ...(includeDistance?{distanceMeters:distance}:{})};
   }catch(error){
     if(error?.name==='TimeoutError'||error?.name==='AbortError')return unknown('timeout');
     return unknown('upstream_error');
   }
+}
+
+// Keep the existing time-only contract unchanged for travel.cjs and Agent K tests.
+async function getDrivingTime(input,options={}){
+  return requestDriving(input,options,false);
+}
+
+// Strict route contract: both duration and provider-measured distance are required.
+// An unavailable route never falls back to straight-line distance or zero minutes.
+async function getDrivingRoute(input,options={}){
+  const result=await requestDriving(input,options,true);
+  return result.status==='estimated'?result:{...result,distanceMeters:null};
 }
 
 /**
@@ -102,4 +122,4 @@ async function getDrivingSegments(stops,options={}){
   }
   return {status:segments.every(s=>s.status==='estimated')?'estimated':'incomplete',segments};
 }
-module.exports={ENDPOINT,OPTION,SOURCE,validCoordinates,configuration,validResponse,getDrivingTime,getDrivingSegments};
+module.exports={ENDPOINT,OPTION,SOURCE,validCoordinates,configuration,validResponse,getDrivingTime,getDrivingRoute,getDrivingSegments};

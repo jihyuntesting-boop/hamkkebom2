@@ -59,15 +59,15 @@ function publication(ms,delayMinutes=10){
 }
 function codeReason(code){
   if(['10','11','12','20','21','30','31','32','33'].includes(code))return 'authentication_failed';
-  if(code==='22')return 'rate_limited';
+  if(['22','23'].includes(code))return 'rate_limited';
   if(code==='03')return 'provider_no_data';
   if(['01','02','04','05','99'].includes(code))return 'provider_unavailable';
   return 'provider_error';
 }
-function makeClient({fetchImpl=globalThis.fetch,key=process.env.DATA_GO_KR_KEY,clock=()=>Date.now(),timeoutMs=2200}={}){
+function makeClient({fetchImpl=globalThis.fetch,key=process.env.DATA_GO_KR_KEY,clock=()=>Date.now(),timeoutMs=3500,budgetMs=7000}={}){
   const cache=new Map(),pending=new Map();
   let cooldownUntil=0;
-  async function raw(path,params){
+  async function raw(path,params,deadline){
     if(!key||typeof key!=='string')fail('missing_service_key');
     // Accept decoded or already percent-encoded key without double encoding.
     let decoded=key.trim();
@@ -77,10 +77,16 @@ function makeClient({fetchImpl=globalThis.fetch,key=process.env.DATA_GO_KR_KEY,c
     url.searchParams.set('serviceKey',decoded);
     for(const [k,v] of Object.entries({dataType:'JSON',pageNo:1,numOfRows:1000,...params}))url.searchParams.set(k,String(v));
     for(let attempt=0;attempt<2;attempt++){
+      if(clock()<cooldownUntil)fail('rate_limited');
+      const remaining=deadline-performance.now();
+      if(remaining<=0)fail('timeout');
       const controller=new AbortController();
-      const timer=setTimeout(()=>controller.abort(),timeoutMs);
-      let error;
+      let timer,error;
       try{
+        const timeout=new Promise((_,reject)=>{
+          timer=setTimeout(()=>{controller.abort();reject(new WeatherError('timeout'));},Math.min(timeoutMs,remaining));
+        });
+        return await Promise.race([timeout,(async()=>{
         const response=await fetchImpl(url,{signal:controller.signal,redirect:'error',cache:'no-store'});
         if(response.status===401||response.status===403)fail('authentication_failed');
         if(response.status===429)fail('rate_limited');
@@ -100,16 +106,54 @@ function makeClient({fetchImpl=globalThis.fetch,key=process.env.DATA_GO_KR_KEY,c
         if(code==='03')return {response:{header:{resultCode:'00'},body:{totalCount:0,items:{item:[]}}}};
         if(code!=='00')fail(code?codeReason(code):'invalid_provider_payload');
         return data;
+        })()]);
       }catch(e){
         error=e instanceof WeatherError?e:new WeatherError(controller.signal.aborted?'timeout':'network_error');
       }finally{clearTimeout(timer);}
       if(error.code==='rate_limited')cooldownUntil=clock()+60000;
-      if(attempt===0&&['timeout','network_error','provider_unavailable'].includes(error.code))continue;
+      if(attempt===0&&performance.now()<deadline&&['timeout','network_error','provider_unavailable'].includes(error.code))continue;
       throw error;
     }
   }
+  // A complete, validated envelope only; never cache an incomplete first page.
+  function page(data){
+    const b=data?.response?.body;
+    const c=b?.totalCount;
+    if(!((typeof c==='number')||(typeof c==='string'&&/^\d+$/.test(c)))||!Number.isSafeInteger(Number(c))||Number(c)<0)fail('invalid_provider_payload');
+    const rawItems=b.items?.item;
+    const rows=Array.isArray(rawItems)?rawItems:rawItems&&typeof rawItems==='object'?[rawItems]:[];
+    if(rows.some(x=>!x||typeof x!=='object'||Array.isArray(x))||rows.length>Number(c)||(!rows.length&&Number(c)>0))fail('invalid_provider_payload');
+    if(rawItems!=null&&!Array.isArray(rawItems)&&typeof rawItems!=='object')fail('invalid_provider_payload');
+    return {b,count:Number(c),rows};
+  }
+  async function complete(path,params){
+    const deadline=performance.now()+budgetMs;
+    const first=await raw(path,params,deadline);
+    const {b,count,rows}=page(first);
+    let all=rows;
+    if(path===FORECAST&&rows.length<count){
+      // KMA expanded through D+3; the previous 1000-row request can truncate.
+      // One extra page only, same publication and grid; fail closed on partial data.
+      if(rows.length!==1000||count>2000||(b.pageNo!=null&&Number(b.pageNo)!==1))fail('incomplete_kma_page');
+      const second=page(await raw(path,{...params,pageNo:2},deadline));
+      if(second.count!==count||(second.b.pageNo!=null&&Number(second.b.pageNo)!==2)||rows.length+second.rows.length!==count)fail('incomplete_kma_page');
+      all=[...rows,...second.rows];
+    }
+    if(all.length!==count)fail(path===FORECAST?'incomplete_kma_page':'incomplete_warning_page');
+    if(path===FORECAST){
+      const keys=new Set();
+      for(const row of all){
+        if(params.base_date!=null&&(String(row.baseDate)!==params.base_date||String(row.baseTime)!==params.base_time))fail('publication_mismatch');
+        if(params.nx!=null&&(Number(row.nx)!==params.nx||Number(row.ny)!==params.ny))fail('region_grid_mismatch');
+        const id=JSON.stringify([row.fcstDate,row.fcstTime,row.category]);
+        if(keys.has(id))fail('duplicate_forecast_item');
+        keys.add(id);
+      }
+    }
+    return {...first,response:{...first.response,body:{...b,items:{item:all}}}};
+  }
   async function get(path,params,ttl=300000){
-    const id=JSON.stringify([path,params]);
+    const id=JSON.stringify([path,Object.entries(params).sort(([a],[b])=>a.localeCompare(b))]);
     const now=clock();
     if(cache.has(id)){
       const entry=cache.get(id);
@@ -119,7 +163,7 @@ function makeClient({fetchImpl=globalThis.fetch,key=process.env.DATA_GO_KR_KEY,c
     if(pending.has(id))return pending.get(id);
     if(now<cooldownUntil)fail('rate_limited');
     if(pending.size>=16)fail('server_busy');
-    const work=raw(path,params).then(value=>{
+    const work=complete(path,params).then(value=>{
       if(cache.size>=128)cache.delete(cache.keys().next().value);
       const empty=Number(value?.response?.body?.totalCount)===0;
       cache.set(id,{value,until:clock()+(empty?Math.min(ttl,30000):ttl)});
@@ -156,7 +200,9 @@ async function getWeather(q,{client=sharedClient,now=Date.now()}={}){
     const rows=Array.isArray(body?.items?.item)?body.items.item:body?.items?.item?[body.items.item]:[];
     if(rows.some(row=>String(row.baseDate)!==requested.base_date||String(row.baseTime)!==requested.base_time))fail('publication_mismatch');
     const result=normalizeWeather({region:q.region,date:q.date,now:new Date(now),payload,expectedGrid:location.grid,preferUpcoming:true});
-    const output={...result,location,grid:location.grid,mode:'unavailable',summary:null};
+    const output={...result,location,grid:location.grid,source:result.source??KMA_SOURCE,mode:'unavailable',summary:null};
+    // Invalid upstream data is not a bad user request (HTTP 400).
+    if(result.status==='invalid')return {...output,status:'error'};
     if(result.status==='available'){
       const bits=[];
       if(result.temperatureC!=null)bits.push('기온 '+result.temperatureC+'°C');

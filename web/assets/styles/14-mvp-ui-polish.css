@@ -1,0 +1,603 @@
+/*
+ * Agent I — MVP visual polish (visual-only, no JS or data-contract changes).
+ * Integration: structural fallback loaded BEFORE 13-editorial.css. All --hb tokens owned by 13-editorial.css.
+ * Do not hide or move map, form, itinerary, replan, or share controls.
+ */
+:root { font-family: var(--hb-font) !important; color-scheme: light; }
+html, body {
+  background: #FFFFFF !important;
+  background-image: none !important;
+  color: var(--hb-ink) !important;
+}
+body {
+  font-family: var(--hb-font) !important;
+  font-size: 17px;
+  line-height: 1.65;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+body > header {
+  background: #FFFFFF !important;
+  background-image: none !important;
+  border-bottom: 1px solid var(--hb-line) !important;
+  box-shadow: none !important;
+  padding: 14px max(16px, calc((100% - 1180px) / 2));
+}
+body > header b {
+  color: var(--hb-ink) !important;
+  text-shadow: none !important;
+  font-size: clamp(22px, 2.2vw, 26px);
+  font-weight: 800;
+}
+body > header nav { gap: 6px; min-width: 0; flex-wrap: wrap; }
+body > header nav a {
+  min-height: 48px;
+  padding: 10px 12px;
+  font-size: 16px;
+  font-weight: 650;
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--hb-ink) !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+body > header nav a:hover,
+body > header nav a:focus-visible {
+  background: var(--hb-quiet) !important;
+  color: var(--hb-brand) !important;
+}
+main {
+  max-width: 1200px;
+  min-width: 0;
+  padding: 26px clamp(16px, 3vw, 36px) 64px;
+}
+#app { min-width: 0; }
+#app :is(section, article, div, p, li, h1, h2, h3) { min-width: 0; }
+#app :is(h1, h2, h3), #app :is(p, li, dd, strong, label, time) {
+  overflow-wrap: anywhere;
+}
+h1, h2, h3 {
+  font-family: var(--hb-font);
+  color: var(--hb-ink) !important;
+  letter-spacing: -.035em;
+  word-break: keep-all;
+}
+h1 { font-size: clamp(28px, 4.2vw, 32px); line-height: 1.3; }
+h2 { font-size: clamp(22px, 3vw, 26px); line-height: 1.35; }
+h3 { font-size: clamp(19px, 2.1vw, 22px); line-height: 1.4; }
+p, li { line-height: 1.7; }
+.muted, #app .hb-landing-note { color: var(--hb-muted) !important; font-size: 16px; }
+a, a:hover { color: var(--hb-brand); }
+#app a { text-underline-offset: 3px; }
+.panel, .card {
+  background: #FFFFFF !important;
+  background-image: none !important;
+  color: var(--hb-ink) !important;
+  box-shadow: none !important;
+  border-radius: var(--hb-radius) !important;
+}
+.panel {
+  border: 1px solid var(--hb-line) !important;
+  padding: clamp(16px, 2.4vw, 24px) !important;
+  margin-bottom: 20px;
+}
+.panel > h2:first-child { border: 0 !important; padding-left: 0 !important; }
+.card { border: 1px solid var(--hb-line) !important; }
+.card:hover { box-shadow: none !important; transform: none !important; }
+.grid { gap: 16px !important; grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr)); }
+.grid > .card, .grid > .card:nth-child(n) {
+  padding: 18px !important;
+  border: 1px solid var(--hb-line) !important;
+  border-top: 1px solid var(--hb-line) !important;
+  border-radius: var(--hb-radius) !important;
+  overflow: hidden !important;
+  min-width: 0;
+}
+.grid > .card:hover { border-color: var(--hb-rose) !important; }
+
+/* Primary/secondary actions: only styles; native disabled and click states remain. */
+button, #mom-start.hb-landing-cta {
+  min-height: var(--hb-touch);
+  max-width: 100%;
+  padding: 11px 17px;
+  background: var(--hb-brand) !important;
+  color: #FFFFFF !important;
+  border: 1px solid var(--hb-brand) !important;
+  border-radius: 10px !important;
+  box-shadow: none !important;
+  font-family: inherit;
+  font-size: 17px;
+  line-height: 1.4;
+  font-weight: 700 !important;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  transform: none !important;
+}
+button:hover, #mom-start.hb-landing-cta:hover {
+  background: var(--hb-brand-hover) !important;
+  border-color: var(--hb-brand-hover) !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+button.light, .mom-card, .mom-cta, #hb-map-go.hb-landing-link {
+  background: #FFFFFF !important;
+  color: var(--hb-brand) !important;
+  border: 1px solid var(--hb-control-line) !important;
+}
+button.light:hover, .mom-card:hover, .mom-cta:hover,
+#hb-map-go.hb-landing-link:hover { background: var(--hb-quiet) !important; }
+button[aria-pressed="true"], .mom-card.chosen, .hb-choice.chosen,
+.hb-filter-active, .hb-trip-map-list button[aria-pressed="true"] {
+  background: var(--hb-quiet) !important;
+  border: 2px solid var(--hb-brand) !important;
+  color: var(--hb-brand) !important;
+  box-shadow: inset 0 0 0 1px var(--hb-brand) !important;
+}
+button[disabled], button[disabled]:hover {
+  background: var(--hb-soft) !important;
+  color: var(--hb-muted) !important;
+  border-color: var(--hb-line) !important;
+  opacity: 1;
+  cursor: not-allowed;
+}
+.actions {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.actions > :is(button, a) { min-height: var(--hb-touch); }
+.actions > a, #hb-own-trip, #hb-share-open, #hb-detail-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 14px;
+  line-height: 1.5;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 650;
+  text-decoration: underline;
+}
+.actions > a { border: 1px solid var(--hb-control-line); }
+.row { gap: 14px; }
+.field { flex: 1 1 180px; min-width: 0; }
+label, .hb-stop-field label { font-size: 16px; color: var(--hb-ink) !important; }
+input:not([type="checkbox"]):not([type="radio"]), select, textarea {
+  min-width: 0;
+  max-width: 100%;
+  min-height: var(--hb-touch);
+  background: #FFFFFF !important;
+  border: 1px solid var(--hb-control-line) !important;
+  border-radius: 10px !important;
+  color: var(--hb-ink) !important;
+  font: inherit;
+  font-size: 17px !important;
+  box-shadow: none !important;
+}
+input[type="checkbox"], input[type="radio"] {
+  min-width: 22px;
+  width: 22px;
+  height: 22px;
+  accent-color: var(--hb-brand);
+}
+#app label:has(input:is([type="checkbox"], [type="radio"])) {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  line-height: 1.5;
+  font-size: 17px;
+}
+body :is(button, a, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 3px solid var(--hb-brand) !important;
+  outline-offset: 3px !important;
+}
+:where(#app) :is(.chip, .message, .mom-choice-note, .link) {
+  background: var(--hb-quiet) !important;
+  color: var(--hb-brand) !important;
+  border: 1px solid transparent !important;
+  box-shadow: none !important;
+}
+.message { border-radius: 10px; }
+.warn, #app .hb-plan-protected {
+  background: var(--hb-warning-bg) !important;
+  color: var(--hb-warning-ink) !important;
+  border: 1px solid var(--hb-warning-border) !important;
+  border-radius: 10px;
+}
+.error, .message.error, [role="alert"].error {
+  background: var(--hb-error-bg) !important;
+  color: var(--hb-error-ink) !important;
+  border: 1px solid var(--hb-error-border) !important;
+}
+[hidden] { display: none !important; }
+
+/* UI-01 — map-first, restrained hero. The actual map and fallback list stay visible. */
+.hb-landing-hero {
+  padding: clamp(20px, 4vw, 38px) 0 26px !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--hb-line) !important;
+  border-radius: 0 !important;
+  background: #FFFFFF !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  margin-bottom: 24px;
+}
+.hb-landing-eyebrow {
+  color: var(--hb-brand) !important;
+  font-size: 16px;
+  font-weight: 650;
+  border: 0 !important;
+  background: none !important;
+  padding: 0 !important;
+  letter-spacing: 0;
+}
+.hb-landing-hero h1 {
+  font-size: clamp(30px, 4.5vw, 42px);
+  line-height: 1.25;
+  margin: 12px 0;
+  max-width: 760px;
+}
+.hb-landing-intro { font-size: 18px; line-height: 1.7; color: var(--hb-muted) !important; }
+.hb-landing-benefits { gap: 8px 16px; width: min(100%, 760px); }
+.hb-landing-benefits .hb-benefit {
+  padding: 10px 0 !important;
+  min-height: 0;
+  background: #FFFFFF !important;
+  border: 0 !important;
+  border-top: 1px solid var(--hb-line) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  align-items: flex-start;
+  text-align: left;
+}
+.hb-benefit strong { color: var(--hb-ink) !important; font-size: 16px !important; }
+.hb-landing-actions { gap: 12px; }
+#mom-start.hb-landing-cta { min-height: 54px; padding: 12px 20px; font-size: 18px; }
+#hb-map-go.hb-landing-link {
+  min-height: var(--hb-touch);
+  padding: 12px 16px !important;
+  font-size: 17px;
+  text-decoration: underline;
+}
+#app .hb-landing-note { margin-top: 20px; }
+.hb-landing-how { margin: 26px 0; }
+.hb-how-grid { gap: 18px; }
+.hb-how-grid > div {
+  border: 0 !important;
+  border-top: 1px solid var(--hb-line) !important;
+  background: #FFFFFF !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+.hb-how-grid strong { font-size: 18px; color: var(--hb-ink) !important; }
+.hb-how-grid p { font-size: 16px !important; color: var(--hb-muted) !important; }
+#app > .panel:has(#nearby-map) {
+  padding: clamp(14px, 2vw, 20px) !important;
+  border: 1px solid var(--hb-line) !important;
+  border-radius: 14px !important;
+}
+#nearby-map {
+  background: var(--hb-soft) !important;
+  border: 1px solid var(--hb-line) !important;
+  box-shadow: none !important;
+  max-width: 100%;
+}
+#nearby-map .hb-map-label-inner,
+#nearby-map .hb-naver-place {
+  background: #FFFFFF !important;
+  color: var(--hb-ink) !important;
+  border-color: var(--hb-brand) !important;
+  box-shadow: 0 2px 6px #191F281A !important;
+}
+#nearby-map .hb-naver-dot, #nearby-map .hb-current { background: var(--hb-brand) !important; }
+#nearby-map .hb-featured-marker {
+  border-color: var(--hb-brand) !important;
+  background: #FFFFFF !important;
+  color: var(--hb-ink) !important;
+}
+#nearby-map .leaflet-control-zoom a { color: var(--hb-brand) !important; }
+#nearby-status, #featured-summary { color: var(--hb-muted) !important; font-size: 16px; }
+#featured-quicklinks, .hb-featured-quicklinks { min-width: 0; }
+#featured-quicklinks :is(button, a) { min-height: 44px; }
+#nearby-list { min-width: 0; }
+#nearby-list .grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 290px), 1fr)); }
+#nearby-list .card {
+  border: 1px solid var(--hb-line) !important;
+  border-left: 1px solid var(--hb-line) !important;
+  min-width: 0;
+}
+.hb-place-photo {
+  height: auto !important;
+  aspect-ratio: 16 / 10;
+  margin: -18px -18px 16px !important;
+  background: var(--hb-soft) !important;
+  border-radius: 12px 12px 0 0 !important;
+  overflow: hidden;
+}
+.hb-place-photo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.hb-place-photo .hb-photo-empty { color: var(--hb-muted); font-size: 16px; }
+.hb-photo-credit {
+  font-size: 13px;
+  background: #FFFFFFEC !important;
+  color: var(--hb-ink) !important;
+}
+
+/* Optional integration hook only. Existing sequential map/list sections remain intact. */
+.hb-discovery-layout, .hb-recommendation-map-layout { min-width: 0; }
+@media (min-width: 1024px) {
+  .hb-discovery-layout, .hb-recommendation-map-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(350px, 1.05fr);
+    gap: 24px;
+    align-items: start;
+  }
+  .hb-discovery-layout > *, .hb-recommendation-map-layout > * { min-width: 0; }
+}
+
+/* UI-02 — three-step travel preferences, high contrast selection. */
+.hb-progress {
+  background: var(--hb-soft) !important;
+  color: var(--hb-ink) !important;
+  border: 1px solid var(--hb-line) !important;
+  font-size: 16px;
+  line-height: 1.6;
+  gap: 8px 12px;
+}
+.hb-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 195px), 1fr));
+  gap: 12px;
+}
+.hb-choice, .mom-card {
+  min-height: 56px;
+  padding: 14px 16px;
+  text-align: left;
+  font-size: 17px;
+  font-weight: 650;
+  border-color: var(--hb-control-line) !important;
+  background: #FFFFFF !important;
+  color: var(--hb-ink) !important;
+}
+.hb-choice.chosen, .mom-card.chosen {
+  background: var(--hb-quiet) !important;
+  color: var(--hb-brand) !important;
+  border: 2px solid var(--hb-brand) !important;
+  box-shadow: inset 0 0 0 1px var(--hb-brand) !important;
+}
+.hb-choice.chosen::after { content: " ✓"; font-weight: 800; }
+
+/* UI-03 — recommendation states and selected places, without inventing map data. */
+.hb-profile-summary, .hb-plan-generator {
+  border: 1px solid var(--hb-line);
+  border-radius: 12px;
+  background: var(--hb-soft) !important;
+  color: var(--hb-ink);
+  padding: 18px;
+}
+.hb-filter-bar { gap: 10px; }
+.hb-filter-bar button { min-height: 48px; }
+.hb-filter-active { outline: none !important; }
+.hb-result-section { margin: 22px 0 32px; }
+.hb-result-count { color: var(--hb-muted) !important; font-size: 16px; }
+.hb-recommend-card { overflow-wrap: anywhere; }
+.hb-card-top { align-items: flex-start; gap: 12px; }
+.hb-recommend-state {
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--hb-warning-ink);
+  background: var(--hb-warning-bg);
+  border: 1px solid var(--hb-warning-border);
+  border-radius: 8px;
+  padding: 7px 10px;
+  white-space: normal;
+}
+.hb-source-note { color: var(--hb-muted) !important; background: var(--hb-soft) !important; font-size: 16px; }
+.hb-conflict { border: 1px solid var(--hb-warning-border); border-radius: 12px; padding: 0 14px; }
+.hb-conflict summary { min-height: 48px; padding: 14px 0; }
+.hb-selected-places { padding-left: 20px; }
+.hb-selected-places li { margin: 12px 0; }
+.hb-selected-places li button { margin: 6px 0; }
+
+/* Optional future data-status hooks require the feature owner's markup approval. */
+[data-fit-status="confirmed"] .hb-recommend-state {
+  background: var(--hb-soft);
+  border-color: var(--hb-line);
+  color: var(--hb-ink);
+}
+[data-fit-status="excluded"] .hb-recommend-state,
+[data-fit-status="conflicting"] .hb-recommend-state {
+  color: var(--hb-error-ink);
+  border-color: var(--hb-error-border);
+  background: var(--hb-error-bg);
+}
+[data-place-selected="true"] { outline: 2px solid var(--hb-brand); outline-offset: 2px; }
+
+/* UI-04 — arrival evidence and source attribution. */
+.hb-detail-access, .hb-evidence-row {
+  border: 1px solid var(--hb-line);
+  border-radius: 12px;
+  background: #FFFFFF;
+  padding: 16px;
+}
+.hb-detail-access :is(dt, strong), .hb-evidence-row strong { color: var(--hb-ink); font-size: 18px; }
+.hb-evidence-row { margin: 12px 0; }
+.hb-evidence-row p { margin: 10px 0; }
+.hb-evidence-head { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+.hb-evidence-status {
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--hb-soft);
+  color: var(--hb-ink);
+  border: 1px solid var(--hb-line);
+  font-size: 15px;
+  font-weight: 650;
+}
+.hb-detail-evidence summary, .hb-access-floor summary {
+  min-height: 48px;
+  padding: 12px 2px;
+  font-size: 18px;
+  cursor: pointer;
+}
+.hb-access-map-stops { background: var(--hb-soft) !important; }
+.hb-access-map-stops button[aria-pressed="true"] { border-color: var(--hb-brand) !important; }
+.hb-access-map-connection { border-left-color: var(--hb-brand) !important; color: var(--hb-brand) !important; }
+.hb-access-map-stops button span { background: var(--hb-brand) !important; }
+.hb-access-map-note { background: var(--hb-soft) !important; color: var(--hb-ink); }
+.hb-access-map-source { font-size: 16px; }
+.hb-access-floor img { max-width: 100%; height: auto; }
+
+/* UI-05 — map-linked, editable visit order and protected flags. */
+.hb-trip-map-panel { border: 1px solid var(--hb-line) !important; }
+#hb-trip-map {
+  max-width: 100%;
+  background: var(--hb-soft) !important;
+  border: 1px solid var(--hb-line);
+  border-radius: 12px;
+}
+.hb-trip-map-list { gap: 8px; }
+.hb-trip-map-list button {
+  width: 100%;
+  min-height: 52px;
+  padding: 10px 14px;
+  text-align: left;
+  background: #FFFFFF !important;
+  color: var(--hb-ink) !important;
+  border: 1px solid var(--hb-line) !important;
+}
+.hb-trip-map-list button[aria-pressed="true"] { background: var(--hb-quiet) !important; color: var(--hb-brand) !important; }
+.hb-trip-number {
+  background: var(--hb-brand) !important;
+  color: #FFFFFF !important;
+}
+.hb-trip-amenity { color: var(--hb-brand) !important; border-color: var(--hb-brand) !important; }
+.hb-itinerary-row {
+  border-left: 3px solid var(--hb-brand) !important;
+  border-radius: 12px !important;
+  align-items: flex-start;
+  gap: 16px;
+}
+.hb-itinerary-row h3 { font-size: 20px; margin: 0 0 6px; }
+.hb-itinerary-flags { gap: 12px; }
+.hb-itinerary-flags label { margin: 0; }
+.hb-plan-generator, .hb-stop-editor { background: var(--hb-soft) !important; }
+.hb-plan-warnings, .hb-plan-protected, .hb-plan-local-notice, .hb-plan-edit-feedback {
+  font-size: 16px !important;
+  line-height: 1.7;
+}
+.hb-plan-edit-feedback { color: var(--hb-ink) !important; }
+.hb-stop-editor { border: 1px solid var(--hb-line) !important; }
+.hb-stop-field { min-width: min(100%, 160px); }
+.hb-stop-actions { gap: 10px; }
+.hb-stop-actions button { font-size: 16px; min-height: 48px; }
+.hb-plan-view-controls { gap: 10px; }
+.hb-plan-view-controls button { min-height: 48px; font-size: 17px; }
+.hb-large-plan { font-size: 21px; line-height: 1.75; }
+.hb-large-plan :is(p, li, label, .muted, .hb-plan-meta, .hb-plan-warnings li,
+  .hb-plan-local-notice, .hb-plan-protected, .hb-stop-field label) {
+  font-size: 20px !important;
+  line-height: 1.75;
+}
+.hb-large-plan :is(button, input, select, .actions > a) {
+  font-size: 20px !important;
+  min-height: 52px;
+}
+.hb-large-plan .hb-itinerary-row h3 { font-size: 24px; }
+
+/* UI-06 — no visual implication that a preview is already applied. */
+#hb-travel-next { font-size: clamp(22px, 3vw, 27px); }
+.hb-fatigue-buttons { display: flex; gap: 12px; flex-wrap: wrap; }
+.hb-fatigue-buttons button { min-height: 56px; flex: 1 1 160px; }
+.hb-rpl-card {
+  background: #FFFFFF !important;
+  border: 2px solid var(--hb-brand) !important;
+  border-radius: 12px;
+  padding: clamp(16px, 2vw, 24px);
+}
+.hb-rpl-card > h3:first-child { color: var(--hb-brand) !important; }
+.hb-replan-compare { gap: 16px; }
+.hb-replan-compare > div {
+  border: 1px solid var(--hb-line) !important;
+  border-radius: 12px;
+  padding: 16px;
+  background: #FFFFFF;
+}
+.hb-replan-compare > div:last-child { background: var(--hb-soft); }
+.hb-replan-compare li { font-size: 17px; }
+.hb-protected { color: var(--hb-warning-ink); background: var(--hb-warning-bg); font-size: 15px; padding: 5px 8px; }
+#hb-rpl-cancel { background: #FFFFFF !important; color: var(--hb-brand) !important; border-color: var(--hb-control-line) !important; }
+#hb-rpl-confirm { background: var(--hb-brand) !important; color: #FFFFFF !important; }
+#hb-replan-preview:empty { margin: 0; }
+
+/* UI-07 — read-only share and long Korean venue/address support. */
+#hb-share-receiver { max-width: 980px; margin: 0 auto; }
+#hb-share-heading { margin-bottom: 8px; }
+#hb-share-receiver .panel { border: 1px solid var(--hb-line) !important; }
+#hb-share-receiver ol { padding-left: 28px; }
+#hb-share-receiver .hb-share-stop {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--hb-line);
+  font-size: 19px;
+  line-height: 1.7;
+}
+#hb-share-receiver .hb-share-stop time { font-weight: 800; color: var(--hb-brand); margin-right: 10px; }
+#hb-share-receiver .hb-share-stop strong { font-size: 19px; font-weight: 700; }
+#hb-share-receiver .hb-trip-map-list button { font-size: 18px; }
+#hb-share-url { overflow-wrap: anywhere; }
+#hb-share-copy-status, #hb-share-error { font-size: 17px; }
+#hb-own-trip { min-height: 48px; }
+#hb-shared-map-slot, #hb-plan-map-slot, #hb-travel-condition-map { min-width: 0; }
+
+/* Future common large-type hook: integration owner must attach the state class.
+   Presently only .hb-large-plan is wired by the plan feature. */
+body.hb-large-type #app, html[data-large-type="true"] #app { font-size: 21px; }
+body.hb-large-type #app :is(p, li, label, .muted, button, input, select, .actions > a),
+html[data-large-type="true"] #app :is(p, li, label, .muted, button, input, select, .actions > a) {
+  font-size: 20px !important;
+  line-height: 1.75;
+}
+body.hb-large-type #app :is(button, .actions > a),
+html[data-large-type="true"] #app :is(button, .actions > a) { min-height: 52px; }
+
+/* Narrow layouts and text zoom: do not clip buttons or force horizontal scroll. */
+@media (max-width: 750px) {
+  main { padding: 20px 16px 56px !important; }
+  .hb-landing-hero { padding: 20px 0 24px !important; }
+  .hb-landing-benefits { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hb-landing-actions { display: flex; flex-direction: column; align-items: stretch; }
+  #mom-start.hb-landing-cta, #hb-map-go.hb-landing-link { width: 100%; }
+  .hb-replan-compare { grid-template-columns: minmax(0, 1fr); }
+  .hb-itinerary-row { flex-direction: column; }
+  .hb-itinerary-flags { width: 100%; }
+  .hb-stop-actions button { flex: 1 1 auto; }
+  .hb-place-photo { aspect-ratio: 16 / 10; }
+}
+@media (max-width: 400px) {
+  body { font-size: 17px; }
+  body > header nav { width: 100%; justify-content: flex-start; }
+  body > header nav a { padding: 9px 8px; font-size: 15px; }
+  main { padding: 16px 12px 48px !important; }
+  .panel { padding: 16px 14px !important; }
+  .grid > .card, .grid > .card:nth-child(n) { padding: 14px !important; }
+  .hb-place-photo { margin: -14px -14px 14px !important; }
+  .hb-landing-benefits { gap: 6px 12px; }
+  .hb-landing-intro { font-size: 17px; }
+  .hb-choice-grid { grid-template-columns: minmax(0, 1fr); }
+  .hb-fatigue-buttons button { flex-basis: 100%; }
+  .actions > :is(button, a), #hb-share-open { flex: 1 1 100%; }
+  .hb-replan-compare > div { padding: 12px; }
+  .hb-share-stop time { display: inline-block; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html:focus-within { scroll-behavior: auto; }
+  #app *, body > header nav a { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
+}
+@media print {
+  body, html { background: #FFFFFF !important; }
+  .hb-itinerary-row { border: 1px solid #999 !important; }
+}

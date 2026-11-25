@@ -111,13 +111,9 @@
     photo.className = 'hb-place-photo' + (detail ? ' hb-detail-photo' : '');
     photo.dataset.placeId = id || '';
     photo.dataset.placeName = name || '장소';
-    photo.dataset.photoState = 'pending';
     empty(photo, '장소 사진 확인 중');
-    if (detail) {
-      photo.style.margin = '12px 0 20px';
-      photo.style.borderRadius = '12px';
-      photo.style.maxWidth = '900px';
-    }
+    photo.dataset.photoState = 'pending';
+    // Detail spacing lives in .hb-detail-photo (13-editorial.css).
     return photo;
   }
 
@@ -159,7 +155,45 @@
     queue(photo);
   }
 
-  function attach() { attachCards(); attachDetail(); }
+  // A small editorial gallery makes the already-approved real photos discoverable
+  // even when nearby API results omit those exact TourAPI IDs. Never claim proximity.
+  function attachHomeGallery() {
+    var list = root.querySelector('#nearby-list');
+    if (!list || !root.querySelector('.hb-landing-hero') || list.dataset.hbGalleryRequested) return;
+    list.dataset.hbGalleryRequested = 'true';
+    catalog().then(function (images) {
+      if (!list.isConnected || !root.querySelector('.hb-landing-hero')) return;
+      var entries = Object.keys(images).filter(function (id) { return placeIdPattern.test(id); })
+        .map(function (id) { return published(images[id], id); })
+        .filter(function (entry) { return entry && typeof entry.placeName === 'string' && entry.placeName.trim(); }).slice(0, 8);
+      if (!entries.length) return;
+      var panel = list.closest('section');
+      if (!panel || root.querySelector('.hb-home-photo-gallery')) return;
+      var gallery = document.createElement('section');
+      gallery.className = 'hb-home-photo-gallery';
+      var heading = document.createElement('h2');
+      heading.textContent = '사진으로 만나는 여행지';
+      var note = document.createElement('p');
+      note.className = 'muted';
+      note.textContent = '실제 장소와 사진 이용권을 확인한 여행지예요. 내 주변 검색 결과와는 별개예요.';
+      var grid = document.createElement('div');
+      grid.className = 'hb-gallery-grid';
+      gallery.append(heading, note, grid);
+      panel.insertAdjacentElement('beforebegin', gallery);
+      entries.forEach(function (entry) {
+        var card = document.createElement('article');
+        card.className = 'hb-gallery-card';
+        var photo = makePhoto(entry.placeId, entry.placeName, false);
+        var title = document.createElement('h3');
+        title.textContent = entry.placeName;
+        card.append(photo, title);
+        grid.append(card);
+        queue(photo);
+      });
+    });
+  }
+
+  function attach() { attachCards(); attachDetail(); attachHomeGallery(); }
   if ('IntersectionObserver' in window) {
     observer = new IntersectionObserver(function (entries) {
       entries.forEach(function (entry) {

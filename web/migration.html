@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
+<title>함께봄 · 기존 여행 이전</title>
+<style>body{font:16px/1.7 system-ui,sans-serif;color:#252525;background:#fffaf3;margin:0;padding:20px}main{max-width:700px;margin:auto}section{border:1px solid #ddd3c6;border-radius:16px;background:white;padding:18px;margin:18px 0}button,input{font:inherit;margin:8px 0;max-width:100%;box-sizing:border-box}button{padding:10px 16px;background:#f3e6bc;border:1px solid #89764b;border-radius:10px;color:#222}button:disabled{opacity:.45}input[type=url]{display:block;width:100%;padding:10px}pre{white-space:pre-wrap;overflow-wrap:anywhere}a{color:#775323}label{display:block}</style>
+<script defer src="/assets/migration/legacy-migration.js"></script><script defer src="/assets/migration/migration-page.js"></script>
+</head><body><main><h1>기존 여행 일정 가져오기</h1><p>이 페이지는 브라우저 안에서만 동작합니다. 부모님 이동 조건과 일정은 서버로 보내지 않습니다. 백업 파일은 개인정보가 포함될 수 있으니 가족 공유 링크나 공개 저장소에 올리지 마세요.</p>
+<section><h2>1. 기존 사이트에서 개인 백업 받기</h2><p>아래 버튼으로 백업용 북마크 주소를 복사한 후 브라우저 북마크의 주소(URL)로 저장하세요. <a href="https://hamkkebom-mvp.vercel.app/" target="_blank" rel="noopener noreferrer">기존 함께봄 열기</a>에서 해당 북마크를 실행하면 이 기기에 저장된 일정 JSON이 내려받아집니다. 기존 저장값은 변경하지 않습니다. 기기마다 각각 실행해야 합니다.</p><button type="button" id="copy-export">백업용 북마크 주소 복사</button><pre id="export-code" hidden></pre><p id="export-status" role="status"></p></section>
+<section><h2>2. 새 사이트에 가져오기</h2><p>다른 함께봄 탭을 닫은 뒤 백업 파일을 선택하세요. 기존 신규 사이트 데이터가 있으면 먼저 따로 내려받고, 명시적으로 교체를 선택해야 합니다. 자동 합치기는 하지 않습니다.</p>
+<label for="backup-file">개인 JSON 백업 파일</label><input type="file" id="backup-file" accept=".json,application/json">
+<p id="preview" role="status"></p><button type="button" id="backup-current" disabled>현재 신규 저장값 백업</button><label><input type="checkbox" id="replace" disabled> 현재 신규 저장값을 따로 보관했으며 교체에 동의합니다.</label><button type="button" id="apply" disabled>확인한 일정 가져오기</button><p id="result" role="status"></p><p><a href="/#/plan">새 일정 확인하기</a></p></section>
+<section><h2>3. 기존 가족 공유 링크 바꾸기</h2><p>기존 v1 읽기 전용 공유 링크를 새 주소로 변환합니다. 저장된 개인 데이터는 링크에 넣지 않습니다. 예전에 보낸 메시지는 자동 수정되지 않으므로 새 링크를 다시 보내 주세요.</p><label for="old-link">기존 공유 URL</label><input type="url" id="old-link"><button type="button" id="convert">새 링크 만들기</button><p id="link-status" role="status"></p><p><a id="new-link" hidden rel="noopener noreferrer" target="_blank"></a></p></section>
+</main></body></html>

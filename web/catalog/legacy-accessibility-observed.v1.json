@@ -1,0 +1,303 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Historical facility notes observed through legacy API; not field verification. Preserve as local same-release data; never call legacy at runtime.",
+  "provenance": {
+    "legacyDeploymentId": "dpl_Fi7my3uornztx8GYL33fiKcsUFf8",
+    "legacyDataDeploymentId": "dpl_75PiRQBtzGYQe6uos6JR3mjA4V8G",
+    "comparedProductionDeploymentId": "dpl_8Pk8X3YUDJ2MKUYHygW2zQKaqrCE",
+    "observationMethod": "GET /api/data?type=places&region=서울 or 경기; exact TourAPI ID, name, address, category and coordinates compared against current production. Response Date is observation time, not source update time. Direct original source not independently queried.",
+    "referenceDataset": "https://www.data.go.kr/data/15101897/openapi.do",
+    "comparisons": [
+      {
+        "region": "서울",
+        "legacyCount": 20,
+        "currentCount": 72,
+        "overlap": 20,
+        "legacyWithFacts": 4,
+        "currentWithFacts": 0
+      },
+      {
+        "region": "경기",
+        "legacyCount": 20,
+        "currentCount": 88,
+        "overlap": 20,
+        "legacyWithFacts": 7,
+        "currentWithFacts": 0
+      }
+    ]
+  },
+  "records": [
+    {
+      "id": "tour-3432213",
+      "contentId": "3432213",
+      "name": "논현문화마루도서관",
+      "address": "서울특별시 강남구 논현로131길 40 (논현동)",
+      "region": "서울",
+      "kind": "culture",
+      "observedAt": "2026-11-25T16:48:19.000Z",
+      "archiveOnly": false,
+      "facts": [
+        {
+          "label": "주차",
+          "description": "장애인 주차장 있음 (지하2층 2면, 지하3층 2면)"
+        },
+        {
+          "label": "엘리베이터",
+          "description": "엘리베이터 있음"
+        },
+        {
+          "label": "화장실",
+          "description": "장애인 화장실 있음 (1층,4층,5층)"
+        }
+      ]
+    },
+    {
+      "id": "tour-3429640",
+      "contentId": "3429640",
+      "name": "성동책마루도서관",
+      "address": "서울특별시 성동구 고산자로 270 (행당동)",
+      "region": "서울",
+      "kind": "culture",
+      "observedAt": "2026-11-25T16:48:19.000Z",
+      "archiveOnly": false,
+      "facts": [
+        {
+          "label": "주차",
+          "description": "장애인 주차장 있음"
+        },
+        {
+          "label": "출입통로",
+          "description": "자동문"
+        },
+        {
+          "label": "엘리베이터",
+          "description": "엘리베이터 있음"
+        },
+        {
+          "label": "화장실",
+          "description": "1층에 위치슬라이딩 문손잡이, 등받이, 자동물내림, 비상 호출벨 있음"
+        }
+      ]
+    },
+    {
+      "id": "tour-2692866",
+      "contentId": "2692866",
+      "name": "청운문학도서관",
+      "address": "서울특별시 종로구 자하문로36길 40 (청운동)",
+      "region": "서울",
+      "kind": "culture",
+      "observedAt": "2026-11-25T16:48:19.000Z",
+      "archiveOnly": false,
+      "facts": [
+        {
+          "label": "주차",
+          "description": "장애인 주차장 있음(1대)_무장애 편의시설"
+        },
+        {
+          "label": "출입통로",
+          "description": "주출입구는 턱이 없어 휠체어 접근 가능함(자동문)"
+        },
+        {
+          "label": "엘리베이터",
+          "description": "엘리베이터 있음"
+        }
+      ]
+    },
+    {
+      "id": "tour-3432447",
+      "contentId": "3432447",
+      "name": "2025 서울 카페&베이커리페어",
+      "address": "서울특별시 강남구 남부순환로 3104 (대치동)",
+      "region": "서울",
+      "kind": "spot",
+      "observedAt": "2026-11-25T16:48:19.000Z",
+      "archiveOnly": true,
+      "facts": [
+        {
+          "label": "주차",
+          "description": "장애인 주차장 있음"
+        },
+        {
+          "label": "휠체어",
+          "description": "휠체어 대여 서비스 있음"
+        },
+        {
+          "label": "화장실",
+          "description": "장애인 화장실 있음 (1층)"
+        }
+      ]
+    },
+    {
+      "id": "tour-3428221",
+      "contentId": "3428221",
+      "name": "시흥시 대야평생학습관",
+      "address": "경기도 시흥시 은행로173번길 14 (대야동)",
+      "region": "경기",
+      "kind": "culture",
+      "observedAt": "2026-11-25T16:48:28.000Z",
+      "archiveOnly": false,
+      "facts": [
+        {
+          "label": "주차",
+          "description": "3대 주차 가능"
+        },
+        {
+          "label": "출입통로",
+          "description": "자동문"
+        },
+        {
+          "label": "화장실",
+          "description": "1층 입구 인근 1개소슬라이딩문손잡이, 등받이, 자동물내림, 비상 호출벨 있음"
+        }
+      ]
+    },
+    {
+      "id": "tour-3449158",
+      "contentId": "3449158",
+      "name": "시흥시립대야도서관",
+      "address": "경기도 시흥시 은행로173번길 14 (대야동)",
+      "region": "경기",
+      "kind": "culture",
+      "observedAt": "2026-11-25T16:48:28.000Z",
+      "archiveOnly": false,
+      "facts": [
+        {
+          "label": "주차",
+          "description": "지상에 2면 있음"
+        },
+        {
+          "label": "출입통로",
+          "description": "미닫이문"
+        },
+        {
+          "label": "엘리베이터",
+          "description": "엘리베이터 있음"
+        },
+        {
+          "label": "화장실",
+          "description": "장애인 화장실 있음"
+        }
+      ]
+    },
+    {
+      "id": "tour-2736429",
+      "contentId": "2736429",
+      "name": "에코센터",
+      "address": "경기도 김포시 김포한강11로 455 (운양동)",
+      "region": "경기",
+      "kind": "culture",
+      "observedAt": "2026-11-25T16:48:28.000Z",
+      "archiveOnly": false,
+      "facts": [
+        {
+          "label": "주차",
+          "description": "장애인 주차장 있음(3대)_무장애 편의시설"
+        },
+        {
+          "label": "출입통로",
+          "description": "주 출입구는 턱이 없어 휠체어 접근 가능함"
+        },
+        {
+          "label": "엘리베이터",
+          "description": "엘리베이터 있음(전망대)"
+        },
+        {
+          "label": "화장실",
+          "description": "장애인 화장실 있음"
+        }
+      ]
+    },
+    {
+      "id": "tour-750804",
+      "contentId": "750804",
+      "name": "마장호수",
+      "address": "경기도 파주시 광탄면 기산리",
+      "region": "경기",
+      "kind": "spot",
+      "observedAt": "2026-11-25T16:48:28.000Z",
+      "archiveOnly": false,
+      "facts": [
+        {
+          "label": "주차",
+          "description": "위치 : 주출입구 근처, 개수 : 1대"
+        },
+        {
+          "label": "출입통로",
+          "description": "경사로 있음"
+        },
+        {
+          "label": "화장실",
+          "description": "장애인 화장실 있음"
+        }
+      ]
+    },
+    {
+      "id": "tour-3456435",
+      "contentId": "3456435",
+      "name": "부락산분수공원",
+      "address": "경기도 평택시 장안웃길 149 (이충동)",
+      "region": "경기",
+      "kind": "spot",
+      "observedAt": "2026-11-25T16:48:28.000Z",
+      "archiveOnly": false,
+      "facts": [
+        {
+          "label": "화장실",
+          "description": "장애인 화장실 있음"
+        }
+      ]
+    },
+    {
+      "id": "tour-3452786",
+      "contentId": "3452786",
+      "name": "시흥시청소년수련관",
+      "address": "경기도 시흥시 은행로 179 (대야동)",
+      "region": "경기",
+      "kind": "spot",
+      "observedAt": "2026-11-25T16:48:28.000Z",
+      "archiveOnly": false,
+      "facts": [
+        {
+          "label": "주차",
+          "description": "지상에 4면 있음"
+        },
+        {
+          "label": "출입통로",
+          "description": "미닫이문"
+        },
+        {
+          "label": "엘리베이터",
+          "description": "엘리베이터 있음"
+        },
+        {
+          "label": "화장실",
+          "description": "장애인 화장실 있음"
+        }
+      ]
+    },
+    {
+      "id": "tour-3506747",
+      "contentId": "3506747",
+      "name": "거북섬어쩌다맛집",
+      "address": "경기도 시흥시 거북섬둘레길 5-7 (정왕동)",
+      "region": "경기",
+      "kind": "food",
+      "observedAt": "2026-11-25T16:48:28.000Z",
+      "archiveOnly": false,
+      "facts": [
+        {
+          "label": "주차",
+          "description": "건물 지하 1층에 장애인 주차구역 2면"
+        },
+        {
+          "label": "출입통로",
+          "description": "휠체어 접근이 가능함"
+        },
+        {
+          "label": "엘리베이터",
+          "description": "전층 운행 엘리베이터"
+        }
+      ]
+    }
+  ]
+}

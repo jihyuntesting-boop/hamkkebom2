@@ -192,6 +192,7 @@ function normalizeWeather(options = {}) {
     const parsed = [];
     let issueMs = null;
     let issuedAt = null;
+    const slots = new Set();
     for (const item of items) {
       if (!object(item) || typeof item.category !== 'string' || !item.category.trim()) return outcome('invalid', 'invalid_kma_item');
       const issue = kmaInstant(item.baseDate, item.baseTime);
@@ -201,6 +202,10 @@ function normalizeWeather(options = {}) {
       issueMs = issue.millis;
       issuedAt = issue.label;
       if (!sameGrid(item, input.expectedGrid)) return outcome('invalid', 'region_grid_mismatch');
+      if (validity.millis < issue.millis) return outcome('invalid', 'forecast_before_issue');
+      const slotKey = JSON.stringify([validity.millis, item.category]);
+      if (slots.has(slotKey)) return outcome('invalid', 'duplicate_forecast_item');
+      slots.add(slotKey);
       parsed.push({...item, ms: validity.millis});
     }
     const [dayStart, dayEnd] = dateIntervalKst(date);
@@ -236,9 +241,21 @@ function normalizeWeather(options = {}) {
       typeof rawPcp === 'string' && /^\d+(?:\.\d+)?mm$/.test(rawPcp.trim()) ? Number(rawPcp.trim().slice(0, -2)) : finiteNumber(rawPcp);
     if (pcp !== null && pcp < 0) return outcome('invalid', 'invalid_precipitation_amount');
     if (temp === null && pop === null && pcp === null && summary === null) return outcome('invalid', 'no_supported_forecast_values');
+    const hourly = [];
+    for (const t of eligibleTimes) {
+      const slot = new Map(dayItems.filter(item => item.ms === t).map(item => [item.category, item.fcstValue]));
+      const temperatureC = finiteNumber(slot.get('TMP'));
+      const precipitationProbabilityPercent = finiteNumber(slot.get('POP'));
+      const code = String(slot.get('PTY') ?? '');
+      if (temperatureC === null || precipitationProbabilityPercent === null ||
+          precipitationProbabilityPercent < 0 || precipitationProbabilityPercent > 100 ||
+          (code !== '0' && !own(precipitationNames, code))) continue;
+      hourly.push({at: kstLabel(t), temperatureC, precipitationProbabilityPercent,
+        precipitationType: code === '0' ? '없음' : precipitationNames[code]});
+    }
     const earliest = times[0];
     const latest = times[times.length - 1] + HOUR_MS;
-    return finish({
+    const result = finish({
       forecastType: 'short_term', issuedAt, validFrom: kstLabel(earliest), validTo: kstLabel(latest),
       source: {...KMA_SOURCE}, grid: {...input.expectedGrid}, coverage,
       temperatureC: temp, precipitationProbabilityPercent: pop,
@@ -249,6 +266,7 @@ function normalizeWeather(options = {}) {
         rawSummary: null, representativeAt: kstLabel(representative),
         countOnDate: dayItems.length, intervalMinutes: 60}
     });
+    return {...result, hourly: result.status === 'available' ? hourly : []};
   }
 
   // Proposed normalized forecast contract. The legacy summary-only route does

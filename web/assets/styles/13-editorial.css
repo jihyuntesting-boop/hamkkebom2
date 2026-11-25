@@ -1,21 +1,70 @@
 /* UX-01: shared light-mode presentation. The recovered snapshot styles stay
    linked for historical parity, so this final layer overrides their palette. */
 :root {
-  --hb-brand: #285c50;
-  --hb-brand-hover: #19463c;
-  --hb-surface: #fff;
-  --hb-paper: #f5f0e6;
-  --hb-quiet: #eaf2ed;
-  --hb-ink: #243341;
-  --hb-muted: #58666f;
-  --hb-line: #dde2de;
-  --hb-control-line: #7b8a83;
-  --hb-warning-bg: #f8edda;
-  --hb-warning-ink: #62451f;
-  --hb-error-bg: #f9ebe8;
-  --hb-error-ink: #792f28;
+  --hb-brand: #191F28;
+  --hb-brand-hover: #333D4B;
+  --hb-surface: #FFFFFF;
+  --hb-paper: #FFF7DD;
+  --hb-quiet: #FCEBF1;
+  --hb-ink: #191F28;
+  --hb-muted: #4E5968;
+  --hb-line: #E5E8EB;
+  --hb-control-line: #778391;
+  --hb-warning-bg: #FFF0D5;
+  --hb-warning-ink: #865513;
+  --hb-error-bg: #FCE5E2;
+  --hb-error-ink: #A33F39;
+  --hb-warning-border: #E4C58F;
+  --hb-error-border: #E6B5B2;
+  --hb-primary: #FFD66B;
+  --hb-primary-hover: #F2C451;
+  --hb-primary-ink: #191F28;
+  --hb-secondary: #EFA6BA;
+  --hb-secondary-hover: #E899AF;
+  --hb-focus: #191F28;
+  --hb-disabled-bg: #F2F4F6;
+  --hb-disabled-ink: #4E5968;
+  --hb-rose: #EFA6BA;
+  --hb-soft: #F2F4F6;
+  --hb-success-bg: #E5F1E3;
+  --hb-success-ink: #35663D;
   --hb-radius: 12px;
-  --hb-touch: 44px;
+  --hb-touch: 48px;
+  --hb-text-xs: .875rem;   /* 14px: smallest allowed text */
+  --hb-text-sm: .9375rem;  /* 15px */
+  --hb-text-md: 1rem;      /* 16px: body */
+  --hb-text-lg: 1.125rem;  /* 18px */
+  --hb-text-xl: 1.25rem;   /* 20px */
+  --hb-radius-sm: 8px;
+  --hb-radius-pill: 999px;
+  --hb-space-1: 4px;
+  --hb-space-2: 8px;
+  --hb-space-3: 12px;
+  --hb-space-4: 16px;
+  --hb-space-5: 24px;
+  --hb-space-6: 32px;
+  --hb-food: #a4560f;      /* 5.2:1 on white */
+  --hb-food-bg: #fbeee2;
+  --hb-featured: #7a5a00;  /* 6.4:1 on #fff8de */
+  --hb-featured-bg: #fff8de;
+  --hb-font: Pretendard, "Noto Sans KR", "Apple SD Gothic Neo", -apple-system, BlinkMacSystemFont, "Malgun Gothic", sans-serif;
+  --hb-radius-lg: 16px;
+  --hb-radius-xl: 20px;
+  --hb-space-7: 48px;
+  --hb-shadow-sticky: 0 4px 12px rgb(25 31 40 / 8%);
+  --hb-track-body: -.01em;
+  --hb-track-heading: -.035em;
+  --hb-track-ui: -.015em;
+  --hb-leading-body: 1.85;
+  --hb-leading-heading: 1.4;
+  --hb-leading-label: 1.55;
+  --hb-page-max: 1072px;
+  --hb-page-gutter: clamp(16px, 3vw, 32px);
+  --hb-panel-pad: clamp(20px, 3vw, 32px);
+  --hb-card-pad: 24px;
+  --hb-section-gap: clamp(32px, 5vw, 56px);
+  --hb-paragraph-gap: 16px;
+  --hb-card-gap: 24px;
   color-scheme: light;
 }
 
@@ -134,7 +183,7 @@ main a:not(.hb-photo-credit) {
   background: transparent !important;
 }
 
-.hb-benefit span, .hb-how-grid > div > span { display: none; }
+.hb-benefit span:not(.hb-art-slot), .hb-how-grid > div > span:not(.hb-art-slot) { display: none; }
 .hb-benefit strong {
   color: var(--hb-ink);
   font-size: .9rem;
@@ -336,7 +385,7 @@ footer {
   padding: 12px;
   list-style: none;
   border-radius: 12px;
-  background: #eaf2ed;
+  background: var(--hb-quiet);
 }
 .hb-access-map-stops li {
   position: relative;
@@ -354,15 +403,15 @@ footer {
   text-align: left;
 }
 .hb-access-map-stops button[aria-pressed="true"] {
-  border-color: #285c50;
-  box-shadow: inset 0 0 0 2px #285c50;
+  border-color: var(--hb-brand);
+  box-shadow: inset 0 0 0 2px var(--hb-brand);
 }
 .hb-access-map-connection {
   display: block;
   margin: 0 0 -8px 23px;
   padding: 6px 0 6px 12px;
-  border-left: 3px solid #285c50;
-  color: #285c50;
+  border-left: 3px solid var(--hb-brand);
+  color: var(--hb-brand);
   font-size: .9rem;
 }
 .hb-access-map-stops button span {
@@ -371,12 +420,12 @@ footer {
   flex: 0 0 28px;
   min-height: 28px;
   border-radius: 50%;
-  background: #285c50;
+  background: var(--hb-brand);
   color: white;
 }
 .hb-access-map-note {
   padding: 12px;
-  background: #eaf2ed;
+  background: var(--hb-quiet);
   border-radius: 8px;
 }
 .hb-access-floor summary, .hb-access-map-source {
@@ -388,13 +437,13 @@ footer {
 .hb-access-floor img { display: block; width: 100%; height: auto; }
 
 .hb-trip-map-panel { padding: clamp(12px, 3vw, 24px); }
-#hb-trip-map { min-height: 6rem; border-radius: 12px; overflow: hidden; background: #eef2ec; }
+#hb-trip-map { min-height: 6rem; border-radius: 12px; overflow: hidden; background: var(--hb-soft); }
 #hb-trip-map[data-map-state="ready"],
 #hb-trip-map[data-map-state="loading"] { height: clamp(260px, 48vh, 460px); }
 #hb-trip-map > p, #hb-trip-map > button { margin: 12px; }
 .hb-trip-map-list { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 6px; }
 .hb-trip-map-list button { width: 100%; min-height: 44px; display: flex; align-items: center; gap: 8px; text-align: left; flex-wrap: wrap; }
-.hb-trip-map-list button[aria-pressed="true"] { outline: 2px solid #285c50; }
+.hb-trip-map-list button[aria-pressed="true"] { outline: 2px solid var(--hb-brand); }
 .hb-trip-number, .hb-trip-amenity {
   display: inline-grid;
   place-items: center;
@@ -402,11 +451,592 @@ footer {
   min-height: 32px;
   padding: 0 7px;
   border-radius: 999px;
-  background: #234e44;
-  color: #fff;
+  background: var(--hb-brand);
+  color: var(--hb-surface);
   font-weight: 700;
   white-space: nowrap;
 }
-.hb-trip-amenity { background: #fff; color: #234e44; border: 2px solid #234e44; }
+.hb-trip-amenity { background: var(--hb-surface); color: var(--hb-brand); border: 2px solid var(--hb-brand); }
 #hb-trip-arrival .hb-detail-access { margin-bottom: 8px; }
 @media print { .hb-trip-map-panel { display: none !important; } }
+
+/* Place selection tray: sticky at the top of /places so the selected count
+   and the build action stay visible while browsing. Uses the shared tokens. */
+.hb-selection-tray {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  margin: 16px 0 24px;
+  padding: 12px 16px;
+  background: var(--hb-surface);
+  border: 1px solid var(--hb-line);
+  border-radius: var(--hb-radius);
+  box-shadow: 0 4px 12px rgb(36 51 65 / 8%);
+}
+
+.hb-selection-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+
+.hb-selection-bar h2 {
+  margin: 0;
+  font-size: 1.125rem;
+}
+
+.hb-selection-count {
+  color: var(--hb-brand);
+  font-variant-numeric: tabular-nums;
+}
+
+.hb-selection-bar #build {
+  margin: 0;
+  padding-inline: 20px;
+}
+
+.hb-selection-hint {
+  margin: 8px 0 0;
+  font-size: .9rem;
+}
+
+.hb-selection-list summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--hb-touch);
+  color: var(--hb-brand);
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.hb-selection-list .hb-selected-places {
+  max-height: 40vh;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--hb-line);
+}
+
+.hb-selection-list .hb-selected-places li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--hb-line);
+}
+
+.hb-selection-list .hb-selected-places button { margin: 0; }
+
+@media (max-width: 560px) {
+  .hb-selection-tray { padding: 10px 12px; }
+  .hb-selection-bar #build { width: 100%; justify-content: center; }
+}
+
+@media print { .hb-selection-tray { position: static; box-shadow: none; } }
+
+/* ============================================================
+   UX-02: design-audit fixes. Shared scale tokens + components.
+   Everything below uses tokens; older theme files (00-12) are
+   only overridden here, never extended.
+   ============================================================ */
+/* All shared tokens are defined in the single root above. */
+
+/* Icons (replace emoji). Decorative; sized to the surrounding text. */
+.hb-icon { width: 1.2em; height: 1.2em; flex: none; vertical-align: -.22em; margin-right: .35em; }
+header b { display: inline-flex; align-items: center; }
+.hb-brand-mark { width: 1em; height: 1em; }
+/* The editorial landing intentionally shows these lists without icons. */
+.hb-benefit .hb-icon, .hb-how-grid .hb-icon { display: none; }
+
+/* Buttons: one size everywhere (was 46/47/48/58px and 15/16px).
+   Map SDK controls inside the map containers are left alone. */
+main button:not(#nearby-map *):not(#hb-trip-map *) {
+  min-height: var(--hb-touch) !important;
+  padding: 10px 16px !important;
+  font-size: var(--hb-text-md) !important;
+  line-height: 1.4 !important;
+  border-radius: var(--hb-radius-sm) !important;
+}
+
+/* Header nav: 44px minimum in both directions. */
+header nav a { min-width: var(--hb-touch); }
+
+/* Smallest text is 14px (chips, status labels, meta lines, map labels). */
+.chip, .hb-recommend-state, .hb-photo-empty, .hb-evidence-status, .hb-plan-meta,
+.hb-result-count, main small, #nearby-map .hb-map-place, #nearby-map .hb-current,
+#nearby-map .hb-featured-marker, .hb-trip-amenity {
+  font-size: var(--hb-text-xs) !important;
+}
+.chip { border-radius: var(--hb-radius-pill) !important; display: inline-flex; align-items: center; }
+
+/* One radius scale: 12px surfaces, 8px controls, pill for chips and markers. */
+.card, .hb-profile-summary, .hb-stop-editor, .hb-plan-generator,
+.hb-place-photo, #nearby-map, #hb-trip-map, details.hb-conflict {
+  border-radius: var(--hb-radius) !important;
+}
+input:not([type="checkbox"]):not([type="radio"]), select { border-radius: var(--hb-radius-sm) !important; }
+
+/* Back links: real 44px targets (were 21px tall). */
+.hb-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--hb-space-2);
+  min-height: var(--hb-touch);
+  padding: 0 var(--hb-space-3) 0 var(--hb-space-2);
+  margin-left: calc(-1 * var(--hb-space-2));
+  border-radius: var(--hb-radius-sm);
+  font-weight: 650;
+  text-decoration: none !important;
+}
+.hb-back-link:hover { background: var(--hb-quiet); }
+
+/* Evidence source links: 44px tap height (were 18px). */
+.hb-evidence-row a, .hb-access-map-source {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--hb-touch);
+}
+
+/* Place photos: hide the empty grey box when no licensed photo exists. */
+/* Keep the observer target measurable while loading; compact missing photos instead of hiding evidence. */
+.hb-place-photo:is([data-photo-state="unavailable"],[data-photo-state="pending"]) {
+  display: flex !important; min-height: 28px !important; height: auto !important;
+  aspect-ratio: auto !important; background: transparent !important; border: 0 !important;
+  padding: 4px 0 !important; margin-block: 4px !important;
+}
+.hb-place-photo:is([data-photo-state="unavailable"],[data-photo-state="pending"]) .hb-photo-empty { font-size: 14px !important; color: var(--hb-muted) !important; }
+.hb-detail-photo { margin: var(--hb-space-3) 0 var(--hb-space-5); max-width: 900px; }
+
+/* Home: former inline styles. */
+.hb-nearby-panel { padding: var(--hb-space-4) !important; margin-bottom: var(--hb-space-4); }
+.hb-nearby-head { align-items: center; justify-content: space-between; margin: 2px 0 var(--hb-space-3); }
+.hb-actions-flush { margin: 0; }
+.hb-actions-tight { margin-bottom: var(--hb-space-3); }
+.hb-featured-summary { margin-bottom: var(--hb-space-3); }
+.hb-section-title { margin-bottom: var(--hb-space-2); }
+.hb-map-credit { padding-top: var(--hb-space-2); font-size: var(--hb-text-xs); }
+.hb-break-anywhere { overflow-wrap: anywhere; }
+#nearby-map { height: min(57vh, 510px); min-height: 330px; z-index: 0; }
+
+/* Map overlays and info windows. One palette from tokens. */
+.hb-map-info { padding: var(--hb-space-3); max-width: 260px; color: var(--hb-ink); font-size: var(--hb-text-xs); line-height: 1.5; }
+.hb-map-info-meta { margin: var(--hb-space-1) 0; font-size: var(--hb-text-xs); }
+.hb-map-fallback { padding: var(--hb-space-5); max-width: 520px; }
+.hb-map-loading { padding: var(--hb-space-5); }
+#nearby-map .hb-map-place {
+  display: inline-flex; align-items: center;
+  background: var(--hb-surface) !important; color: var(--hb-ink) !important;
+  border: 2px solid var(--hb-brand) !important; border-radius: var(--hb-radius-pill) !important;
+}
+#nearby-map .hb-map-place.hb-food { border-color: var(--hb-food) !important; }
+#nearby-map .hb-map-place .hb-icon { color: var(--hb-brand); }
+#nearby-map .hb-map-place.hb-food .hb-icon { color: var(--hb-food); }
+#nearby-map .hb-map-dot { background: var(--hb-brand) !important; }
+#nearby-map .hb-map-dot.hb-food { background: var(--hb-food) !important; }
+#nearby-map .hb-current { display: inline-flex; align-items: center; background: var(--hb-brand) !important; color: var(--hb-surface) !important; }
+#nearby-map .hb-featured-marker {
+  display: inline-flex; align-items: center;
+  background: var(--hb-featured-bg) !important; color: var(--hb-featured) !important;
+  border: 2px solid var(--hb-featured) !important; border-radius: var(--hb-radius-pill) !important;
+}
+#nearby-map [role="button"]:focus-visible { outline: 3px solid var(--hb-brand); outline-offset: 2px; }
+#near-all, #near-spot, #near-food, #near-famous {
+  background: var(--hb-surface) !important; border-color: var(--hb-control-line) !important;
+}
+#nearby-list .card, #nearby-list .card:nth-child(even) { border-left: 0 !important; }
+
+/* Trip planner stepper (was a sentence ending with "(1/3)"). */
+ol.hb-progress {
+  list-style: none; display: flex; flex-wrap: wrap; gap: var(--hb-space-2);
+  margin: var(--hb-space-4) 0; padding: 0; background: none; font-size: var(--hb-text-sm);
+}
+ol.hb-progress li {
+  display: inline-flex; align-items: center; gap: var(--hb-space-2);
+  min-height: var(--hb-touch); padding: 4px 14px 4px 6px;
+  border: 1px solid var(--hb-line); border-radius: var(--hb-radius-pill);
+  background: var(--hb-surface); color: var(--hb-muted); font-weight: 650;
+}
+ol.hb-progress .hb-step-num {
+  display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 50%;
+  background: var(--hb-quiet); color: var(--hb-brand); font-size: var(--hb-text-xs); font-weight: 800;
+}
+ol.hb-progress li[aria-current="step"] { border-color: var(--hb-brand); color: var(--hb-brand); background: var(--hb-quiet); }
+ol.hb-progress li[aria-current="step"] .hb-step-num { background: var(--hb-brand); color: var(--hb-surface); }
+ol.hb-progress li.hb-step-done { color: var(--hb-ink); }
+
+/* Itinerary page: settings toolbar, grouped checks, edit mode. */
+.hb-plan-generator {
+  margin: var(--hb-space-4) 0 !important; padding: var(--hb-space-4) !important;
+  background: var(--hb-quiet) !important; border: 0 !important;
+}
+.hb-plan-view-controls { margin-bottom: var(--hb-space-3) !important; }
+.hb-plan-view-controls button { min-height: var(--hb-touch) !important; font-size: var(--hb-text-md) !important; border-radius: var(--hb-radius-sm) !important; }
+.hb-plan-regen { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--hb-space-2) var(--hb-space-3); }
+.hb-plan-regen .field { margin: 0; }
+.hb-plan-regen select, .hb-plan-regen button { margin: 0 !important; }
+.hb-plan-local-notice { margin: var(--hb-space-3) 0 0 !important; font-size: var(--hb-text-sm) !important; color: var(--hb-muted) !important; }
+.hb-plan-edit-feedback:empty { display: none; }
+details.hb-plan-warnings {
+  margin: 0 0 var(--hb-space-4) !important; padding: 0 var(--hb-space-4) !important;
+  background: var(--hb-warning-bg); color: var(--hb-warning-ink) !important;
+  border: 0 !important; border-radius: var(--hb-radius);
+}
+details.hb-plan-warnings summary {
+  display: flex; align-items: center; gap: var(--hb-space-2);
+  min-height: var(--hb-touch); font-weight: 700; cursor: pointer;
+}
+.hb-plan-check-count {
+  padding: 0 var(--hb-space-2); border-radius: var(--hb-radius-pill);
+  background: var(--hb-surface); font-size: var(--hb-text-xs); font-weight: 700;
+}
+details.hb-plan-warnings ul { margin: 0; padding: 0 0 var(--hb-space-3) 1.25em; }
+details.hb-plan-warnings li { padding: 2px 0; }
+.hb-plan-editing .hb-itinerary-row { box-shadow: inset 3px 0 0 var(--hb-brand); }
+.hb-plan-route { margin-top: var(--hb-space-5); }
+
+@media (max-width: 560px) {
+  .hb-plan-regen > *, .hb-plan-regen .field { width: 100%; }
+}
+@media print {
+  .hb-plan-route, .hb-plan-check-count { display: none !important; }
+}
+
+/* Cross-repository integration: bean-baek final design layer, keep required visit control. */
+.hb-selection-list .hb-selected-places li { flex-wrap: wrap; }
+.hb-selection-list .hb-selected-places li > span { flex: 1 1 100%; overflow-wrap:anywhere; }
+.hb-plan-travel { margin: 16px 0; padding: 16px; border: 1px solid var(--hb-line); border-radius: var(--hb-radius); }
+
+/* Butter & Rose / Black: shared component contracts.
+   Core historical styles remain loaded for regression parity; this layer owns visual semantics.
+   No added navigation or dummy actions. Primary actions refer to actual rendered controls. */
+body > header b { color: var(--hb-ink) !important; }
+.hb-brand-mark, .hb-icon { color: var(--hb-ink); }
+body { font-family: var(--hb-font) !important; font-size: var(--hb-text-md); }
+main { padding-inline: clamp(16px, 3vw, 32px); }
+#app .hb-landing-hero {
+  background: var(--hb-paper) !important; border-radius: var(--hb-radius-xl) !important;
+  padding: clamp(20px, 4vw, 48px) !important;
+}
+#app .hb-landing-eyebrow { color: var(--hb-muted) !important; font-weight: 500; }
+#app .hb-landing-benefits {
+  width: 100%; max-width: 760px; display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--hb-space-2);
+}
+#app .hb-landing-benefits .hb-benefit {
+  min-width: 0; padding: var(--hb-space-3) !important; border: 0 !important;
+  background: var(--hb-surface) !important; border-radius: var(--hb-radius) !important;
+  display: flex; flex-direction: column; align-items: flex-start; gap: var(--hb-space-2);
+}
+#app .hb-landing-benefits .hb-benefit:nth-child(2), #app .hb-landing-benefits .hb-benefit:nth-child(3) { background: var(--hb-quiet) !important; }
+#app .hb-benefit .hb-icon {
+  display: block; width: 40px; height: 40px; padding: 10px; box-sizing: border-box;
+  background: var(--hb-primary); border-radius: var(--hb-radius-sm); margin: 0;
+}
+#app .hb-benefit:nth-child(2) .hb-icon, #app .hb-benefit:nth-child(3) .hb-icon { background: var(--hb-secondary); }
+#app .hb-landing-actions { display: flex; flex-wrap: wrap; gap: var(--hb-space-2); }
+#app .hb-landing-actions > button { flex: 1 1 220px; max-width: 100%; }
+#app .hb-landing-actions #mom-start { flex-basis: 100%; }
+#app .hb-landing-note { color: var(--hb-muted) !important; }
+
+/* Buttons: neutral by default, one intent-specific primary per task.
+   Exclude vendor map internals and keep all focus, disabled and ARIA contracts. */
+#app button:where(:not(#nearby-map *):not(#hb-trip-map *)) {
+  background: var(--hb-surface) !important; color: var(--hb-ink) !important;
+  border: 1px solid var(--hb-control-line) !important; border-radius: var(--hb-radius-sm) !important;
+  min-height: var(--hb-touch); font-weight: 650 !important; box-shadow: none !important;
+}
+#app button:where(:not(#nearby-map *):not(#hb-trip-map *)):hover { background: var(--hb-soft) !important; }
+#app :is(#mom-start,#hb-next,#hb-finish,#build,#pick,#share,#hb-rpl-confirm,#hb-route-apply,#copy):not(:disabled):not([aria-pressed="true"]) {
+  background: var(--hb-primary) !important; color: var(--hb-primary-ink) !important;
+  border-color: var(--hb-primary) !important;
+}
+#app :is(#mom-start,#hb-next,#hb-finish,#build,#pick,#share,#hb-rpl-confirm,#hb-route-apply,#copy):not(:disabled):not([aria-pressed="true"]):hover {
+  background: var(--hb-primary-hover) !important; border-color: var(--hb-primary-hover) !important;
+}
+#app button[aria-pressed="true"]:where(:not(#nearby-map *):not(#hb-trip-map *)), #app :is(.hb-choice.chosen,.mom-card.chosen,.hb-filter-active) {
+  background: var(--hb-quiet) !important; color: var(--hb-ink) !important;
+  border-color: var(--hb-focus) !important; box-shadow: inset 0 0 0 1px var(--hb-focus) !important;
+}
+#app button:disabled:where(:not(#nearby-map *):not(#hb-trip-map *)), #app button:disabled:hover:where(:not(#nearby-map *):not(#hb-trip-map *)) {
+  background: var(--hb-disabled-bg) !important; color: var(--hb-disabled-ink) !important;
+  border-color: var(--hb-line) !important; box-shadow: none !important; cursor: not-allowed;
+}
+#app :is(a,button,input,select,summary,[tabindex]):focus-visible {
+  outline: 3px solid var(--hb-focus) !important; outline-offset: 3px;
+}
+#app :is(.hb-profile-summary,.hb-plan-generator,.hb-stop-editor) { background: var(--hb-quiet) !important; }
+#app :is(.panel,.card) { border-radius: var(--hb-radius) !important; }
+#app .hb-selection-tray { max-height: min(45vh, 360px); overflow-y: auto; box-shadow: var(--hb-shadow-sticky); }
+#app .hb-selection-list .hb-selected-places { max-height: 25vh; }
+#app .hb-selection-count { background: var(--hb-primary); padding: 2px 8px; border-radius: var(--hb-radius-pill); color: var(--hb-ink); }
+#app ol.hb-progress li[aria-current="step"] { background: var(--hb-paper); }
+#app ol.hb-progress li[aria-current="step"] .hb-step-num { background: var(--hb-primary); color: var(--hb-ink); }
+#app .hb-plan-editing .hb-itinerary-row { box-shadow: inset 3px 0 0 var(--hb-rose) !important; }
+#app .hb-trip-number { background: var(--hb-primary) !important; color: var(--hb-ink) !important; }
+#app #nearby-map .hb-map-place.hb-food { background: var(--hb-quiet) !important; color: var(--hb-ink) !important; }
+#app #nearby-map .hb-map-place .hb-icon { color: var(--hb-ink) !important; }
+#app #nearby-map .hb-featured-marker { background: var(--hb-primary) !important; color: var(--hb-ink) !important; border-color: var(--hb-brand) !important; }
+#app .hb-share-stop time { color: var(--hb-ink) !important; }
+
+/* Existing state semantics remain text-labelled; no visual treatment changes evidence. */
+#app :is(.warn,.hb-conflict,details.hb-plan-warnings) { background: var(--hb-warning-bg) !important; color: var(--hb-warning-ink) !important; }
+#app [role="alert"]:not(:empty) { color: var(--hb-error-ink); }
+#app [aria-busy="true"] { cursor: progress; }
+#app :is(.hb-photo-empty,.hb-plan-local-notice,.hb-source-note) { color: var(--hb-muted) !important; }
+#app .hb-plan-travel, #app .hb-trip-map-panel { background: var(--hb-surface) !important; }
+@media (max-width: 560px) {
+  #app .hb-landing-actions > button { flex-basis: 100%; }
+  #app .hb-landing-benefits .hb-benefit { padding: 12px !important; }
+  #app .hb-selection-bar { align-items: stretch; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #app *, #app *::before, #app *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}
+@media print { #app .hb-selection-tray { max-height: none; overflow: visible; } }
+
+/* Typography and layout rhythm — shared across actual routes.
+   Do not resize vendor map SDK nodes or change print/large-text contracts. */
+@media screen {
+  body { letter-spacing: var(--hb-track-body); line-height: var(--hb-leading-body); }
+  body > header {
+    box-sizing: border-box; padding-block: var(--hb-space-3);
+    padding-inline: max(var(--hb-page-gutter), calc((100% - var(--hb-page-max)) / 2 + var(--hb-page-gutter))) !important;
+    align-items: center; gap: var(--hb-space-2) var(--hb-space-5);
+  }
+  body > header b { display: inline-flex; align-items: center; gap: var(--hb-space-2); letter-spacing: var(--hb-track-heading); line-height: 1.3; }
+  body > header b .hb-icon { margin: 0; flex-shrink: 0; }
+  body > header nav { align-items: center; gap: var(--hb-space-1); }
+  body > header nav a { letter-spacing: var(--hb-track-ui); line-height: var(--hb-leading-label); }
+  main#app {
+    box-sizing: border-box; width: 100%; max-width: var(--hb-page-max);
+    margin-inline: auto; padding: var(--hb-space-5) var(--hb-page-gutter) var(--hb-space-7) !important;
+    text-align: left;
+  }
+  #app :is(h1,h2,h3,h4):where(:not(#nearby-map *):not(#hb-trip-map *)) {
+    letter-spacing: var(--hb-track-heading); line-height: var(--hb-leading-heading);
+    word-break: keep-all; overflow-wrap: anywhere; text-wrap: balance;
+  }
+  #app h1 { font-size: clamp(1.75rem, 4vw, 2.25rem); margin: 0 0 var(--hb-space-4); }
+  #app h2 { font-size: clamp(1.375rem, 3vw, 1.625rem); margin: 0 0 var(--hb-space-3); }
+  #app h3 { font-size: clamp(1.125rem, 2vw, 1.25rem); margin: var(--hb-space-4) 0 var(--hb-space-2); }
+  #app :is(p,li,dd):where(:not(#nearby-map *):not(#hb-trip-map *)) {
+    line-height: var(--hb-leading-body); word-break: keep-all; overflow-wrap: anywhere;
+  }
+  #app p:where(:not(#nearby-map *):not(#hb-trip-map *)) { margin-block: 0 var(--hb-space-2); }
+  #app :is(.panel,.card,.hb-profile-summary,.hb-rpl-card) > p:last-child { margin-bottom: 0; }
+  #app :is(.panel,.card) > :is(h2,h3):first-child { margin-top: 0; }
+  #app :is(h1,h2,h3) + :is(p,.muted) { margin-top: 0; }
+  #app :is(button,a,summary,label,input,select,textarea):where(:not(#nearby-map *):not(#hb-trip-map *)) { letter-spacing: var(--hb-track-ui); }
+  #app :is(button,input,select,textarea):where(:not(#nearby-map *):not(#hb-trip-map *)) { line-height: var(--hb-leading-label) !important; }
+  #app :is(button,.actions > a):where(:not(#nearby-map *):not(#hb-trip-map *)) { text-wrap: pretty; overflow-wrap: anywhere; }
+  #app :is(time,.hb-selection-count,.hb-step-num,.hb-result-count) { font-variant-numeric: tabular-nums; }
+  #app .hb-landing-hero h1 {
+    font-size: clamp(2rem, 5vw, 3rem); line-height: 1.22;
+    letter-spacing: var(--hb-track-heading); margin: var(--hb-space-2) 0 var(--hb-space-3);
+  }
+  #app .hb-landing-intro { font-size: var(--hb-text-lg); max-width: 46ch; margin: 0 0 var(--hb-space-5); }
+  #app .hb-landing-benefits { margin: 0 0 var(--hb-space-4); align-items: stretch; gap: var(--hb-space-3); }
+  #app .hb-landing-benefits .hb-benefit { height: 100%; justify-content: flex-start; }
+  #app .hb-landing-benefits .hb-benefit strong { line-height: var(--hb-leading-label); }
+  #app .hb-landing-actions { margin-block: var(--hb-space-3); align-items: stretch; }
+  #app .hb-landing-actions button { margin: 0 !important; display: inline-flex; align-items: center; justify-content: center; gap: var(--hb-space-2); }
+  #app .hb-landing-actions .hb-icon { margin: 0; flex-shrink: 0; }
+  #app .hb-landing-note { margin: var(--hb-space-3) 0 0 !important; }
+  #app .panel { padding: var(--hb-panel-pad) !important; margin-block: 0 var(--hb-space-5); }
+  #app .grid { align-items: stretch; gap: var(--hb-space-4) !important; }
+  #app .grid > .card { padding: var(--hb-card-pad) !important; margin: 0 !important; }
+  #app .grid > .card > .hb-place-photo { margin: calc(-1 * var(--hb-card-pad)) calc(-1 * var(--hb-card-pad)) var(--hb-space-3) !important; flex-shrink: 0; }
+  #app .grid > .card > .hb-place-photo:is([data-photo-state="pending"],[data-photo-state="unavailable"]) { margin: 0 0 var(--hb-space-2) !important; }
+  #app .hb-detail-photo { margin: var(--hb-space-3) 0 var(--hb-space-5) !important; }
+  #app .hb-recommend-card { display: flex; flex-direction: column; }
+  #app .hb-recommend-card h3 { margin: var(--hb-space-2) 0; }
+  #app .hb-recommend-card > .actions { margin-top: auto; padding-top: var(--hb-space-3); }
+  #app .hb-card-top { align-items: center; justify-content: flex-start; gap: var(--hb-space-2); }
+  #app :is(.chip,.hb-recommend-state,.hb-evidence-status) { line-height: var(--hb-leading-label); max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+  #app .hb-photo-credit { font-size: var(--hb-text-xs); line-height: var(--hb-leading-label); }
+  #app .row { align-items: flex-end; gap: var(--hb-space-3); margin-block: var(--hb-space-3); }
+  #app .field { flex: 1 1 180px; min-width: min(100%, 180px); }
+  #app .field > label { margin: 0 0 var(--hb-space-2); line-height: var(--hb-leading-label); }
+  #app .field > :is(input,select,textarea) { margin: 0; }
+  #app .actions { align-items: stretch; gap: var(--hb-space-2); margin-block: var(--hb-space-4) 0; }
+  #app .actions > :is(button,a) { margin: 0 !important; }
+  #app .hb-choice-grid { align-items: stretch; gap: var(--hb-space-3); margin-block: var(--hb-space-3) var(--hb-space-5); }
+  #app .hb-choice { margin: 0; display: flex; align-items: center; text-align: left; }
+  #app ol.hb-progress {
+    border: 0 !important; background: transparent !important;
+    padding: 0; margin-block: 0 var(--hb-space-5); gap: var(--hb-space-2); align-items: stretch;
+  }
+  #app ol.hb-progress li { justify-content: flex-start; line-height: var(--hb-leading-label); }
+  #app .hb-step-num { flex: 0 0 30px; }
+  #app .hb-selection-bar { gap: var(--hb-space-2) var(--hb-space-3); align-items: center; }
+  #app .hb-selection-bar h2 { font-size: var(--hb-text-lg); margin: 0; }
+  #app .hb-selected-places li { margin: 0; padding-block: var(--hb-space-2); gap: var(--hb-space-2); }
+  #app .hb-selected-places li button { margin: 0; }
+  #app .hb-filter-bar { gap: var(--hb-space-2); margin-block: var(--hb-space-4); }
+  #app .hb-result-section { margin-block: var(--hb-space-5) var(--hb-space-6); }
+  #app .hb-evidence-head { align-items: baseline; gap: var(--hb-space-2); }
+  #app .hb-evidence-row { padding: var(--hb-space-4); margin-block: var(--hb-space-3); }
+  #app .hb-plan-generator { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: var(--hb-space-2) var(--hb-space-3); }
+  #app .hb-plan-generator > * { grid-column: 1 / -1; }
+  #app .hb-plan-generator > #hb-plan-start { grid-column: 1; width: 100%; margin: 0; }
+  #app .hb-plan-generator > #hb-plan-regenerate { grid-column: 2; margin: 0; }
+  #app .hb-plan-generator > :is(h2,p,label) { margin: 0; }
+  #app .hb-plan-view-controls { gap: var(--hb-space-2); margin: 0 0 var(--hb-space-2) !important; }
+  #app .hb-itinerary-row { gap: var(--hb-space-3); align-items: flex-start; }
+  #app .hb-itinerary-row h3 { margin: 0 0 var(--hb-space-2); }
+  #app .hb-itinerary-flags { gap: var(--hb-space-2) var(--hb-space-3); align-items: center; }
+  #app .hb-itinerary-flags label { margin: 0; line-height: var(--hb-leading-label); }
+  #app .hb-stop-editor { gap: var(--hb-space-3); margin-block: var(--hb-space-3); align-items: end; }
+  #app .hb-stop-fields { gap: var(--hb-space-3); }
+  #app .hb-stop-actions { gap: var(--hb-space-2); }
+  #app .hb-stop-field input { height: auto; min-height: var(--hb-touch); }
+  #app .hb-stop-field label { margin-bottom: var(--hb-space-2); }
+  #app .hb-replan-compare { gap: var(--hb-space-4); align-items: stretch; }
+  #app .hb-replan-compare > div { min-width: 0; }
+  #app #hb-share-receiver .hb-share-stop { padding-block: var(--hb-space-4); margin-block: 0 !important; }
+  #app #hb-share-receiver .hb-share-stop time { margin-right: var(--hb-space-3); }
+  /* Preserve explicitly requested senior/large-type settings despite compact defaults. */
+  #app .hb-large-plan { letter-spacing: var(--hb-track-body); line-height: 1.75; }
+  #app .hb-large-plan h1 { font-size: clamp(1.875rem, 5vw, 2.5rem); }
+  #app .hb-large-plan h2 { font-size: clamp(1.5rem, 4vw, 1.875rem); }
+  #app .hb-large-plan .hb-itinerary-row h3 { font-size: 1.5rem; }
+  #app .hb-large-plan :is(p,li,label,button,input,select,.muted,.hb-plan-meta) { font-size: 1.25rem !important; line-height: 1.75 !important; }
+  #app .hb-large-plan :is(button,input,select) { min-height: 52px; }
+  @media (max-width: 560px) {
+    main#app { padding-top: var(--hb-space-4) !important; }
+    body > header nav { width: 100%; justify-content: flex-start; }
+    #app .hb-landing-hero { padding: var(--hb-space-5) var(--hb-space-4) !important; }
+    #app .hb-landing-benefits { gap: var(--hb-space-2); }
+    #app .hb-landing-intro { font-size: var(--hb-text-md); }
+    #app .hb-plan-generator { grid-template-columns: minmax(0, 1fr); }
+    #app .hb-plan-generator > :is(#hb-plan-start,#hb-plan-regenerate) { grid-column: 1; width: 100%; }
+    #app .hb-selection-bar { align-items: stretch; }
+    #app .hb-stop-field { min-width: min(100%, 128px); }
+  }
+  @media (max-width: 400px) {
+    #app .hb-landing-hero h1 { font-size: 1.875rem; }
+    #app .hb-landing-benefits .hb-benefit { padding: var(--hb-space-3) !important; }
+    #app .hb-card-top { align-items: flex-start; }
+    #app .hb-selection-bar h2 { font-size: var(--hb-text-md); }
+  }
+}
+
+/* Original Butter & Rose illustrations; existing labels and real photos stay intact. */
+.hb-art-slot { display:inline-flex; flex:0 0 auto; align-items:center; justify-content:center; vertical-align:middle; margin-inline-end:var(--hb-space-2); pointer-events:none; }
+.hb-illustration { display:block; max-width:100%; width:100%; height:auto; overflow:visible; }
+.hb-art-label { width:30px; height:30px; }
+.hb-art-mini { width:48px; height:44px; }
+.hb-art-timeline { width:48px; height:44px; background:var(--hb-paper); border-radius:var(--hb-radius-sm); padding:4px; }
+.hb-art-spot { width:86px; height:76px; }
+.hb-art-feature { width:68px; height:62px; margin:0; }
+.hb-art-choice { width:56px; height:52px; margin:0; }
+.hb-art-hero { width:clamp(130px,25vw,280px); float:right; margin:0 0 var(--hb-space-3) var(--hb-space-4); }
+#app .hb-landing-hero { display:flow-root; }
+#app .hb-landing-benefits .hb-benefit:has(>.hb-art-slot) > .hb-icon,
+#app .hb-how-grid > div:has(>.hb-art-slot) > .hb-icon { display:none!important; }
+#app .hb-landing-benefits, #app .hb-landing-actions { clear:both; }
+#app :is(.hb-choice,[data-hb-fatigue]):has(>.hb-art-slot) { display:flex; align-items:center; justify-content:center; flex-direction:column; gap:var(--hb-space-2); text-align:center; padding:12px 8px; min-height:108px; }
+#app .hb-choice-grid:has(.hb-art-choice) { grid-template-columns:repeat(auto-fit,minmax(min(100%,128px),1fr)); }
+#app .hb-fatigue-buttons:has(.hb-art-choice) { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+#app .hb-fatigue-buttons button { min-width:0; }
+#app .hb-art-slot + .hb-art-slot { display:none; }
+#app .hb-itinerary-row h3, #app .hb-evidence-head strong { overflow-wrap:anywhere; }
+#app .hb-share-stop .hb-art-label { margin-inline-start:4px; }
+#app .hb-art-slot:where(.hb-art-label,.hb-art-mini,.hb-art-spot) { vertical-align:middle; }
+@media(max-width:560px){
+ #app .hb-art-hero { width:clamp(100px,30vw,140px); margin:0 0 8px 8px; }
+ #app .hb-landing-hero h1 { text-wrap:wrap; }
+ #app .hb-art-spot { width:66px; height:60px; }
+ #app .hb-art-feature { width:56px; height:52px; }
+ #app .hb-fatigue-buttons button { font-size:14px; padding-inline:4px; }
+}
+@media(max-width:360px){
+ #app .hb-art-hero { float:none; display:flex; width:112px; margin:0 auto 8px; }
+ #app .hb-fatigue-buttons { grid-template-columns:repeat(3,minmax(0,1fr)); }
+ #app .hb-art-choice { width:48px; height:44px; }
+}
+@media print{.hb-art-slot{display:none!important;}}
+
+/* Roomier vertical rhythm; preserve compact map controls, sticky tray and print. */
+@media screen {
+ #app > :is(section,article.panel):not(:last-child) { margin-block-end:var(--hb-section-gap); }
+ #app > .hb-landing-how { margin-block-start:0; }
+ #app .hb-landing-hero h1 { line-height:1.32; margin-block:16px 20px; }
+ #app .hb-landing-intro { line-height:1.85; margin-block-end:32px; }
+ #app h1 { margin-block-end:24px; }
+ #app h2 { margin-block-end:20px; }
+ #app h3 { margin-block-start:24px; margin-block-end:12px; }
+ #app p:where(:not(#nearby-map *):not(#hb-trip-map *)) { margin-block-end:var(--hb-paragraph-gap); }
+ #app :is(.panel,.card,.hb-profile-summary,.hb-rpl-card) > p:last-child { margin-block-end:0; }
+ #app .panel { margin-block-end:32px; }
+ #app > .panel { margin-block-end:var(--hb-section-gap); }
+ #app .grid { gap:var(--hb-card-gap)!important; }
+ #app .hb-how-grid { gap:var(--hb-card-gap); }
+ #app .hb-how-grid > div { padding:24px; }
+ #app .hb-how-grid > div > .hb-art-slot, #app .hb-benefit > .hb-art-slot { display:inline-flex; margin-block-end:8px; }
+ #app .hb-how-grid strong { line-height:1.55; }
+ #app .hb-how-grid p { margin-block:12px 0; line-height:1.85; }
+ #app .hb-landing-benefits { gap:20px; margin-block-end:28px; }
+ #app .hb-landing-benefits .hb-benefit { padding:20px!important; gap:12px; }
+ #app .hb-landing-actions { gap:12px; margin-block:24px; }
+ #app .hb-landing-note { margin-block-start:20px!important; }
+ #app .hb-choice-grid { gap:16px; margin-block:20px 32px; }
+ #app .row { gap:16px; margin-block:20px; }
+ #app .actions { gap:12px; margin-block-start:24px; }
+ #app .hb-result-section { margin-block:32px 40px; }
+ #app .hb-evidence-row { margin-block:20px; padding:20px; }
+ #app .hb-plan-generator { row-gap:16px; }
+ #app .hb-plan-generator > :is(h2,p,label) { margin:0; }
+ #app .hb-itinerary-row { gap:20px; }
+ #app .hb-itinerary-row h3 { margin:0 0 12px; }
+ #app .hb-recommend-card h3 { margin-block:12px; }
+ #app #hb-share-receiver .hb-share-stop { padding-block:24px; }
+ #app .hb-large-plan :is(p,li,label,button,input,select,.muted,.hb-plan-meta) { line-height:1.85!important; }
+ #app .hb-home-photo-gallery { margin-block:0 var(--hb-section-gap); }
+ #app .hb-home-photo-gallery .hb-gallery-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--hb-card-gap); }
+ #app .hb-gallery-card { min-width:0; border:1px solid var(--hb-line); border-radius:var(--hb-radius); overflow:hidden; background:var(--hb-surface); }
+ #app .hb-gallery-card .hb-place-photo { margin:0!important; height:clamp(164px,24vw,260px); border-radius:0; aspect-ratio:auto; }
+ #app .hb-gallery-card .hb-place-photo img { height:100%; width:100%; object-fit:cover; }
+ #app .hb-gallery-card h3 { margin:16px 20px 20px; }
+ #app .hb-gallery-card .hb-photo-credit { max-width:calc(100% - 16px); white-space:normal; overflow-wrap:anywhere; }
+ @media(max-width:560px) {
+  #app .hb-how-grid > div { padding:20px; }
+  #app .hb-landing-benefits { gap:12px; }
+  #app .hb-landing-benefits .hb-benefit { padding:16px!important; }
+  #app .hb-home-photo-gallery .hb-gallery-grid { grid-template-columns:1fr; gap:20px; }
+ }
+ @media(max-width:360px) { #app .grid > .card { padding:20px!important; } #app .grid > .card > .hb-place-photo { margin-inline:-20px!important; } }
+}
+
+/* Only show a photo region when an actual approved image exists.
+   Pending targets stay measurable for IntersectionObserver. Missing list photos
+   retain their internal state, but never repeat an empty block on every card.
+   Attribution remains visible below the image (not across the photograph). */
+@media screen {
+ #app .grid > .card > .hb-place-photo[data-photo-state="unavailable"] { display:none!important; }
+ #app .hb-place-photo:is([data-photo-state="loading"],[data-photo-state="loaded"]) {
+  height:auto!important; aspect-ratio:auto!important; display:flex; flex-direction:column;
+  align-items:stretch; justify-content:flex-start; background:var(--hb-surface)!important;
+ }
+ #app .hb-place-photo:is([data-photo-state="loading"],[data-photo-state="loaded"]) img {
+  width:100%; height:auto; aspect-ratio:16/10; object-fit:cover; flex:none;
+ }
+ #app .hb-detail-photo:is([data-photo-state="loading"],[data-photo-state="loaded"]) img {
+  aspect-ratio:auto; object-fit:contain; max-height:440px;
+ }
+ #app .hb-home-photo-gallery .hb-gallery-card .hb-place-photo:is([data-photo-state="loading"],[data-photo-state="loaded"]) img {
+  aspect-ratio:16/10; height:auto;
+ }
+ #app .hb-place-photo .hb-photo-credit {
+  position:static; display:block; align-self:stretch; width:auto; max-width:none;
+  padding:8px 12px; background:var(--hb-surface); color:var(--hb-muted);
+  font-size:12px; line-height:1.55; font-weight:400; border-radius:0;
+  overflow-wrap:anywhere; white-space:normal; text-decoration:underline; text-underline-offset:2px;
+ }
+ #app .hb-gallery-card .hb-place-photo .hb-photo-credit { max-width:none; }
+ #app .hb-gallery-card h3 { margin-top:12px; }
+}

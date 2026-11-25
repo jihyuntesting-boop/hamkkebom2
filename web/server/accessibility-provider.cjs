@@ -23,7 +23,9 @@ function bounded(n,min,max) {
 }
 function responseCode(code) {
   const c=String(code??'').padStart(2,'0');
-  if (['20','21','22','30','31','32','33'].includes(c)) return c==='22'?'quota':'auth';
+  if (['22','23'].includes(c)) return 'quota';
+  if (c==='05') return 'timeout';
+  if (['20','21','30','31','32','33'].includes(c)) return 'auth';
   return 'upstream';
 }
 function parsePage(provider, json) {

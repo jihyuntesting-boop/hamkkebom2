@@ -2,6 +2,9 @@
 
 // Agent J: place API only. The weather route remains Agent C's responsibility.
 const SNAPSHOT = require('../catalog/places.v1.json');
+const LANDMARKS = require('../catalog/nearby-landmark-supplement.v1.json');
+const {enrichCatalog}=require('./catalog-accessibility.cjs');
+const {attachLegacyAccessNotes}=require('./legacy-accessibility-notes.cjs');
 const SOURCE_URL = 'https://www.data.go.kr/data/15101578/openapi.do';
 const BASE_URL = 'https://apis.data.go.kr/B551011/KorService2/areaBasedList2';
 const REGION_CODES = { '서울': '1', '경기': '31' };
@@ -98,13 +101,27 @@ function classifyUpstream(status) {
   return new PlaceError('upstream_unavailable', 502, status);
 }
 
-async function fetchType(region, type, kind, { fetcher, key, checkedAt }) {
-  const url = new URL(BASE_URL);
+// The provider's category is not a safety assessment. Preserve unknown classifications.
+const subtypeByCat2={A0101:'자연 관광지',A0102:'자연 관광자원',A0201:'역사·문화유산',A0202:'휴양·여가',A0203:'체험시설',A0204:'산업관광',A0205:'건축·조형',A0206:'문화시설',A0207:'축제',A0208:'행사'};
+function discoveryFields(item,kind){
+  const cat2=typeof item?.cat2==='string'&&/^[A-Z][0-9]{4}$/.test(item.cat2)?item.cat2:null;
+  const subtype=kind==='food'?'음식점':kind==='culture'?'문화시설':subtypeByCat2[cat2]||'관광지 · 세부 유형 미확인';
+  return {subtype,providerCategoryCode:cat2};
+}
+function pastDatedEvent(p,now){
+  // Only suppress explicitly past-year event titles, not historic sites or a year in an ordinary name.
+  const match=p.name.match(/^(?:제\s*)?(20\d{2})\s*(?:년\s*)?/);
+  const year=Number(new Intl.DateTimeFormat('en',{timeZone:'Asia/Seoul',year:'numeric'}).format(new Date(now)));
+  return p.kind!=='food'&&Boolean(match)&&Number(match[1])<year&&(/축제|페어|박람회|페스티벌|행사|콘서트|공연|전시회/.test(p.name)||['A0207','A0208'].includes(p.providerCategoryCode));
+}
+async function fetchType(region, type, kind, { fetcher, key, checkedAt, center, radiusMeters }) {
+  const url = new URL(center ? BASE_URL.replace('areaBasedList2','locationBasedList2') : BASE_URL);
   // The key stays server-side. Never log or return the full request URL.
   for (const [k,v] of Object.entries({
     serviceKey: key, MobileOS: 'ETC', MobileApp: 'HAMKKEBOM',
-    _type: 'json', arrange: 'A', pageNo: '1',
-    numOfRows: String(MAX_PER_TYPE), areaCode: REGION_CODES[region], contentTypeId: type
+    _type: 'json', arrange: center?'E':'A', pageNo: '1',
+    numOfRows: String(MAX_PER_TYPE), contentTypeId: type,
+    ...(center ? {mapX:String(center.lng),mapY:String(center.lat),radius:String(radiusMeters)} : {areaCode: REGION_CODES[region]})
   })) url.searchParams.set(k,v);
   let response;
   try {
@@ -136,7 +153,11 @@ async function fetchType(region, type, kind, { fetcher, key, checkedAt }) {
     Array.isArray(rawItems) ? rawItems : [rawItems];
   return {
     total: Number(body.totalCount),
-    places: items.map(item => normalizeTour(item, kind, region, checkedAt)).filter(Boolean)
+    places: items.filter(item=>!center || String(item?.contenttypeid??'')===type)
+      .map(item => {
+        const p=normalizeTour(item,kind,center?regionFor(typeof item?.addr1==='string'?item.addr1:''):region,checkedAt);
+        return p&&center?{...p,...discoveryFields(item,kind)}:p;
+      }).filter(Boolean)
   };
 }
 
@@ -159,14 +180,18 @@ async function getCatalog(region, options = {}) {
     const checkedAt = new Date(options.now || now).toISOString();
     const results = await Promise.all(TYPES.map(([type,kind]) =>
       fetchType(region,type,kind,{fetcher,key,checkedAt})));
-    const places = uniquePlaces(results.flatMap(r=>r.places));
+    const places = uniquePlaces(results.flatMap(r=>r.places))
+      .map(place=>attachLegacyAccessNotes(place,options.now || now));
+    const historicalNotesCount = places.filter(p=>p.accessFacts.some(f=>f.historical===true)).length;
     const partial = results.some(r=>r.total > MAX_PER_TYPE || r.places.length < Math.min(r.total,MAX_PER_TYPE));
     const result = {
       region, mode: 'live', places,
       meta: {source:'한국관광공사 국문 관광정보 TourAPI', catalogVersion:'tourapi2-page1-v1',
         fetchedAt: checkedAt, sourceUpdatedAt: null, dataStatus: partial?'partial':'ok',
-        partial, coverage:'first_page_per_category', totalAvailable: results.reduce((n,r)=>n+r.total,0)},
-      warnings: partial?['MVP 데이터는 카테고리별 첫 페이지로 제한됩니다. 모든 장소를 포함하지 않습니다.']:[]
+        partial, coverage:'first_page_per_category', totalAvailable: results.reduce((n,r)=>n+r.total,0),
+        historicalNotesCount},
+      warnings: [...(partial?['MVP 데이터는 카테고리별 첫 페이지로 제한됩니다. 모든 장소를 포함하지 않습니다.']:[]),
+        ...(historicalNotesCount?['일부 시설 안내는 기존 공개 API 관측 기록입니다. 원천 갱신일과 현장 이동 가능 여부는 확인되지 않았습니다.']:[])]
     };
     if (useCache) cache.set(region,{expires:now+CACHE_MS,value:result});
     return result;
@@ -183,12 +208,146 @@ function distanceMeters(a,b) {
 }
 async function allPlaces(options) {
   const results=await Promise.all(['서울','경기'].map(region=>getCatalog(region,options)));
-  return {places:uniquePlaces(results.flatMap(r=>r.places)), sources:results};
+  // getCatalog already normalized every place. Keep first occurrence without
+  // stripping historical provenance in a second normalization pass.
+  const byId=new Map();
+  for(const place of results.flatMap(r=>r.places))if(!byId.has(place.id))byId.set(place.id,place);
+  return {places:[...byId.values()], sources:results};
 }
 function decorateDistances(places,center,limit) {
   return places.map(p=>({...p,distanceKm:Math.round(distanceMeters(p,center)/100)/10}))
     .sort((a,b)=>a.distanceKm-b.distanceKm || a.id.localeCompare(b.id))
     .slice(0,limit);
+}
+
+// Nearby is a separately bounded operation on the already-connected TourAPI.
+// Do not turn on the gated nationwide rich-tour service or accessibility enrichment.
+const nearbyCache=new Map(),nearbyPending=new Map();
+let nearbyActive=0,nearbyCooldownUntil=0;
+const NEARBY_RADIUS=10000;
+const NEARBY_LIMIT=50;
+function nearbyCategory(value){
+  if(value==null)return 'all'; // legacy API consumers
+  if(typeof value!=='string'||!['all','spot','food'].includes(value))throw new PlaceError('invalid_category',400);
+  return value;
+}
+function matchesCategory(p,filter){return filter==='all'||filter==='food'&&p.kind==='food'||filter==='spot'&&['spot','culture'].includes(p.kind);}
+async function nearbySearch(center,filter,options={}){
+  const env=options.env||process.env;
+  const key=[env.HB_TOURAPI_KEY,env.DATA_GO_KR_KEY].find(v=>typeof v==='string'&&v.trim())?.trim();
+  const types=TYPES.filter(([type,kind])=>matchesCategory({kind},filter));
+  const makeResult=(records,mode,coverage,checkedAt,failures=[])=>{
+    const inRange=records.filter(p=>matchesCategory(p,filter)&&distanceMeters(p,center)<=NEARBY_RADIUS);
+    const hiddenPastEvents=inRange.filter(p=>pastDatedEvent(p,checkedAt?Date.parse(checkedAt):Date.now())).length;
+    const valid=inRange.filter(p=>!pastDatedEvent(p,checkedAt?Date.parse(checkedAt):Date.now()));
+    const distinct=[...new Map(valid.map(p=>[p.id,p])).values()];
+    // A provider location search may omit known landmarks. Supplement exact ID/address/coordinates
+    // from separately observed official keyword results, never fake a live result or safety.
+    const supplement=[];
+    if(mode==='live'&&filter!=='food'){
+      for(const raw of LANDMARKS.records){
+        const p=normalizePlace({...raw,source:'한국관광공사 TourAPI 키워드 조회 보강',collectedAt:LANDMARKS.collectedDate});
+        if(p&&!distinct.some(x=>x.id===p.id)&&distanceMeters(p,center)<=NEARBY_RADIUS){
+          const item={...p,subtype:raw.subtype,discoverySource:'keyword_snapshot',accessStatus:'unverified',accessFacts:[]};
+          distinct.push(item);supplement.push(item.id);
+        }
+      }
+    }
+    // In the explicit all view, reserve room for every available category.
+    // The default attraction view queries only types 12 and 14.
+    const selected=filter==='all'
+      ? [...new Map([...types.flatMap(([type,kind])=>decorateDistances(distinct.filter(p=>p.kind===kind),center,Math.floor(NEARBY_LIMIT/types.length))),...decorateDistances(distinct,center,NEARBY_LIMIT)].map(p=>[p.id,p])).values()].slice(0,NEARBY_LIMIT)
+      : decorateDistances(distinct,center,NEARBY_LIMIT);
+    const places=selected.sort((a,b)=>a.distanceKm-b.distanceKm||a.id.localeCompare(b.id));
+    const partial=mode!=='live'||failures.length>0||coverage.some(x=>x.total==null||x.returned<x.total)||places.length<distinct.length||hiddenPastEvents>0||supplement.length>0;
+    return {mode,center,radiusMeters:NEARBY_RADIUS,category:filter,count:places.length,
+      source:'한국관광공사 국문 관광정보',distanceType:'straight_line',
+      note:'서울·경기 일부 장소 · 직선거리이며 실제 보행거리·경사·이동 적합 여부는 확인되지 않음',
+      fetchedAt:checkedAt,meta:{dataStatus:partial?'partial':'ok',partial,sourceUpdatedAt:null,fetchedAt:checkedAt,coverage,failures,hiddenPastEvents,supplementedIds:supplement,searchMethod:mode==='live'?'locationBasedList2':'saved_snapshot'},
+      places:places.map(p=>({...p,subtype:p.subtype||(p.kind==='food'?'음식점':p.kind==='culture'?'문화시설':'관광지 · 세부 유형 미확인')}))};
+  };
+  if(!key){
+    const records=['서울','경기'].flatMap(region=>staticCatalog(region).places);
+    return makeResult(records,'snapshot',[],null);
+  }
+  const useCache=!options.fetcher&&!options.now;
+  const now=options.now||Date.now(), fetcher=options.fetcher||globalThis.fetch;
+  // Cache the exact validated request center in bounded process memory only.
+  const cacheKey=filter+':'+center.lat+','+center.lng;
+  if(useCache&&nearbyCache.get(cacheKey)?.expires>now)return nearbyCache.get(cacheKey).value;
+  if(useCache&&nearbyPending.has(cacheKey))return nearbyPending.get(cacheKey);
+  if(useCache&&(now<nearbyCooldownUntil||nearbyActive+types.length>6))throw new PlaceError('upstream_rate_limited',503);
+  const task=(async()=>{
+    if(useCache)nearbyActive+=types.length;
+    try{
+      const checkedAt=new Date(now).toISOString();
+      // Max 3 calls/uncached request, one page per selected category; no automatic expansion/retries.
+      const results=await Promise.allSettled(types.map(([type,kind])=>fetchType(null,type,kind,{fetcher,key,checkedAt,center,radiusMeters:NEARBY_RADIUS})));
+      const failures=[],coverage=[],records=[];
+      for(let i=0;i<results.length;i++){
+        const [type,kind]=types[i],r=results[i];
+        if(r.status==='rejected'){
+          const e=r.reason instanceof PlaceError?r.reason:new PlaceError('upstream_unavailable');
+          failures.push({kind,code:e.code});
+          if(useCache&&e.code==='upstream_rate_limited')nearbyCooldownUntil=Date.now()+60000;
+          coverage.push({kind,total:null,returned:0});
+        }else{
+          const valid=r.value.places.filter(p=>distanceMeters(p,center)<=NEARBY_RADIUS);
+          records.push(...valid.map(p=>attachLegacyAccessNotes(p,now)));
+          coverage.push({kind,total:r.value.total,returned:valid.length});
+        }
+      }
+      if(results.every(r=>r.status==='rejected'))throw results[0].reason;
+      const result=makeResult(records,'live',coverage,checkedAt,failures);
+      // A failed category must be visible, never cached as complete or as genuine empty.
+      if(useCache&&failures.length===0){
+        nearbyCache.set(cacheKey,{expires:now+CACHE_MS,value:result});
+        while(nearbyCache.size>128)nearbyCache.delete(nearbyCache.keys().next().value);
+      }
+      return result;
+    }finally{if(useCache)nearbyActive-=types.length;}
+  })();
+  if(useCache)nearbyPending.set(cacheKey,task);
+  try{return await task;}finally{if(useCache)nearbyPending.delete(cacheKey);}
+}
+
+const detailCache=new Map(),detailPending=new Map();
+let detailActive=0,detailCooldownUntil=0;
+async function resolveRoutePlace(id,region,{fetcher=globalThis.fetch,env=process.env}={}){
+  if(!validId(id)||!Object.hasOwn(REGION_CODES,region))return null;
+  const key=[env.HB_TOURAPI_KEY,env.DATA_GO_KR_KEY].find(v=>typeof v==='string'&&v.trim())?.trim();
+  if(!key)return null;
+  const useCache=fetcher===globalThis.fetch, now=Date.now(), cacheKey=region+':'+id;
+  if(useCache&&detailCache.get(cacheKey)?.expires>now)return detailCache.get(cacheKey).place;
+  if(useCache&&detailPending.has(cacheKey))return detailPending.get(cacheKey);
+  if(useCache&&(detailActive>=3||now<detailCooldownUntil))return null;
+  const task=(async()=>{
+    if(useCache)detailActive++;
+    try{
+      const url=new URL(BASE_URL.replace('areaBasedList2','detailCommon2'));
+      for(const [k,v] of Object.entries({serviceKey:key,MobileOS:'ETC',MobileApp:'HAMKKEBOM',_type:'json',contentId:id.slice(5)}))url.searchParams.set(k,v);
+      const response=await fetcher(url.toString(),{signal:AbortSignal.timeout(4000),headers:{Accept:'application/json'}});
+      if(!response?.ok){
+        if(useCache&&response?.status===429)detailCooldownUntil=Date.now()+60000;
+        return null;
+      }
+      const payload=await response.json(),header=String(payload?.response?.header?.resultCode??'');
+      if(header!=='0000'){
+        if(useCache&&['22','23'].includes(header))detailCooldownUntil=Date.now()+60000;
+        return null;
+      }
+      const body=payload.response.body,raw=body?.items?.item,items=Array.isArray(raw)?raw:raw&&typeof raw==='object'?[raw]:[];
+      if(Number(body?.totalCount)!==1||items.length!==1||String(items[0].contentid)!==id.slice(5))return null;
+      const kind=TYPES.find(([type])=>type===String(items[0].contenttypeid))?.[1];
+      if(!kind)return null;
+      const place=normalizeTour(items[0],kind,region,new Date(now).toISOString());
+      if(!place||pastDatedEvent(place,now))return null;
+      if(useCache){detailCache.set(cacheKey,{place,expires:now+CACHE_MS});while(detailCache.size>128)detailCache.delete(detailCache.keys().next().value);}
+      return place;
+    }catch{return null;}finally{if(useCache)detailActive--;}
+  })();
+  if(useCache)detailPending.set(cacheKey,task);
+  try{return await task;}finally{if(useCache)detailPending.delete(cacheKey);}
 }
 
 function queryParams(req) {
@@ -235,25 +394,17 @@ async function serve(kind,req,res,options={}) {
       if (query.type === 'weather')
         throw new PlaceError('weather_handler_not_connected',501); // Agent C, not Agent J.
       if (query.type !== 'places') throw new PlaceError('invalid_type',400);
-      const result=await getCatalog(query.region,options);
-      res.setHeader('Cache-Control','public, max-age=0, s-maxage=300');
+      const result=await enrichCatalog(await getCatalog(query.region,options),options);
+      res.setHeader('Cache-Control',result.meta.accessibility?'no-store':'public, max-age=0, s-maxage=300');
       return res.status(200).json(result);
     }
     const center=validateLocation(query);
+    if(kind==='nearby')return res.status(200).json(await nearbySearch(center,nearbyCategory(query.category),options));
     const {places,sources}=await allPlaces(options);
     const meta={dataStatus:sources.some(s=>s.meta.partial)?'partial':'ok',
       partial:sources.some(s=>s.meta.partial),sourceUpdatedAt:null,
       fetchedAt:sources.find(s=>s.meta.fetchedAt)?.meta.fetchedAt || null,
       coverage:sources.map(s=>({region:s.region,mode:s.mode,count:s.places.length}))};
-    if (kind === 'nearby') {
-      const radiusMeters=10000;
-      const nearby=decorateDistances(places.filter(p=>distanceMeters(p,center)<=radiusMeters),center,50);
-      return res.status(200).json({mode:sources.every(s=>s.mode==='live')?'live':'snapshot',
-        center,radiusMeters,count:nearby.length,
-        source:'한국관광공사 국문 관광정보',distanceType:'straight_line',
-        note:'직선거리이며 실제 보행거리·경사·이동 적합 여부는 확인되지 않음',
-        fetchedAt:meta.fetchedAt,meta,places:nearby.map(p=>({...p,subtype:p.kind==='food'?'음식점':'관광지'}))});
-    }
     if (kind === 'featured') {
       const radiusKm=42;
       const candidates=places.filter(p=>FEATURED_IDS.has(p.id)&&p.name ===
@@ -271,4 +422,4 @@ async function serve(kind,req,res,options={}) {
 }
 
 module.exports = {getCatalog,staticCatalog,normalizePlace,normalizeTour,uniquePlaces,
-  distanceMeters,validateLocation,serve,PlaceError};
+  distanceMeters,validateLocation,serve,PlaceError,resolveRoutePlace};

@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "source": "TourAPI KorService2 searchKeyword2 via existing live preview dpl_Ec1cKGV17m7RJvjB9dNxAZsTVtBr",
+  "sourceUrl": "https://www.data.go.kr/data/15101578/openapi.do",
+  "collectedDate": "2026-11-26",
+  "scope": "Observed keyword response, not live location response, popularity ranking, or verified accessibility. Local radius supplement only.",
+  "records": [
+    {
+      "id": "tour-126525",
+      "name": "서울 선릉과 정릉 [유네스코 세계유산]",
+      "address": "서울특별시 강남구 선릉로100길 1",
+      "lat": 37.5088,
+      "lng": 127.0486,
+      "region": "서울",
+      "kind": "spot",
+      "subtype": "역사·문화유산",
+      "accessStatus": "unverified"
+    },
+    {
+      "id": "tour-126504",
+      "name": "봉은사(서울)",
+      "address": "서울특별시 강남구 봉은사로 531 (삼성동)",
+      "lat": 37.514861,
+      "lng": 127.057317,
+      "region": "서울",
+      "kind": "spot",
+      "subtype": "역사·문화유산",
+      "accessStatus": "unverified"
+    }
+  ]
+}

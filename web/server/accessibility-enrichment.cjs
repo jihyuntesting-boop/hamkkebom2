@@ -5,7 +5,9 @@ const {normalizePlaceEvidence,isoDate}=require('./access-evidence.cjs');
 const {SOURCES,idOf,createAccessibilityProvider}=require('./accessibility-provider.cjs');
 const FIELDS=Object.freeze({
   stairs:'stairs',stairCount:'stairCount',ramp:'ramp',stepFreeEntrance:'stepFreeEntrance',
-  wheelchairEntrance:'wheelchairEntrance',elevator:'elevator',accessibleToilet:'accessibleToilet',
+  wheelchairEntrance:'wheelchairEntrance',wheelchairRental:'wheelchairRental',
+  publicTransport:'publicTransport',seating:'seating',otherAccessNotes:'otherAccessNotes',
+  elevator:'elevator',accessibleToilet:'accessibleToilet',
   accessibleParking:'accessibleParking',parkingToEntrance:'parkingToEntrance',walkingPath:'walkingPath',restFacilities:'restFacilities'
 });
 const TOUR_FIELDS={
@@ -13,8 +15,13 @@ const TOUR_FIELDS={
   parking:{attribute:'parking',scope:'parking_unspecified',detail:'accessibleParking'},
   restroom:{attribute:'toilet',scope:'toilet_unspecified',detail:'accessibleToilet'},
   elevator:{attribute:'elevator',scope:'elevator_unspecified',detail:'elevator'},
-  route:{attribute:null,scope:'approach_unspecified',detail:'walkingPath'},
-  wheelchair:{attribute:null,scope:'wheelchair_service_unspecified',detail:null}
+  // In KorWithService2, route means public transit; publictransport is approach path.
+  // Neither field certifies the actual parking-to-entrance pedestrian route.
+  route:{attribute:null,scope:'transit_unspecified',detail:'publicTransport'},
+  publictransport:{attribute:null,scope:'approach_unspecified',detail:'walkingPath'},
+  wheelchair:{attribute:null,scope:'wheelchair_service_unspecified',detail:'wheelchairRental'},
+  auditorium:{attribute:null,scope:'auditorium_unspecified',detail:'seating'},
+  handicapetc:{attribute:null,scope:'facility_other_unspecified',detail:'otherAccessNotes'}
 };
 const clean=v=>typeof v==='string'&&v.trim()&&!/^(정보\s*없음|미확인|미상|해당\s*없음|null|undefined|-|N\/A)$/i.test(v.trim())?v.trim().slice(0,1200):null;
 const yn=v=>v==='Y'?true:v==='N'?false:null;
@@ -35,7 +42,10 @@ function evidence({provider,sourceId,sourceField,placeId=null,attribute=null,sco
   return {placeId,provider,sourceId,sourceField,attribute,scope,detail,value,
     description:description??null,sourceUrl:SOURCES[provider].sourceUrl,
     source:SOURCES[provider].sourceUrl,sourceType:'public_api',
-    sourceUpdatedAt,collectedAt,verifiedAt:null,evidenceGrade:'official_reported',
+    sourceUpdatedAt,collectedAt,sourceCheckedAt:collectedAt,verifiedAt:null,
+    // Portal's unrestricted dataset notice does not grant blanket photo rights.
+    license:provider==='tour'?'portal_unrestricted_dataset_non_image':'not_reviewed',
+    licenseSourceUrl:SOURCES[provider].sourceUrl,evidenceGrade:'official_reported',
     status:stale?'stale':'source_reported',stale};
 }
 function tourEvidence(place,page,{now=new Date(),maxAgeDays=365}={}){
