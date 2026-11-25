@@ -1053,3 +1053,33 @@ main { padding-inline: clamp(16px, 3vw, 32px); }
  #app .hb-gallery-card .hb-place-photo .hb-photo-credit { max-width:none; }
  #app .hb-gallery-card h3 { margin-top:12px; }
 }
+
+/* Home cards only: compact photo attribution (owner request 2026-11-26).
+   CC-BY/CC-BY-SA require author, license and change notice, so the credit is not
+   removed. On the main home cards (approved-photo gallery and nearby list) the
+   existing credit link collapses to a small "ⓘ 출처" chip on the photo; hover or
+   keyboard focus reveals the full text. The link keeps its href and aria-label,
+   so screen readers announce the full credit and a tap opens the original page.
+   Detail pages keep the full visible credit, and print (outside @media screen)
+   keeps the full text. Any future credit using .hb-photo-credit inside
+   .hb-place-photo (e.g. official TourAPI) follows the same rule. */
+@media screen {
+ #app :is(.hb-home-photo-gallery,#nearby-list) .hb-place-photo:not(.hb-detail-photo):is([data-photo-state="loading"],[data-photo-state="loaded"]) { position:relative; }
+ #app :is(.hb-home-photo-gallery,#nearby-list) .hb-place-photo:not(.hb-detail-photo) .hb-photo-credit {
+  position:absolute; top:auto; left:auto; right:8px; bottom:8px; z-index:1;
+  display:inline-flex; align-items:center; justify-content:center; align-self:auto;
+  box-sizing:border-box; width:auto; min-width:44px; min-height:44px; max-width:calc(100% - 16px);
+  margin:0; padding:0 12px; border:1px solid var(--hb-line)!important; border-radius:var(--hb-radius-pill);
+  background:var(--hb-surface)!important; color:var(--hb-ink)!important;
+  font-size:0; line-height:1; white-space:nowrap; overflow:hidden; text-decoration:none;
+ }
+ #app :is(.hb-home-photo-gallery,#nearby-list) .hb-place-photo:not(.hb-detail-photo) .hb-photo-credit::before {
+  content:"ⓘ 출처"; font-size:var(--hb-text-xs); font-weight:600; line-height:1;
+ }
+ #app :is(.hb-home-photo-gallery,#nearby-list) .hb-place-photo:not(.hb-detail-photo) .hb-photo-credit:is(:hover,:focus-visible) {
+  left:8px; justify-content:flex-start; max-width:none; padding:8px 12px; border-radius:var(--hb-radius-sm);
+  font-size:var(--hb-text-xs); line-height:1.55; font-weight:400; text-align:left;
+  white-space:normal; overflow-wrap:anywhere; text-decoration:underline; text-underline-offset:2px;
+ }
+ #app :is(.hb-home-photo-gallery,#nearby-list) .hb-place-photo:not(.hb-detail-photo) .hb-photo-credit:is(:hover,:focus-visible)::before { content:none; }
+}
