@@ -33,7 +33,16 @@ python3 scripts/build_core_modules.py --check
 python3 -m http.server 8000 --directory web
 ```
 
-브라우저에서 http://localhost:8000 을 엽니다. 두 번째 명령은 정적 화면 확인용이며 서버 API를 실행하지 않습니다. 지도 SDK는 공개본의 YOUR_NAVER_MAP_CLIENT_ID를 본인의 허용 도메인에 맞는 클라이언트 ID로 설정해야 합니다. 실제 API를 실행하려면 Vercel 등 호환 런타임과 공급자별 서버 환경변수 설정이 별도로 필요합니다. 이 저장소에는 운영 배포 설정이 포함되지 않습니다.
+브라우저에서 http://localhost:8000 을 엽니다. 두 번째 명령은 정적 화면 확인용이며 서버 API를 실행하지 않습니다.
+
+### API까지 함께 실행 (Node 18+)
+
+```sh
+cp .env.example .env.local   # 키 입력 (커밋 금지)
+node scripts/dev_server.cjs --port 3000
+```
+
+http://localhost:3000 에서 화면과 `/api/*` 핸들러가 함께 동작합니다. 외부 의존성은 없습니다. 키가 없으면 날씨·대표 관광지는 `missing_service_key`, 이동시간은 `provider_disabled`로 응답하고, 장소·주변·추천은 저장소의 카탈로그 스냅샷으로 동작합니다. `HB_NAVER_MAP_CLIENT_ID`를 설정하면 개발 서버가 화면 JS의 자리표시자에 서빙 시점에만 넣어 주며 소스 파일은 바뀌지 않습니다. 지도 SDK는 공개본의 YOUR_NAVER_MAP_CLIENT_ID를 본인의 허용 도메인에 맞는 클라이언트 ID로 설정해야 합니다. 실제 API를 실행하려면 Vercel 등 호환 런타임과 공급자별 서버 환경변수 설정이 별도로 필요합니다. 이 저장소에는 운영 배포 설정이 포함되지 않습니다.
 
 ## 데이터 및 신뢰
 
