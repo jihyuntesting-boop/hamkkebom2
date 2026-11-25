@@ -548,6 +548,19 @@ footer {
 /* Icons (replace emoji). Decorative; sized to the surrounding text. */
 .hb-icon { width: 1.2em; height: 1.2em; flex: none; vertical-align: -.22em; margin-right: .35em; }
 header b { display: inline-flex; align-items: center; }
+/* Keep the existing brand styling while making the whole logo a home link. */
+header .hb-brand-home {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--hb-touch);
+  min-width: var(--hb-touch);
+  text-decoration: none;
+}
+header .hb-brand-home:focus-visible {
+  outline: 3px solid var(--hb-ink);
+  outline-offset: 2px;
+  border-radius: var(--hb-radius);
+}
 .hb-brand-mark { width: 1em; height: 1em; }
 /* The editorial landing intentionally shows these lists without icons. */
 .hb-benefit .hb-icon, .hb-how-grid .hb-icon { display: none; }
