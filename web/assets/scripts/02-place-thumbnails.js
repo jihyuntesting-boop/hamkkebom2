@@ -3,8 +3,9 @@
 
   var root = document.getElementById('app');
   if (!root) return;
-  var observer;
   var pendingCatalog;
+  // A stalled catalog request must never leave cards in the pending state.
+  var CATALOG_TIMEOUT_MS = 10000;
   var placeIdPattern = /^tour-\d{1,12}$/;
   var acceptedLicenses = ['CC0-1.0', 'CC-BY-2.0', 'CC-BY-SA-2.0', 'CC-BY-4.0', 'CC-BY-SA-4.0', 'KOGL-TYPE-1', 'PD-self'];
 
@@ -38,17 +39,38 @@
 
   function catalog() {
     if (pendingCatalog) return pendingCatalog;
-    pendingCatalog = fetch('/photo-catalog.json', { credentials: 'same-origin', cache: 'no-cache' })
+    var controller = typeof AbortController === 'function' ? new AbortController() : null;
+    var timer = null;
+    var request = fetch('/photo-catalog.json', controller ?
+      { credentials: 'same-origin', cache: 'no-cache', signal: controller.signal } :
+      { credentials: 'same-origin', cache: 'no-cache' })
       .then(function (response) {
         if (!response.ok) throw new Error('Photo catalog ' + response.status);
         return response.json();
       })
       .then(function (data) {
-        return data && data.schemaVersion === 1 && data.photos &&
-          typeof data.photos === 'object' && !Array.isArray(data.photos) ? data.photos : Object.create(null);
-      })
-      .catch(function () { return Object.create(null); });
-    return pendingCatalog;
+        if (!(data && data.schemaVersion === 1 && data.photos &&
+          typeof data.photos === 'object' && !Array.isArray(data.photos))) throw new Error('Photo catalog schema');
+        return data.photos;
+      });
+    var limit = typeof setTimeout === 'function' ? new Promise(function (_, reject) {
+      timer = setTimeout(function () {
+        if (controller) controller.abort();
+        reject(new Error('Photo catalog timeout'));
+      }, CATALOG_TIMEOUT_MS);
+    }) : null;
+    var current = (limit ? Promise.race([request, limit]) : request)
+      .then(function (photos) {
+        if (timer !== null) clearTimeout(timer);
+        return photos;
+      }, function () {
+        if (timer !== null) clearTimeout(timer);
+        // Fail closed for the cards already waiting, but let a later render retry.
+        if (pendingCatalog === current) pendingCatalog = null;
+        return Object.create(null);
+      });
+    pendingCatalog = current;
+    return current;
   }
 
   function empty(photo, message) {
@@ -117,10 +139,11 @@
     return photo;
   }
 
-  function queue(photo) {
-    if (observer) observer.observe(photo);
-    else display(photo);
-  }
+  // Resolve the rights decision immediately from the single small catalog so that
+  // every card reaches a final state (loaded/loading image, or 미확인) even when it
+  // is below the fold, in a background tab, or read by text/print/screen readers.
+  // Only the approved image bytes are deferred, via native loading="lazy".
+  function queue(photo) { display(photo); }
 
   function cardId(card) {
     var control = card.querySelector('[data-hb-info], [data-hb-pick], [data-near-pick], [data-pick]');
@@ -194,16 +217,6 @@
   }
 
   function attach() { attachCards(); attachDetail(); attachHomeGallery(); }
-  if ('IntersectionObserver' in window) {
-    observer = new IntersectionObserver(function (entries) {
-      entries.forEach(function (entry) {
-        if (entry.isIntersecting) {
-          observer.unobserve(entry.target);
-          display(entry.target);
-        }
-      });
-    }, { rootMargin: '240px' });
-  }
   new MutationObserver(attach).observe(root, { childList: true, subtree: true });
   attach();
 })();

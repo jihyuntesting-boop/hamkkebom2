@@ -23,10 +23,20 @@ function validDate(value) {
   return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value && parsed.getTime() <= Date.now();
 }
 // Vercel system environment is trusted; never reflect a caller's Host header.
-function configuredOrigin() {
-  const host = process.env.VERCEL_URL;
-  return typeof host === 'string' && /^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\.vercel\.app$/i.test(host)
-    ? 'https://' + host : null;
+// Production must not use VERCEL_URL: that per-deployment hostname is behind
+// Vercel Deployment Protection, so anonymous visitors get a 302 to SSO instead
+// of the image. VERCEL_PROJECT_PRODUCTION_URL is the project's public production
+// domain (system env, not caller-controlled). Previews keep their own deployment
+// URL so a preview never points at files that only exist in that preview.
+const HOSTNAME = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]{0,61}[a-z0-9]$/i;
+const VERCEL_HOST = /^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\.vercel\.app$/i;
+function configuredOrigin(env = process.env) {
+  if (env.VERCEL_ENV === 'production') {
+    const production = env.VERCEL_PROJECT_PRODUCTION_URL;
+    return typeof production === 'string' && HOSTNAME.test(production) ? 'https://' + production.toLowerCase() : null;
+  }
+  const host = env.VERCEL_URL;
+  return typeof host === 'string' && VERCEL_HOST.test(host) ? 'https://' + host : null;
 }
 function validOrigin(value) {
   if (!safeHttps(value)) return null;
@@ -116,3 +126,4 @@ module.exports = createHandler();
 module.exports.createHandler = createHandler;
 module.exports.publishedPhoto = publishedPhoto;
 module.exports.webpDimensions = webpDimensions;
+module.exports.configuredOrigin = configuredOrigin;
