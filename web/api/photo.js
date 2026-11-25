@@ -1,9 +1,13 @@
 'use strict';
-// Published photo metadata only: no hot-linking, external API proxy or remote guessing.
+// 1) Rights-approved local photo (photo-catalog.json) always wins.
+// 2) MVP exception (docs/DECISIONS.md 2026-11-26): otherwise the image KTO registers for
+//    the same TourAPI content ID, with KOGL attribution. No name search, no substitution,
+//    no byte proxy. Without a server key the API keeps the previous fail-closed behaviour.
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const catalog = require('../photo-catalog.json');
+const {createTourImageLookup} = require('../server/tour-official-image.cjs');
 
 const LICENSES = new Set(['CC0-1.0', 'CC-BY-2.0', 'CC-BY-SA-2.0', 'CC-BY-4.0', 'CC-BY-SA-4.0', 'KOGL-TYPE-1', 'PD-self']);
 const PLACE_ID = /^tour-\d{1,12}$/;
@@ -96,8 +100,24 @@ function publishedPhoto(entry, id, root) {
   } catch (_) { return null; }
 }
 
-function createHandler({manifest = catalog, rootDir = path.resolve(__dirname, '..'), publicOrigin = configuredOrigin()} = {}) {
+function createHandler({manifest = catalog, rootDir = path.resolve(__dirname, '..'), publicOrigin = configuredOrigin(),
+  tourImages = createTourImageLookup()} = {}) {
   const origin = validOrigin(publicOrigin);
+  function unavailable(req, res, id, cacheControl) {
+    res.setHeader('Cache-Control', cacheControl);
+    if (req.method === 'HEAD') return res.status(404).end();
+    return res.status(200).json({contentId: id.slice(5), placeId: id, status: 'unverified_or_unavailable', imageUrl: null, source: null});
+  }
+  async function official(req, res, id) {
+    const found = await tourImages(id.slice(5));
+    if (found?.image) {
+      // Same-ID KTO image URL is public and immutable enough for CDN caching.
+      res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800');
+      if (req.method === 'HEAD') return res.status(200).end();
+      return res.status(200).json({contentId: id.slice(5), placeId: id, ...found.image});
+    }
+    return unavailable(req, res, id, found?.error ? 'public, max-age=60, s-maxage=60' : 'public, max-age=600, s-maxage=21600');
+  }
   return function handler(req, res) {
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -115,10 +135,15 @@ function createHandler({manifest = catalog, rootDir = path.resolve(__dirname, '.
     // Published deployment must return an absolute HTTPS URL per legacy contract.
     // Local development may use same-origin relative paths; no proxy fallback.
     const available = result && (origin || process.env.VERCEL !== '1');
-    if (available && origin) result.imageUrl = new URL(result.imagePath, origin).href;
-    res.setHeader('Cache-Control', available ? 'public, max-age=600' : 'public, max-age=60');
-    if (req.method === 'HEAD') return res.status(available ? 200 : 404).end();
-    return res.status(200).json(available ? result : {contentId: id.slice(5), placeId: id, status: 'unverified_or_unavailable', imageUrl: null, source: null});
+    if (available) {
+      if (origin) result.imageUrl = new URL(result.imagePath, origin).href;
+      result.status = 'approved_local';
+      res.setHeader('Cache-Control', 'public, max-age=600');
+      if (req.method === 'HEAD') return res.status(200).end();
+      return res.status(200).json(result);
+    }
+    if (typeof tourImages === 'function' && tourImages.enabled?.()) return official(req, res, id);
+    return unavailable(req, res, id, 'public, max-age=60');
   };
 }
 

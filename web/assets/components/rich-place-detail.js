@@ -53,9 +53,10 @@
    const figure=node('figure',null,{margin:'0'});
    const img=node('img',null,{display:'block',width:'100%',maxHeight:'320px',objectFit:'cover',borderRadius:'var(--hb-radius, 12px)'});
    img.alt=model.name+' 실제 장소 사진';img.src=model.photo.path;
-   img.addEventListener('error',()=>figure.replaceChildren(node('p','사진을 불러오지 못했어요.')),{once:true});
+   // No photo/failed photo: omit the area entirely, no status wording (MVP decision 2026-11-26).
+   img.addEventListener('error',()=>figure.remove(),{once:true});
    figure.append(img,node('figcaption',model.photo.credit+' · '+model.photo.license));section.append(figure);
-  }else if(!photoAlreadyShown)section.append(node('p','이용권이 확인된 사진이 없어요.'));
+  }
   section.append(node('h2',model.name),node('p',model.address||'주소 확인 필요'));
   for(const key of ['closed','seniorDiscount','parkingFee','phone']){
    const entry=data.fields?.[key],value=entry?.additionalReports?.length?'자료별 설명 확인':entry?.value;if(txt(value))section.append(node('p',({closed:'휴무일',seniorDiscount:'경로우대',parkingFee:'주차요금',phone:'문의'})[key]+': '+value));
