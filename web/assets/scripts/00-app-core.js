@@ -301,6 +301,40 @@ function hbWizardStep(state,today=hbTodaySeoul()){
   if(Number(state.hbStep)===3&&result.errors.length)return 2;
   return Number(state.hbStep);
 }
+// UI-02 stepper navigation: the current and earlier steps are always reachable;
+// a later step only when every earlier step is valid (same rule as "다음").
+function hbStepTarget(state,n,current,today=hbTodaySeoul()){
+  if(![1,2,3].includes(n))return {ok:false,reason:'이동할 단계를 찾을 수 없어요.'};
+  if(n<=current)return {ok:true};
+  const result=hbTravelInput(state,today);
+  const basic=result.errors.filter(x=>!x.includes('걸을 수 있는 시간')&&!x.includes('계단 이용 조건'));
+  if(basic.length)return {ok:false,step:1,reason:'먼저 1단계 여행 정보를 확인해 주세요. '+basic.join(' ')};
+  if(n===3&&result.errors.length)return {ok:false,step:2,reason:'먼저 2단계 이동 조건을 선택해 주세요. '+result.errors.join(' ')};
+  return {ok:true};
+}
+let hbStepNavBound=false;
+function hbBindStepNav(){
+  if(hbStepNavBound||!el||typeof el.addEventListener!=='function')return;
+  hbStepNavBound=true;
+  el.addEventListener('click',event=>{
+    const button=event.target?.closest?.('[data-hb-goto-step]');
+    if(!button||!el.contains(button))return;
+    const n=Number(button.dataset.hbGotoStep),current=Number(s.hbStep)||1;
+    if(n===current){el.querySelector('h2')?.focus();return}
+    s=hbRefreshAutomaticDate(s);
+    const target=hbStepTarget(s,n,current);
+    if(!target.ok){
+      const box=document.getElementById('hb-step-error');
+      if(box){box.hidden=false;box.textContent=target.reason}
+      button.focus();
+      return;
+    }
+    s.hbStep=n;s.hbDraftActive=true;
+    try{save()}catch{}
+    newPlan();
+    el.querySelector('h2')?.focus();
+  });
+}
 function hbReturnDayOptions(){
   const limit=hbReturnDayLimit(s.hbDuration||'day'),chosen=hbReturnDay(s.hbReturnDay,s.hbDuration||'day')??0;
   let html='';
@@ -362,7 +396,14 @@ function newPlan(){
   const refreshChoice=selector=>{newPlan();document.querySelector(selector)?.focus()};
   const changeStep=next=>{s.hbStep=next;s.hbDraftActive=true;save();newPlan();el.querySelector('h2')?.focus()};
   const prev=step>1?'<button class="light" type="button" id="hb-prev">← 이전 단계</button>':'';
-  const intro=hbDiscoveryPendingMarkup()+'<h1>부모님과 여행 만들기</h1><p class="muted">여행 지역과 이동 조건부터 확인해요. 방문 가능한 동선이 검증됐다는 뜻은 아니에요.</p><ol class="hb-progress" aria-label="여행 만들기 3단계 중 '+step+'단계">'+['여행 정보','이동 조건','선호사항'].map((name,i)=>'<li'+(i+1===step?' aria-current="step"':i+1<step?' class="hb-step-done"':'')+'><span class="hb-step-num" aria-hidden="true">'+(i+1)+'</span>'+name+'</li>').join('')+'</ol>';
+  hbBindStepNav();
+  const stepLink=(name,i)=>{
+    const n=i+1,target=hbStepTarget(s,n,step),current=n===step;
+    return '<button type="button" class="hb-step-link" data-hb-goto-step="'+n+'"'+
+      (current?' aria-label="'+n+'단계 '+name+' (현재 단계)"':target.ok?' aria-label="'+n+'단계 '+name+' 화면으로 이동"':' aria-disabled="true" aria-label="'+n+'단계 '+name+' (앞 단계를 먼저 완료해 주세요)" aria-describedby="hb-step-error"')+
+      '><span class="hb-step-num" aria-hidden="true">'+n+'</span>'+name+'</button>';
+  };
+  const intro=hbDiscoveryPendingMarkup()+'<h1>부모님과 여행 만들기</h1><p class="muted">여행 지역과 이동 조건부터 확인해요. 방문 가능한 동선이 검증됐다는 뜻은 아니에요.</p><ol class="hb-progress" aria-label="여행 만들기 3단계 중 '+step+'단계">'+['여행 정보','이동 조건','선호사항'].map((name,i)=>'<li'+(i+1===step?' aria-current="step"':i+1<step?' class="hb-step-done"':'')+'>'+stepLink(name,i)+'</li>').join('')+'</ol>';
   if(step===1){
     el.innerHTML=intro+'<section class="panel"><h2 tabindex="-1">1. 여행 정보</h2>'+prefs()+(s.hbDateRefreshedFrom?'<p role="status">이전에 저장된 날짜를 오늘로 갱신했어요. 기존 일정의 날짜는 그대로 유지돼요.</p>':'')+'<div class="actions"><button class="light" type="button" id="hb-date-today">오늘</button><button class="light" type="button" id="hb-date-tomorrow">내일</button></div><div class="row hb-trip-time-row">'+hbClockField('hb-trip-start','여행 출발 희망 시각 (선택)',s.hbDepartTime,'집(출발지)에서 출발하는 시각')+hbClockField('hb-trip-end','집 도착 희망 시각 (선택)',s.hbReturnTime,'집(귀가 위치)에 도착하고 싶은 날짜와 시각',true)+'</div><p class="muted" id="hb-trip-time-help">시간을 비워 두면 선택한 장소에 맞춰 시간표 초안을 제안해요. 숫자로 7:30, 0730, 19:05처럼 직접 입력하거나 시계로 고를 수 있고, 새벽·저녁 시간도 가능해요. 출발 시각을 정하면 출발지에서 첫 방문지까지 이동시간을 더해 첫 방문지 도착 시각을 잡아요. 경로를 계산하기 전에는 이동 약 25분 (예상)으로 넣어요.</p>'+((s.hbPlanStart||s.hbPlanEnd)?'<p class="hb-legacy-time-note" role="note">이전에 저장한 첫 방문지 기준 시각('+safe(s.hbPlanStart||'제안')+' ~ '+safe(s.hbPlanEnd||'제안')+')은 그 의미 그대로 유지돼요. 값이 있으면 집 출발·도착 희망 시각보다 우선해요. <button type="button" class="light" id="hb-legacy-time-clear">이전 첫 방문지 시각 지우기</button></p>':'')+hbTripOriginStepMarkup()+'<div class="row"><div class="field"><label for="hb-duration">여행 형태</label><select id="hb-duration"><option value="day">당일 여행</option><option value="overnight">숙박 여행</option></select></div><div class="field"><label for="hb-transport">주요 이동 수단</label><select id="hb-transport"><option value="car">자동차</option><option value="transit">대중교통</option><option value="mixed">상황에 따라 선택</option></select></div><div class="field"><label for="hb-party">동행 인원</label><select id="hb-party"><option value="2">2명</option><option value="3">3명</option><option value="4">4명</option><option value="5">5명</option><option value="6">6명</option><option value="7">7명</option><option value="8">8명</option><option value="9">9명</option><option value="10">10명</option><option value="11">11명</option><option value="12">12명</option></select></div></div><div class="actions"><button type="button" id="hb-next">다음: 이동 조건 →</button></div><p class="muted" id="hb-step-error" role="alert"></p></section>'+(typeof weatherCard==='function'?weatherCard():'');
     hbDiscoveryBindPending(newPlan);bindPrefs();

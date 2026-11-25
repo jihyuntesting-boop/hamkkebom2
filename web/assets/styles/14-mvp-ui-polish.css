@@ -617,3 +617,13 @@ html[data-large-type="true"] #app :is(button, .actions > a) { min-height: 52px; 
 #app .hb-clock-inputs > .hb-clock-day { flex: 1 1 100%; width: 100%; }
 .hb-clock-summary { margin: 6px 0 0; font-weight: 600; }
 .hb-trip-point-missing { font-weight: 600; }
+
+/* UI-02 stepper: each step is a button inside the existing pill (li keeps aria-current styling). */
+#app ol.hb-progress li { padding: 0; }
+#app ol.hb-progress .hb-step-link {
+  display: inline-flex; align-items: center; gap: 8px; width: 100%; min-height: 44px;
+  margin: 0; padding: 4px 14px 4px 6px; border: 0; border-radius: inherit; box-shadow: none;
+  background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+#app ol.hb-progress .hb-step-link:focus-visible { outline: 3px solid currentColor; outline-offset: 2px; }
+#app ol.hb-progress .hb-step-link[aria-disabled="true"] { cursor: not-allowed; opacity: .72; }
