@@ -37,8 +37,8 @@ function hbEnsureOwnerState(p){
 let places=[],loading=false,issue='',weather='';const save=()=>localStorage.setItem(KEY,JSON.stringify(s)),path=()=>location.hash.slice(1)||'/',go=x=>{location.hash='#'+x;render()},safe=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),button=(id,name,alt=false)=>'<button '+(alt?'class="light" ':'')+'id="'+id+'">'+name+'</button>',panel=(h,b)=>'<section class="panel"><h2>'+h+'</h2>'+b+'</section>';
 function hbPlaceDataMessage(){
  const status=loading?'장소를 불러오는 중이에요.':issue?'조회 실패: '+safe(issue):
-  hbPlacesLoadedRegion===s.region?(places.length?'장소 '+places.length+'곳을 불러왔어요.':'조회된 장소가 없어요.'):'아직 장소를 조회하지 않았어요.';
- return '<div id="hb-place-data-state" role="'+(issue?'alert':'status')+'" class="message '+(issue?'error':'')+'">'+status+'</div>';
+  hbPlacesLoadedRegion===s.region?(places.length?'':'조회된 장소가 없어요.'):'아직 장소를 조회하지 않았어요.';
+ return '<div id="hb-place-data-state" role="'+(issue?'alert':'status')+'" class="message '+(issue?'error':'')+'"'+(status?'':' hidden')+'>'+status+'</div>';
 }
 
 function prefs(){

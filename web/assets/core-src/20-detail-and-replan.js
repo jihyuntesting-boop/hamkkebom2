@@ -242,7 +242,7 @@ function hbRichDiscoveryAttach(){
   if(!items.length){mapHost.style.minHeight='0';list.textContent='조회된 장소가 없어요.';return;}
   const mapped=items.filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lng)&&p.lat>=32&&p.lat<=39&&p.lng>=124&&p.lng<=133);
   if(mapped.length)mapDispose=hbRichMapAdapter({container:mapHost,points:mapped,onSelect:select});else{mapHost.style.minHeight='0';mapHost.textContent='좌표를 확인한 장소가 없어요.';}
-  for(const p of items){const b=document.createElement('button');b.type='button';b.className='light';b.style.cssText='display:block;width:100%;min-height:var(--hb-touch);text-align:left;white-space:normal;margin-block:8px';b.textContent=p.name+' · '+(p.address||'주소 미확인')+(mapped.includes(p)?'':' · 좌표 미확인');b.onclick=()=>select(p.id);list.append(b);}
+  for(const p of items){const b=document.createElement('button');b.type='button';b.className='light';b.style.cssText='display:block;width:100%;min-height:var(--hb-touch);text-align:left;white-space:normal;margin-block:8px';b.textContent=p.name+(p.address?' · '+p.address:'');b.onclick=()=>select(p.id);list.append(b);}
  }
  async function run(reset){
   if(reset){try{params=readParams();}catch(e){status.textContent=e.message;return;}page=0;records=new Map();next.hidden=true;draw();}
@@ -281,11 +281,11 @@ function detail(id){
  const facts=[...localFacts,...hbAccessFacts(place)];
  const renderFact=fact=>{
   const href=hbEvidenceSourceLink(fact.sourceUrl);
-  const source=fact.source||'출처 상세 미제공';
+  const source=fact.source||(href?'자료 보기':'');
   const status=hbEvidenceStatus(fact);
   return '<article class="hb-evidence-row"><div class="hb-evidence-head"><strong>'+safe(fact.label||'편의시설')+
-   '</strong><span class="hb-evidence-status">'+status+'</span></div><p>'+safe(fact.description||'설명 없음')+'</p>'+
-   '<p class="muted">출처 '+(href?'<a href="'+safe(href)+'" target="_blank" rel="noopener noreferrer">'+safe(source)+'</a>':safe(source))+'</p>'+
+   '</strong><span class="hb-evidence-status">'+status+'</span></div>'+(fact.description?'<p>'+safe(fact.description)+'</p>':'')+
+   (source?'<p class="muted">출처 '+(href?'<a href="'+safe(href)+'" target="_blank" rel="noopener noreferrer">'+safe(source)+'</a>':safe(source))+'</p>':'')+
    (fact.collectedAt?'<p class="muted">수집일 '+safe(fact.collectedAt)+'</p>':'')+
    (fact.verifiedAt?'<p class="muted">자료에 기록된 확인일 '+safe(fact.verifiedAt)+'</p>':'')+
    (fact.scope?'<p class="muted">확인 범위 '+safe(fact.scope)+'</p>':'')+'</article>';
@@ -305,7 +305,7 @@ function detail(id){
  const canPick=!fromDiscovery&&(picked||regionAllowed&&assessment.status!=='excluded');
  const other=facts.filter(fact=>!hbDetailTopics(fact).some(topic=>specs.some(([,topics])=>topics.includes(topic))));
  el.innerHTML=back+'<span class="chip">'+hbPlaceCategory(place)+'</span><h1>'+safe(place.name)+'</h1>'+
-  '<p>'+safe(place.address||'주소 미확인')+'</p>'+
+  (place.address?'<p>'+safe(place.address)+'</p>':'')+
   '<div class="actions">'+
   (fromDiscovery?'<a href="#/new">여행 만들기</a>':canPick?'<button type="button" id="pick" aria-pressed="'+picked+'">'+(picked?'선택 취소':'일정에 담기')+'</button>':'')+'</div>'+
   '<p id="hb-detail-selection" role="status"></p>'+
@@ -522,10 +522,9 @@ function travel(){
  const mapQuery=next&&!next.isPlaceholder&&(next.address||next.placeId||places.some(place=>place.id===next.id))?
   [next.name,next.address].filter(Boolean).join(' '):null;
  const nextCard=next?panel('다음 일정',
-  '<h3 id="hb-travel-next" tabindex="-1">'+safe(next.name||'장소명 미확인')+'</h3>'+
+  '<h3 id="hb-travel-next" tabindex="-1">'+safe(next.name||'다음 방문지')+'</h3>'+
   '<p>예정 시간: '+safe(next.plannedArrival||next.time||'미정')+'</p>'+
-  (next.address?'<p>'+safe(next.address)+'</p>':'<p class="muted">주소 미확인</p>')+
-  '<p class="muted">현재 위치 및 이동시간은 확인되지 않았어요.</p>'+
+  (next.address?'<p>'+safe(next.address)+'</p>':'')+
   '<div class="actions">'+(mapQuery?'<a target="_blank" rel="noopener noreferrer" href="https://map.naver.com/p/search/'+encodeURIComponent(mapQuery)+'">지도에서 장소 찾기</a>':'')+
   button('hb-travel-complete','이 일정 완료 표시')+'</div>'
  ):panel(items.length?'여행 일정을 모두 마쳤어요':'다음 일정 없음',
@@ -564,7 +563,7 @@ function travel(){
   const alternatives=proposal.removed.length?hbReplanAlternatives(level,items,catalog()):[];
   const compare=document.getElementById('hb-replan-preview');
   const showList=stops=>stops.length?'<ul>'+stops.map(stop=>'<li>'+safe(stop.time||'시간 미정')+' · '+
-   safe(stop.name||'장소명 미확인')+(hbProtected(stop)?' <span class="hb-protected">보호: '+
+   safe(stop.name||'방문지')+(hbProtected(stop)?' <span class="hb-protected">보호: '+
    [hbCompleted(stop)?'완료':null,hbMustVisit(stop)?'필수':null,hbReserved(stop)?'예약':null].filter(Boolean).join('/')+'</span>':'')+'</li>').join('')+'</ul>':
    '<p class="muted">해당 장소 없음</p>';
   let selected=-1;
@@ -574,7 +573,7 @@ function travel(){
    (alternatives.length?'<fieldset><legend>변경 방법</legend><label><input type="radio" name="hb-replan-choice" value="-1" checked> 방문 줄이기</label>'+
     alternatives.map(({place,rest,km,note,source},index)=>'<p><label><input type="radio" name="hb-replan-choice" value="'+index+'"> <strong>'+
      safe(place.name)+'</strong>로 교체 · '+(rest?'휴식 공간 안내 있음':'계단 없는 구간 확인')+
-     ' · 직선거리 약 '+km.toFixed(1)+'km (실제 이동거리 미확인)</label><br>'+safe(note)+
+     ' · 직선거리 약 '+km.toFixed(1)+'km</label><br>'+safe(note)+
      (source?' <a href="'+safe(source)+'" target="_blank" rel="noopener noreferrer">출처</a>':'')+'</p>').join('')+'</fieldset>':
     level!=='low'&&proposal.removed.length?'<p>확인된 대안 없음. 방문을 줄이거나 쉬기·숙소 복귀·귀가를 검토해 주세요.</p>':'')+
    '<p class="warn">완료·필수·예약 일정은 보호돼요. 대안까지의 이동시간과 당일 운영 여부는 방문 전 확인해 주세요.</p>'+
