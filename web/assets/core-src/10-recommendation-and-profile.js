@@ -152,10 +152,10 @@ function newPlan(){
   const refreshChoice=selector=>{newPlan();document.querySelector(selector)?.focus()};
   const changeStep=next=>{s.hbStep=next;s.hbDraftActive=true;save();newPlan();el.querySelector('h2')?.focus()};
   const prev=step>1?'<button class="light" type="button" id="hb-prev">← 이전 단계</button>':'';
-  const intro='<h1>부모님과 여행 만들기</h1><p class="muted">여행 지역과 이동 조건부터 확인해요. 방문 가능한 동선이 검증됐다는 뜻은 아니에요.</p><ol class="hb-progress" aria-label="여행 만들기 3단계 중 '+step+'단계">'+['여행 정보','이동 조건','선호사항'].map((name,i)=>'<li'+(i+1===step?' aria-current="step"':i+1<step?' class="hb-step-done"':'')+'><span class="hb-step-num" aria-hidden="true">'+(i+1)+'</span>'+name+'</li>').join('')+'</ol>';
+  const intro=hbDiscoveryPendingMarkup()+'<h1>부모님과 여행 만들기</h1><p class="muted">여행 지역과 이동 조건부터 확인해요. 방문 가능한 동선이 검증됐다는 뜻은 아니에요.</p><ol class="hb-progress" aria-label="여행 만들기 3단계 중 '+step+'단계">'+['여행 정보','이동 조건','선호사항'].map((name,i)=>'<li'+(i+1===step?' aria-current="step"':i+1<step?' class="hb-step-done"':'')+'><span class="hb-step-num" aria-hidden="true">'+(i+1)+'</span>'+name+'</li>').join('')+'</ol>';
   if(step===1){
     el.innerHTML=intro+'<section class="panel"><h2 tabindex="-1">1. 여행 정보</h2>'+prefs()+(s.hbDateRefreshedFrom?'<p role="status">이전에 저장된 날짜를 오늘로 갱신했어요. 기존 일정의 날짜는 그대로 유지돼요.</p>':'')+'<div class="actions"><button class="light" type="button" id="hb-date-today">오늘</button><button class="light" type="button" id="hb-date-tomorrow">내일</button></div><div class="row"><div class="field"><label for="hb-trip-start">첫 방문지 시작 희망 시간 (선택)</label><input type="time" id="hb-trip-start" value="'+safe(s.hbPlanStart??'')+'"></div><div class="field"><label for="hb-trip-end">일정 종료 희망 시간 (선택)</label><input type="time" id="hb-trip-end" value="'+safe(s.hbPlanEnd??'')+'"></div></div><p class="muted">시간을 비워 두면 선택한 장소에 맞춰 시간표 초안을 제안해요. 직접 입력하면 새벽·저녁 시간도 가능해요. 첫 방문지 기준이며 집에서 출발·귀가하는 이동시간은 아직 계산하지 않아요.</p><div class="row"><div class="field"><label for="hb-duration">여행 형태</label><select id="hb-duration"><option value="day">당일 여행</option><option value="overnight">숙박 여행</option></select></div><div class="field"><label for="hb-transport">주요 이동 수단</label><select id="hb-transport"><option value="car">자동차</option><option value="transit">대중교통</option><option value="mixed">상황에 따라 선택</option></select></div><div class="field"><label for="hb-party">동행 인원</label><select id="hb-party"><option value="2">2명</option><option value="3">3명</option><option value="4">4명</option><option value="5">5명</option><option value="6">6명</option><option value="7">7명</option><option value="8">8명</option><option value="9">9명</option><option value="10">10명</option><option value="11">11명</option><option value="12">12명</option></select></div></div><div class="actions"><button type="button" id="hb-next">다음: 이동 조건 →</button></div><p class="muted" id="hb-step-error" role="alert"></p></section>'+(typeof weatherCard==='function'?weatherCard():'');
-    bindPrefs();
+    hbDiscoveryBindPending(newPlan);bindPrefs();
     const dateField=document.getElementById('date');
     const chooseDate=value=>{dateField.value=value;dateField.onchange({target:dateField});document.getElementById('hb-step-error').textContent='';};
     document.getElementById('hb-date-today').onclick=()=>chooseDate(hbTodaySeoul());
@@ -172,7 +172,7 @@ function newPlan(){
   }
   if(step===2){
     el.innerHTML=intro+'<section class="panel"><h2 tabindex="-1">2. 이동 조건</h2><p class="muted">필수 항목이에요. 실제 보행 거리와 계단 여부는 장소별 확인이 필요해요.</p><h3>한 번에 얼마나 걸을 수 있나요?</h3><div class="hb-choice-grid">'+card(walkChoices,'walk',s.hbWalkConfirmed?s.walk:null)+'</div><h3>계단 이용은 어떤가요?</h3><div class="hb-choice-grid">'+card(stairChoices,'stairs',s.hbStairsChoice)+'</div><div class="actions">'+prev+'<button type="button" id="hb-next">다음: 선호사항 →</button></div><p id="hb-step-error" class="warn" role="alert" hidden></p></section>';
-    document.querySelectorAll('[data-hb-walk]').forEach(b=>b.onclick=()=>{s.walk=b.dataset.hbWalk;s.hbWalkConfirmed=true;save();refreshChoice('[data-hb-walk="'+b.dataset.hbWalk+'"]')});
+    hbDiscoveryBindPending(newPlan);document.querySelectorAll('[data-hb-walk]').forEach(b=>b.onclick=()=>{s.walk=b.dataset.hbWalk;s.hbWalkConfirmed=true;save();refreshChoice('[data-hb-walk="'+b.dataset.hbWalk+'"]')});
     document.querySelectorAll('[data-hb-stairs]').forEach(b=>b.onclick=()=>{s.hbStairsChoice=b.dataset.hbStairs;s.stairs=s.hbStairsChoice==='possible'?'possible':'avoid';save();refreshChoice('[data-hb-stairs="'+b.dataset.hbStairs+'"]')});
     document.getElementById('hb-prev').onclick=()=>{changeStep(1)};
     document.getElementById('hb-next').onclick=()=>{s=hbRefreshAutomaticDate(s);if(hbTravelDateError(s.date)||s.hbStep===1){newPlan();document.getElementById('date')?.focus();return;}const issues=hbTravelInput(s).errors;if(issues.length){const m=document.getElementById('hb-step-error');m.hidden=false;m.textContent=issues.join(' ');return;}changeStep(3)};
@@ -197,7 +197,7 @@ function newPlan(){
   const mobilityMarkup='<div class="field"><label for="hb-mobility-aid">이동 보조기구 (선택)</label><select id="hb-mobility-aid">'+aidOptions.map(([id,label])=>'<option value="'+safe(id)+'"'+(id===aidValue?' selected':'')+'>'+safe(label)+'</option>').join('')+'</select></div>';
   const extraMarkup='<h3>식사 선호 (선택)</h3><p class="muted">식사 선호는 현재 식당 자동 필터로 적용되지 않아요. 식당 방문 전에 메뉴를 확인해 주세요.</p><div class="hb-choice-grid">'+foodOptions.map(([id,label])=>'<button type="button" class="hb-choice '+(s.hbFoodPreferences.includes(id)?'chosen':'')+'" data-hb-food="'+id+'" aria-pressed="'+String(s.hbFoodPreferences.includes(id))+'">'+safe(label)+'</button>').join('')+'</div>';
   el.innerHTML=intro+'<section class="panel"><h2 tabindex="-1">3. 선호사항</h2><p class="muted">편의시설 정보는 확인된 자료 범위 안에서 참고할 수 있어요. 추가 선택은 선택사항이에요.</p>'+mobilityMarkup+'<h3>어떤 장소를 먼저 볼까요?</h3><div class="hb-choice-grid">'+card([['all','관광지와 식당 모두'],['spot','관광지·문화시설'],['food','식당']], 'interest',s.hbInterest||'all')+'</div><h3>중요한 편의시설이 있나요?</h3><div class="hb-choice-grid">'+needs.map(([id,name])=>'<button type="button" class="hb-choice '+(s.momNeeds.includes(id)?'chosen':'')+'" data-hb-need="'+id+'" aria-pressed="'+String(s.momNeeds.includes(id))+'">'+safe(name)+'</button>').join('')+'</div>'+optionalMarkup+extraMarkup+'<div class="actions">'+prev+'<button type="button" id="hb-finish">이 조건으로 장소 살펴보기 →</button></div><p class="muted">추천 목록의 ‘확인 필요’ 장소는 안전·접근성이 검증된 곳이 아니에요.</p><p id="hb-finish-error" role="alert" class="warn"></p></section>';
-  document.querySelectorAll('[data-hb-interest]').forEach(b=>b.onclick=()=>{s.hbInterest=b.dataset.hbInterest;s.hbBrowseFilter=s.hbInterest;save();refreshChoice('[data-hb-interest="'+b.dataset.hbInterest+'"]')});
+  hbDiscoveryBindPending(newPlan);document.querySelectorAll('[data-hb-interest]').forEach(b=>b.onclick=()=>{s.hbInterest=b.dataset.hbInterest;s.hbBrowseFilter=s.hbInterest;save();refreshChoice('[data-hb-interest="'+b.dataset.hbInterest+'"]')});
   document.querySelectorAll('[data-hb-need]').forEach(b=>b.onclick=()=>{let n=b.dataset.hbNeed;s.momNeeds=s.momNeeds.includes(n)?s.momNeeds.filter(x=>x!==n):[...s.momNeeds,n];save();refreshChoice('[data-hb-need="'+n+'"]')});
   document.querySelectorAll('[data-hb-pref]').forEach(node=>node.onchange=()=>{
     const key=node.dataset.hbPref;
@@ -332,7 +332,7 @@ function browse(){
   const serverState=ready&&!travel.errors.length&&hbRecommendationState?.key===requestKey?hbRecommendationState:null;
   const filtered=ready?hbSearchPlaces(places,filter,query):[];
   const ranked=filtered.map(p=>({p,e:hbReconcileRecommendation(p,profile,serverState)}))
-    .sort((a,b)=>b.e.score-a.e.score||String(a.p.name||'').localeCompare(String(b.p.name||''),'ko'));
+    .sort((a,b)=>hbDiscoveryPriority(b.p.id,s.region)-hbDiscoveryPriority(a.p.id,s.region)||b.e.score-a.e.score||String(a.p.name||'').localeCompare(String(b.p.name||''),'ko'));
   const good=ranked.filter(x=>x.e.status==='eligible');
   const review=ranked.filter(x=>x.e.status==='needsReview');
   const excluded=ranked.filter(x=>x.e.status==='excluded');
@@ -393,7 +393,7 @@ function browse(){
     '이동 조건 확인 대기';
   const serverZero=serverState?.state==='ready'&&serverState.result.byId.size===0;
   const retry=serverState?.state==='error'?'<button type="button" id="hb-recommend-retry" class="light">서버 추천 다시 확인</button>':'';
-  el.innerHTML='<h1>여행 장소 찾기</h1>'+prefs()+
+  el.innerHTML='<h1>여행 장소 찾기</h1>'+hbDiscoveryPendingMarkup()+prefs()+
     '<div class="hb-profile-summary"><strong>여행 조건</strong><p>'+safe(s.date)+' · '+safe(s.hbPlanStart||'시작 제안받기')+' ~ '+safe(s.hbPlanEnd||'종료 제안받기')+'</p><p>걷기 '+safe(s.hbWalkConfirmed?s.walk+'분':'미선택')+' · 계단 '+safe(stairs)+
     (extraPrefs.length?' · '+safe(extraPrefs.join(' / ')):'')+'</p><button type="button" class="light" id="hb-edit-profile">조건 수정</button></div>'+tray+
     '<section class="panel"><h2>이동 조건 추천 판정</h2><p id="hb-recommend-status" role="'+(serverState?.state==='error'?'alert':'status')+'">'+serverStatus+'</p>'+retry+
@@ -406,7 +406,7 @@ function browse(){
     '<button type="button" data-hb-filter="'+id+'" class="light '+(filter===id?'hb-filter-active':'')+'" aria-pressed="'+String(filter===id)+'">'+label+'</button>').join('')+'</div>'+
     '<p class="muted">미확인 장소는 자동으로 조건을 완화해 추천하지 않아요. 편의시설 존재만으로 휠체어 동선을 보장하지 않아요.</p>'+foodNote+
     '<p role="status">'+(ready?ranked.length+'곳이 현재 검색·분류에 표시돼요.':'')+'</p><div id="hb-place-results" aria-busy="'+loading+'">'+results+'</div>';
-  bindPrefs();
+  hbDiscoveryBindPending(browse);bindPrefs();
   const trayList=el.querySelector('.hb-selection-list');
   if(trayList)trayList.ontoggle=()=>{hbSelectionListOpen=trayList.open};
   const datePicker=document.getElementById('date');

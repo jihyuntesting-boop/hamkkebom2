@@ -1,0 +1,24 @@
+/* Editorial discovery is scoped; brand tokens remain owned by 13-editorial.css. */
+.hb-discovery{display:grid;gap:32px;min-width:0}
+.hb-discovery-hero{padding:clamp(24px,5vw,56px);background:var(--hb-paper);border-radius:24px;color:var(--hb-ink)}
+.hb-discovery-hero h1{max-width:22ch;font-size:clamp(28px,5vw,48px);line-height:1.4}
+.hb-discovery-kicker{font-weight:700;letter-spacing:.04em}
+.hb-discovery-filter{display:grid;gap:16px;min-width:0}
+.hb-discovery-filter h2,.hb-discovery-filter h3{margin:0}
+.hb-discovery-filter select{max-width:100%;width:min(100%,320px);min-height:48px}
+.hb-discovery-chips{display:flex;flex-wrap:wrap;gap:8px}
+.hb-discovery-chips button{min-height:48px;border-radius:999px;white-space:normal}
+.hb-discovery-chips button[aria-pressed=true]{background:var(--hb-primary);color:var(--hb-ink);border:1px solid var(--hb-ink);font-weight:700}
+.hb-discovery-section{display:grid;gap:16px;min-width:0}
+.hb-discovery .hb-discovery-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:24px}
+.hb-discovery-card{min-width:0;overflow-wrap:anywhere}
+.hb-discovery-card a,.hb-discovery-hero a,.hb-discovery-course a,.hb-discovery .panel a{display:inline-flex;align-items:center;min-height:44px;color:var(--hb-ink);text-decoration:underline}
+.hb-discovery-course ol{padding-inline-start:24px}
+.hb-discovery-course .actions{flex-wrap:wrap}
+.hb-discovery-course-map:not([hidden]){min-height:240px;margin-top:16px}
+.hb-discovery :focus-visible,.hb-discovery-handoff :focus-visible{outline:2px solid var(--hb-ink);outline-offset:3px}
+
+.hb-discovery-course-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:24px}
+.hb-discovery-seasonal{padding:24px;background:var(--hb-quiet);border-radius:16px;min-width:0}
+.hb-discovery-season-links{display:flex;flex-wrap:wrap;gap:8px 20px}
+.hb-discovery-season-links a{min-height:44px;display:inline-flex;align-items:center;color:var(--hb-ink);text-decoration:underline}

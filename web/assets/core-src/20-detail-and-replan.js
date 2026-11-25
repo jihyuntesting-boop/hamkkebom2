@@ -261,7 +261,8 @@ function hbRichDiscoveryAttach(){
 
 function detail(id){
  if(typeof hbRichDispose==='function')hbRichDispose();hbRichDispose=null;
- const back='<p><a id="hb-detail-back" class="hb-back-link" href="#/places"><span aria-hidden="true">←</span> 장소 목록</a></p>';
+ const fromDiscovery=hbDiscoveryDetailId===id;
+ const back='<p><a id="hb-detail-back" class="hb-back-link" href="#/'+(fromDiscovery?'discover':'places')+'"><span aria-hidden="true">←</span> '+(fromDiscovery?'추천 장소':'장소 목록')+'</a></p>';
  const selectedRich=hbRichSelected?.id===id?hbRichSelected:(typeof nearbyItems!=='undefined'?nearbyItems.find(p=>p.id===id&&['nationwide_catalog','nationwide_live','keyword_snapshot'].includes(p.discoverySource))||null:null);
  const place=id?(places.find(value=>value.id===id)||selectedRich):null;
  if(!place||!selectedRich&&(loading||issue)){
@@ -301,12 +302,12 @@ function detail(id){
   slopePreference:s.hbSlopePreference,indoorPreference:s.hbIndoorPreference,mobilityAid:s.hbMobilityAid
  });
  const regionAllowed=!selectedRich||hbRichMatchesRegion(selectedRich,s.region);
- const canPick=picked||regionAllowed&&assessment.status!=='excluded';
+ const canPick=!fromDiscovery&&(picked||regionAllowed&&assessment.status!=='excluded');
  const other=facts.filter(fact=>!hbDetailTopics(fact).some(topic=>specs.some(([,topics])=>topics.includes(topic))));
  el.innerHTML=back+'<span class="chip">'+hbPlaceCategory(place)+'</span><h1>'+safe(place.name)+'</h1>'+
   '<p>'+safe(place.address||'주소 미확인')+'</p>'+
   '<div class="actions">'+
-  (canPick?'<button type="button" id="pick" aria-pressed="'+picked+'">'+(picked?'선택 취소':'일정에 담기')+'</button>':'')+'</div>'+
+  (fromDiscovery?'<a href="#/new">여행 만들기</a>':canPick?'<button type="button" id="pick" aria-pressed="'+picked+'">'+(picked?'선택 취소':'일정에 담기')+'</button>':'')+'</div>'+
   '<p id="hb-detail-selection" role="status"></p>'+
   (!regionAllowed?'<p class="warn">현재 일정 작성은 선택한 서울·경기 지역에서 지원해요. 다른 지역은 상세정보를 살펴볼 수 있어요.</p>':'')+
   hbArrivalMarkup(place,guide,facts)+
