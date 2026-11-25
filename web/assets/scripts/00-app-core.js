@@ -2207,17 +2207,20 @@ function hbWeatherRecommendation(snapshot,key){
     typeof v.precipitationProbabilityPercent==='number'&&v.precipitationProbabilityPercent>=60&&v.precipitationProbabilityPercent<=100||
     typeof v.temperatureC==='number'&&(v.temperatureC>=30||v.temperatureC<=-5));
   if(precipitation||probability||temperature!==null&&(temperature>=30||temperature<=-5)||hourlyBurden){
-    return {kind:'adverse',message:'여행일 예보의 일부 시간대에 강수 또는 기온 부담 신호가 있어요. 문화시설 후보, 휴식이 포함된 짧은 코스, 날짜 변경을 비교해 보세요. 시설의 실내 여부와 실제 운영은 별도 확인이 필요해요.'};
+    return {kind:'adverse',message:'여행일 예보의 일부 시간대에 강수 또는 기온 부담 신호가 있어요. '+(HB_WEATHER_CATEGORY_COMPARE_ENABLED?'문화시설 후보, 휴식이 포함된 짧은 코스, 날짜 변경을 비교해 보세요. 시설의 실내 여부와 실제 운영은 별도 확인이 필요해요.':'휴식이 포함된 짧은 코스나 날짜 변경을 검토해 보세요. 실제 운영과 이동 여건은 별도 확인이 필요해요.')};
   }
-  return {kind:'regular',message:'대표 예보를 참고해 일반 여행지와 문화시설 후보를 비교할 수 있어요. 하루 전체 날씨나 특보 미발효를 보장하지 않아요.'};
+  return {kind:'regular',message:(HB_WEATHER_CATEGORY_COMPARE_ENABLED?'대표 예보를 참고해 일반 여행지와 문화시설 후보를 비교할 수 있어요. ':'대표 예보를 참고했어요. ')+'하루 전체 날씨나 특보 미발효를 보장하지 않아요.'};
 }
+// 2026-11-26 사용자 결정: 의도(날씨 기반 일정·여행지 제안)와 다른 화면 진입을 끈다. 모듈·바인딩은 보존하며 true로 되돌릴 수 있다.
+const HB_WEATHER_CATEGORY_COMPARE_ENABLED=false; // '문화시설 후보 보기'·'전체 후보 비교'
+const HB_WEATHER_TIME_COMPARE_ENABLED=false; // '시간대별 날씨와 일정 비교'
 function hbWeatherOptionsMarkup(){
  const rec=hbWeatherRecommendation(forecast,currentWeatherKey());
  const browsing=path()==='/places';
- const actions=browsing&&['adverse','caution','regular'].includes(rec.kind)?
-  '<div class="actions"><button type="button" class="light" id="hb-weather-culture">문화시설 후보 보기</button><button type="button" class="light" id="hb-weather-all">전체 후보 비교</button>'+
+ const actions=browsing&&['adverse','caution','regular'].includes(rec.kind)&&(HB_WEATHER_CATEGORY_COMPARE_ENABLED||rec.kind!=='regular')?
+  '<div class="actions">'+(HB_WEATHER_CATEGORY_COMPARE_ENABLED?'<button type="button" class="light" id="hb-weather-culture">문화시설 후보 보기</button><button type="button" class="light" id="hb-weather-all">전체 후보 비교</button>':'')+
   (rec.kind==='regular'?'':'<button type="button" class="light" id="hb-weather-short">짧은 코스 제안 보기</button><button type="button" class="light" id="hb-weather-date">날짜 다시 선택</button>')+'</div><div id="hb-weather-option-result" role="status"></div>':'';
- const timeOption=browsing&&rec.kind!=='caution'&&forecast.key===currentWeatherKey()&&forecast.state==='available'&&Array.isArray(forecast.data?.hourly)&&forecast.data.hourly.length?
+ const timeOption=HB_WEATHER_TIME_COMPARE_ENABLED&&browsing&&rec.kind!=='caution'&&forecast.key===currentWeatherKey()&&forecast.state==='available'&&Array.isArray(forecast.data?.hourly)&&forecast.data.hourly.length?
     '<button type="button" class="light" id="hb-weather-times">시간대별 날씨와 일정 비교</button><div id="hb-weather-time-result" role="status"></div>':'';
  return '<p>'+safe(rec.message)+'</p>'+actions+timeOption;
 }
