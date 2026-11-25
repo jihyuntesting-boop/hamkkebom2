@@ -3,6 +3,7 @@
 // Agent J: place API only. The weather route remains Agent C's responsibility.
 const SNAPSHOT = require('../catalog/places.v1.json');
 const LANDMARKS = require('../catalog/nearby-landmark-supplement.v1.json');
+const {loadNationwideCatalog,normalizeRecord,publicPlace}=require('./nationwide-tour-catalog.cjs');
 const {enrichCatalog}=require('./catalog-accessibility.cjs');
 const {attachLegacyAccessNotes}=require('./legacy-accessibility-notes.cjs');
 const SOURCE_URL = 'https://www.data.go.kr/data/15101578/openapi.do';
@@ -155,8 +156,8 @@ async function fetchType(region, type, kind, { fetcher, key, checkedAt, center, 
     total: Number(body.totalCount),
     places: items.filter(item=>!center || String(item?.contenttypeid??'')===type)
       .map(item => {
-        const p=normalizeTour(item,kind,center?regionFor(typeof item?.addr1==='string'?item.addr1:''):region,checkedAt);
-        return p&&center?{...p,...discoveryFields(item,kind)}:p;
+        if(center){const p=normalizeRecord(item,type,checkedAt);return p&&p.areaCode&&p.lat!==null?publicPlace(p,'nationwide_live'):null;}
+        return normalizeTour(item,kind,region,checkedAt);
       }).filter(Boolean)
   };
 }
@@ -234,6 +235,12 @@ function nearbyCategory(value){
 function matchesCategory(p,filter){return filter==='all'||filter==='food'&&p.kind==='food'||filter==='spot'&&['spot','culture'].includes(p.kind);}
 async function nearbySearch(center,filter,options={}){
   const env=options.env||process.env;
+  const nationwide=options.nationwideCatalog||loadNationwideCatalog(env);
+  if(nationwide){
+    const found=nationwide.nearby(center,NEARBY_RADIUS,filter,NEARBY_LIMIT,options.now||Date.now());
+    const partial=nationwide.catalogPartial||found.hasNext||found.hiddenPastEvents>0;
+    return {mode:'catalog_snapshot',center,radiusMeters:NEARBY_RADIUS,category:filter,count:found.places.length,source:'한국관광공사 TourAPI 전국 수집 자료',distanceType:'straight_line',note:'전국 카탈로그 수집 자료 · 현재 영업·보행·접근성 미확인 · 일정 작성은 서울·경기',fetchedAt:nationwide.collectedAt,meta:{dataStatus:partial?'partial':'ok',partial,coverage:nationwide.coverage,quality:nationwide.quality,searchMethod:'nationwide_catalog',snapshotCollectedAt:nationwide.collectedAt,totalAvailable:found.totalAvailable,hasNext:found.hasNext,hiddenPastEvents:found.hiddenPastEvents},places:found.places};
+  }
   const key=[env.HB_TOURAPI_KEY,env.DATA_GO_KR_KEY].find(v=>typeof v==='string'&&v.trim())?.trim();
   const types=TYPES.filter(([type,kind])=>matchesCategory({kind},filter));
   const makeResult=(records,mode,coverage,checkedAt,failures=[])=>{
@@ -248,7 +255,7 @@ async function nearbySearch(center,filter,options={}){
       for(const raw of LANDMARKS.records){
         const p=normalizePlace({...raw,source:'한국관광공사 TourAPI 키워드 조회 보강',collectedAt:LANDMARKS.collectedDate});
         if(p&&!distinct.some(x=>x.id===p.id)&&distanceMeters(p,center)<=NEARBY_RADIUS){
-          const item={...p,subtype:raw.subtype,discoverySource:'keyword_snapshot',accessStatus:'unverified',accessFacts:[]};
+          const item={...p,areaCode:REGION_CODES[p.region],subtype:raw.subtype,discoverySource:'keyword_snapshot',accessStatus:'unverified',accessFacts:[]};
           distinct.push(item);supplement.push(item.id);
         }
       }
@@ -262,8 +269,8 @@ async function nearbySearch(center,filter,options={}){
     const partial=mode!=='live'||failures.length>0||coverage.some(x=>x.total==null||x.returned<x.total)||places.length<distinct.length||hiddenPastEvents>0||supplement.length>0;
     return {mode,center,radiusMeters:NEARBY_RADIUS,category:filter,count:places.length,
       source:'한국관광공사 국문 관광정보',distanceType:'straight_line',
-      note:'서울·경기 일부 장소 · 직선거리이며 실제 보행거리·경사·이동 적합 여부는 확인되지 않음',
-      fetchedAt:checkedAt,meta:{dataStatus:partial?'partial':'ok',partial,sourceUpdatedAt:null,fetchedAt:checkedAt,coverage,failures,hiddenPastEvents,supplementedIds:supplement,searchMethod:mode==='live'?'locationBasedList2':'saved_snapshot'},
+      note:(mode==='live'?'전국 유형별 위치 조회 일부 자료':'서울·경기 저장 일부 자료')+' · 직선거리이며 실제 보행거리·경사·이동 적합 여부는 확인되지 않음',
+      fetchedAt:checkedAt,meta:{dataStatus:partial?'partial':'ok',partial,sourceUpdatedAt:null,fetchedAt:checkedAt,coverage,failures,hiddenPastEvents,supplementedIds:supplement,nationwideCatalogStatus:env.HB_NATIONWIDE_CATALOG_ENABLED==='1'?'unavailable_or_stale':'not_enabled',searchMethod:mode==='live'?'locationBasedList2':'saved_snapshot'},
       places:places.map(p=>({...p,subtype:p.subtype||(p.kind==='food'?'음식점':p.kind==='culture'?'문화시설':'관광지 · 세부 유형 미확인')}))};
   };
   if(!key){
@@ -315,6 +322,8 @@ const detailCache=new Map(),detailPending=new Map();
 let detailActive=0,detailCooldownUntil=0;
 async function resolveRoutePlace(id,region,{fetcher=globalThis.fetch,env=process.env}={}){
   if(!validId(id)||!Object.hasOwn(REGION_CODES,region))return null;
+  const indexed=loadNationwideCatalog(env)?.byId(id);
+  if(indexed&&indexed.areaCode===REGION_CODES[region]&&indexed.region===region&&Number.isFinite(indexed.lat)&&Number.isFinite(indexed.lng)&&!pastDatedEvent(indexed,Date.now()))return indexed;
   const key=[env.HB_TOURAPI_KEY,env.DATA_GO_KR_KEY].find(v=>typeof v==='string'&&v.trim())?.trim();
   if(!key)return null;
   const useCache=fetcher===globalThis.fetch, now=Date.now(), cacheKey=region+':'+id;

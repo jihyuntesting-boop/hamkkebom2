@@ -202,7 +202,7 @@ function hbRichDetailAttach(place,auto){
 function hbRichDiscoveryAttach(){
  if(!window.HBRichPlaceDetail||!document.getElementById('nearby-map'))return;
  const host=document.createElement('section');host.className='panel';host.id='hb-rich-discovery';
- host.innerHTML='<details><summary>전국 여행지 찾아보기</summary><p class="muted">전국 관광지·문화시설·식당 탐색. 실제 API 사용 권한이 확인된 환경에서만 조회돼요.</p><div class="field"><label for="hb-rich-mode">검색 방식</label><select id="hb-rich-mode"><option value="area">지역</option><option value="keyword">장소명</option><option value="location">위 지도 중심</option></select></div><div class="field"><label for="hb-rich-area">시·도</label><select id="hb-rich-area"><option value="">전국</option></select><button class="light" type="button" id="hb-rich-areas">지역 목록 불러오기</button></div><div class="field"><label for="hb-rich-district">시·군·구</label><select id="hb-rich-district"><option value="">전체</option></select></div><div class="field"><label for="hb-rich-keyword">장소명</label><input id="hb-rich-keyword" maxlength="100" type="search"></div><div class="field"><label for="hb-rich-kind">장소 유형</label><select id="hb-rich-kind"><option value="12">관광지</option><option value="14">문화시설</option><option value="39">식당</option></select></div><div class="actions"><button type="button" id="hb-rich-search">검색</button><button class="light" type="button" id="hb-rich-next" hidden>다음 결과 더 보기</button></div><p id="hb-rich-status" role="status"></p><div id="hb-rich-map"></div><div id="hb-rich-list"></div></details>';
+ host.innerHTML='<details><summary>전국 여행지 찾아보기</summary><p class="muted">전국 관광지·문화시설·식당 탐색. 수집 자료가 준비되면 저장된 카탈로그를 검색하고, 그 외에는 승인된 API 조회 환경에서만 이용할 수 있어요.</p><div class="field"><label for="hb-rich-mode">검색 방식</label><select id="hb-rich-mode"><option value="area">지역</option><option value="keyword">장소명</option><option value="location">위 지도 중심</option></select></div><div class="field"><label for="hb-rich-area">시·도</label><select id="hb-rich-area"><option value="">전국</option></select><button class="light" type="button" id="hb-rich-areas">지역 목록 불러오기</button></div><div class="field"><label for="hb-rich-district">시·군·구</label><select id="hb-rich-district"><option value="">전체</option></select></div><div class="field"><label for="hb-rich-keyword">장소명</label><input id="hb-rich-keyword" maxlength="100" type="search"></div><div class="field"><label for="hb-rich-kind">장소 유형</label><select id="hb-rich-kind"><option value="12">관광지</option><option value="14">문화시설</option><option value="39">식당</option></select></div><div class="actions"><button type="button" id="hb-rich-search">검색</button><button class="light" type="button" id="hb-rich-next" hidden>다음 결과 더 보기</button></div><p id="hb-rich-status" role="status"></p><div id="hb-rich-map"></div><div id="hb-rich-list"></div></details>';
  const near=document.getElementById('nearby-map').closest('section');if(!near)return;near.insertAdjacentElement('afterend',host);
  const at=id=>host.querySelector('#hb-rich-'+id);
  const status=at('status'),list=at('list'),mapHost=at('map'),next=at('next');
@@ -252,7 +252,7 @@ function hbRichDiscoveryAttach(){
    if(disposed||epoch!==searchEpoch)return;
    if(!Array.isArray(result.places)||result.pageNo!==page+1)throw Error('invalid page');
    for(const p of result.places){if(hbRichIdentity(p)&&typeof p.name==='string'&&p.name&&!records.has(p.id))records.set(p.id,p);}
-   page++;draw();next.hidden=!result.hasNext||page>=5;status.textContent='현재 조회 '+records.size+'곳 · '+(result.hasNext?(page>=5?'5페이지 조회 제한에 도달했어요. 검색 조건을 좁혀 주세요.':'다음 페이지가 있어요.'): '마지막 페이지예요.');
+   page++;draw();next.hidden=!result.hasNext||page>=5;status.textContent=(result.sourceMode==='catalog_snapshot'?'전국 수집 자료 '+String(result.collectedAt||'').slice(0,10)+' · '+result.totalAvailable+'곳 중 ':'')+'현재 조회 '+records.size+'곳 · '+(result.hasNext?(page>=5?'5페이지 조회 제한에 도달했어요. 검색 조건을 좁혀 주세요.':'다음 페이지가 있어요.'): '마지막 페이지예요.');
   }catch{if(!disposed&&epoch===searchEpoch)status.textContent='관광정보를 조회할 수 없어요. 기존 주변 검색은 계속 이용할 수 있어요.';}
   finally{if(!disposed&&epoch===searchEpoch)next.disabled=false;}
  }
@@ -262,7 +262,7 @@ function hbRichDiscoveryAttach(){
 function detail(id){
  if(typeof hbRichDispose==='function')hbRichDispose();hbRichDispose=null;
  const back='<p><a id="hb-detail-back" class="hb-back-link" href="#/places"><span aria-hidden="true">←</span> 장소 목록</a></p>';
- const selectedRich=hbRichSelected?.id===id?hbRichSelected:null;
+ const selectedRich=hbRichSelected?.id===id?hbRichSelected:(typeof nearbyItems!=='undefined'?nearbyItems.find(p=>p.id===id&&['nationwide_catalog','nationwide_live','keyword_snapshot'].includes(p.discoverySource))||null:null);
  const place=id?(places.find(value=>value.id===id)||selectedRich):null;
  if(!place||!selectedRich&&(loading||issue)){
   if(loading||hbPlacesLoadedRegion===null&&!issue&&id){

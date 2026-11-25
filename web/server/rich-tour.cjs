@@ -1,6 +1,7 @@
 'use strict';
 // Agent AA — isolated, opt-in KTO adapter; not a recommendation or route certification.
-function createRichTour({env={},fetcher,now=Date.now,signalFactory=ms=>AbortSignal.timeout(ms),limit=30,enrich,loadFacilities}={}){
+const {loadNationwideCatalog,areaFor}=require('./nationwide-tour-catalog.cjs');
+function createRichTour({env={},fetcher,now=Date.now,signalFactory=ms=>AbortSignal.timeout(ms),limit=30,enrich,loadFacilities,nationwideCatalog}={}){
  const source='https://www.data.go.kr/data/15101578/openapi.do';
  const root='https://apis.data.go.kr/B551011/KorService2/';
  const types={'12':'spot','14':'culture','39':'food'};
@@ -16,7 +17,7 @@ function createRichTour({env={},fetcher,now=Date.now,signalFactory=ms=>AbortSign
  const number=(v,min,max)=>typeof v==='number'||typeof v==='string'&&v.trim()!==''?Number.isFinite(Number(v))&&Number(v)>=min&&Number(v)<=max?Number(v):null:null;
  const coords=(lat,lng)=>{let y=number(lat,32,39),x=number(lng,124,133);return y===null||x===null?null:{lat:y,lng:x};};
  const prefixes={'1':['서울특별시','서울'],'2':['인천광역시','인천'],'3':['대전광역시','대전'],'4':['대구광역시','대구'],'5':['광주광역시','광주'],'6':['부산광역시','부산'],'7':['울산광역시','울산'],'8':['세종특별자치시','세종'],'31':['경기도','경기'],'32':['강원특별자치도','강원도','강원'],'33':['충청북도','충북'],'34':['충청남도','충남'],'35':['경상북도','경북'],'36':['경상남도','경남'],'37':['전북특별자치도','전라북도','전북'],'38':['전라남도','전남'],'39':['제주특별자치도','제주도','제주']};
- const addressArea=address=>Object.keys(prefixes).find(k=>prefixes[k].includes(address?.split(/\s+/)[0]))||null;
+ const addressArea=areaFor;
  function place(item){
   const contentId=id(item?.contentid),contentTypeId=String(item?.contenttypeid??''),name=clean(item?.title,180),address=clean(item?.addr1,400),point=coords(item?.mapy,item?.mapx);
   if(!contentId||!Object.hasOwn(types,contentTypeId)||!name)return null;
@@ -70,6 +71,8 @@ function createRichTour({env={},fetcher,now=Date.now,signalFactory=ms=>AbortSign
   else if(mode==='keyword'){op='searchKeyword2';let keyword=clean(q.keyword,100);if(!keyword||typeof q.keyword!=='string'||q.keyword.length>100)throw error('invalid_keyword',400);params.keyword=keyword;}
   else if(mode==='location'){op='locationBasedList2';const point=coords(q.lat,q.lng),radius=integer(q.radius??5000,1,20000);if(!point||radius===null)throw error('invalid_coordinates',400);delete params.areaCode;delete params.sigunguCode;Object.assign(params,{mapX:point.lng,mapY:point.lat,radius});}
   else throw error('invalid_mode',400);
+  const index=nationwideCatalog||loadNationwideCatalog(env,now());
+  if(index)return index.search({type,mode,areaCode:loc.areaCode,sigunguCode:loc.sigunguCode,keyword:params.keyword,center:mode==='location'?{lat:params.mapY,lng:params.mapX}:null,radius:params.radius,...p,clock:now()});
   let result=await request(op,params),fallback=false,districtName=null;
   // A genuine zero-total keyword result may omit places without legacy codes.
   // Never broaden a location or area-list query; keep the user's region filter.
@@ -87,7 +90,7 @@ function createRichTour({env={},fetcher,now=Date.now,signalFactory=ms=>AbortSign
   const hasNext=p.pageNo*p.numOfRows<result.total;
   return {places,pageNo:p.pageNo,numOfRows:p.numOfRows,totalAvailable:fallback?(p.pageNo===1&&!hasNext?places.length:null):result.total,hasNext,returned:places.length,providerReturned:result.items.length,sourceUrl:source,collectedAt:result.collectedAt,regionFallback:fallback,providerTotalScope:fallback?'nationwide_keyword':'requested_query'};
  }
- async function areas(q={}){const p=page(q),loc=region(q);if(loc.sigunguCode)throw error('invalid_region',400);const result=await request('areaCode2',{...p,...loc});return {areas:result.items.map(x=>({code:integer(x.code,1,999),name:clean(x.name,100)})).filter(x=>x.code&&x.name),...p,totalAvailable:result.total,hasNext:p.pageNo*p.numOfRows<result.total,sourceUrl:source};}
+ async function areas(q={}){const p=page(q),loc=region(q);if(loc.sigunguCode)throw error('invalid_region',400);const index=nationwideCatalog||loadNationwideCatalog(env,now());if(index)return index.areas(loc.areaCode,p.pageNo,p.numOfRows);const result=await request('areaCode2',{...p,...loc});return {areas:result.items.map(x=>({code:integer(x.code,1,999),name:clean(x.name,100)})).filter(x=>x.code&&x.name),...p,totalAvailable:result.total,hasNext:p.pageNo*p.numOfRows<result.total,sourceUrl:source};}
  const introFields={12:{hours:'usetime',closed:'restdate',parking:'parking',phone:'infocenter',useSeason:'useseason',experience:'expguide',stroller:'chkbabycarriage',pets:'chkpet',creditCard:'chkcreditcard',capacity:'accomcount'},14:{hours:'usetimeculture',closed:'restdateculture',parking:'parkingculture',parkingFee:'parkingfee',admission:'usefee',phone:'infocenterculture',stay:'spendtime',capacity:'accomcountculture',scale:'scale'},39:{hours:'opentimefood',closed:'restdatefood',parking:'parkingfood',phone:'infocenterfood',mainMenu:'firstmenu',menu:'treatmenu',reservation:'reservationfood',seats:'seat',smoking:'smoking',takeout:'packing',children:'kidsfacility',creditCard:'chkcreditcardfood'}};
  const evidence=(value,endpoint,field,collectedAt,state)=>({value:value??null,state:state??(value==null?'missing':'official_reported'),sourceUrl:source,endpoint,field,collectedAt:collectedAt??null,verifiedAt:null});
  async function detail(q={}){
