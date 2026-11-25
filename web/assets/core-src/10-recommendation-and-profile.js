@@ -241,11 +241,11 @@ const hbRecommendationReasons={
   required_stairs:'검증된 이동 구간에 필수 계단이 있어 선택한 조건과 충돌해요.',
   conflicting_evidence:'접근성 자료가 서로 상충해 방문 전 확인이 필요해요.',
   stale_evidence:'접근성 자료가 오래되어 현재 동선을 다시 확인해야 해요.',
-  mobility_aid_unverified:'선택한 보조기구로 이동할 수 있는 동선이 검증되지 않았어요.',
-  insufficient_evidence:'계단·연속 보행시간·이동 동선에 관한 근거가 부족해요.',
+  mobility_aid_unverified:'선택한 보조기구로 이동할 동선은 방문 전에 직접 확인해 주세요.',
+  insufficient_evidence:'계단·연속 보행시간·이동 동선은 방문 전에 직접 확인해 주세요.',
   server_not_assessed:'이 장소는 서버 추천 판정 대상에 없어요. 접근성을 별도로 확인해 주세요.',
-  local_unverified:'서버가 확인하지 못한 임시 목록이에요. 실제 접근성이 검증된 추천이 아니에요.',
-  missing_reason:'서버 판정의 검증 근거가 누락되어 확인이 필요해요.',
+  local_unverified:'서버 판정 전 임시 목록이에요. 접근성 판정 결과가 아니에요.',
+  missing_reason:'서버 판정 근거가 오지 않아 방문 전 확인으로 표시했어요.',
   classification_mismatch:'서버 판정과 장소 자료의 접근성 정보가 일치하지 않아 확인이 필요해요.'
 };
 let hbRecommendationState=null;
@@ -316,6 +316,7 @@ function hbQueueRecommendation(input){
 
 let hbSelectionListOpen=false;
 function browse(){
+  hbSeasonalClearMap();
   const filter=['all','spot','culture','food','access'].includes(s.hbBrowseFilter)?s.hbBrowseFilter:(s.hbInterest||'all');
   const query=typeof s.hbBrowseQuery==='string'?s.hbBrowseQuery:'';
   const chosen=hbUniquePlaceIds(s.chosen);
@@ -330,38 +331,41 @@ function browse(){
   const requestKey=hbRecommendationKey(requestInput);
   if(ready&&!travel.errors.length)hbQueueRecommendation(requestInput);
   const serverState=ready&&!travel.errors.length&&hbRecommendationState?.key===requestKey?hbRecommendationState:null;
-  const filtered=ready?hbSearchPlaces(places,filter,query):[];
+  // 여행 장소 찾기 shows only places meeting HB_TRIP_DATA_RULE; saved/selected places stay visible.
+  if(ready)hbSeasonalEnsureFeatured(s.region);
+  const curation=hbTripCuration(ready?hbTripCandidatePool(s.region):[],s.region,hbTripKeepIds(chosen,s.stops));
+  const filtered=ready?hbSearchPlaces(curation.visible,filter,query):[];
   const ranked=filtered.map(p=>({p,e:hbReconcileRecommendation(p,profile,serverState)}))
     .sort((a,b)=>hbDiscoveryPriority(b.p.id,s.region)-hbDiscoveryPriority(a.p.id,s.region)||b.e.score-a.e.score||String(a.p.name||'').localeCompare(String(b.p.name||''),'ko'));
   const good=ranked.filter(x=>x.e.status==='eligible');
   const review=ranked.filter(x=>x.e.status==='needsReview');
   const excluded=ranked.filter(x=>x.e.status==='excluded');
   const limited=Math.max(10,Number(s.hbBrowseLimit)||30);
-  const available=new Map((Array.isArray(places)?places:[]).filter(p=>p&&hbValidPlaceId(p.id)).map(p=>[p.id,p]));
+  const available=new Map([...curation.visible,...(Array.isArray(places)?places:[])].filter(p=>p&&hbValidPlaceId(p.id)).map(p=>[p.id,p]));
   const selections=chosen.map(id=>({id,place:available.get(id)}));
   const foodPrefs=Array.isArray(s.hbFoodPreferences)?s.hbFoodPreferences.filter(x=>['less_spicy','easy_to_chew','vegetarian'].includes(x)):[];
   const foodUnsupported=foodPrefs.length&&!(serverState?.state==='ready'&&serverState.result.foodPreferencesApplied&&foodPrefs.every(x=>serverState.result.appliedFoodPreferences.includes(x)));
-  const card=({p,e})=>{
+  const card=({p,e},extra='')=>{
     const picked=chosen.includes(p.id);
-    const status=e.status==='eligible'?'서버 기준 조건 일치':e.status==='excluded'?'이동 조건 충돌':e.reason==='conflicting_evidence'||e.conflict?'자료 상충 · 확인 필요':'접근성 확인 필요';
+    const status=hbRecommendationStatusText(e);
     const description=hbRecommendationReasons[e.reason]||hbRecommendationReasons.missing_reason;
     return '<article class="card hb-recommend-card"><div class="hb-card-top"><span class="chip">'+hbPlaceCategory(p)+'</span><span class="hb-recommend-state">'+status+'</span></div>'+
-      '<h3>'+safe(p.name)+'</h3><p class="muted">'+safe(p.address||'주소 미확인')+'</p>'+
-      '<p class="muted">'+safe(description)+'</p>'+
+      '<h3>'+safe(p.name)+'</h3>'+(p.address?'<p class="muted">'+safe(p.address)+'</p>':'')+
+      '<p class="muted">'+safe(description)+'</p>'+extra+
       (e.scope?'<p>확인 범위: '+safe(e.scope)+'</p>':'')+
       (e.found.length?'<p>관련 편의시설 안내 (동선 검증과 별개): '+safe(e.found.join(', '))+'</p>':'')+
-      (e.gaps.length?'<p class="muted">'+safe(e.gaps.slice(0,3).join(' · '))+'</p>':'')+
+      (hbVisibleGaps(e.gaps).length?'<p class="muted">'+safe(hbVisibleGaps(e.gaps).slice(0,3).join(' · '))+'</p>':'')+
       '<div class="actions"><a class="light" data-hb-info="'+safe(p.id)+'" href="'+safe(hbPlaceDetailPath(p.id))+'">상세 정보</a>'+
       (e.status==='excluded'&&!picked?'':'<button type="button" data-hb-pick="'+safe(p.id)+'" aria-pressed="'+picked+'">'+(picked?'선택 취소':'일정에 담기')+'</button>')+'</div></article>';
   };
   const section=(title,arr,empty='')=>'<section class="hb-result-section"><h2>'+title+' <span class="hb-result-count">'+arr.length+'곳</span></h2>'+
-    (arr.length?'<div class="grid">'+arr.slice(0,limited).map(card).join('')+'</div>':'<p class="muted">'+empty+'</p>')+'</section>';
+    (arr.length?'<div class="grid">'+arr.slice(0,limited).map(x=>card(x)).join('')+'</div>':'<p class="muted">'+empty+'</p>')+'</section>';
   const noResults=ready&&!ranked.length;
   const results=!ready?'':noResults?
-    panel('검색 결과 0건',places.length?'<p>현재 검색어·분류에 맞는 장소가 없어요. 조건을 자동으로 완화하지 않았어요.</p>':'<p>이 지역에서 조회된 장소가 없어요. 다른 지역을 직접 선택해 보세요.</p>'):
+    panel('검색 결과 0건',curation.enabled&&!curation.visible.length&&curation.hidden?'<p>정보가 충분한 장소가 없어 목록을 표시하지 않았어요. 정보가 부족한 장소 '+curation.hidden+'곳은 숨겼어요. 조건을 자동으로 완화하지 않았어요. 다른 지역을 선택해 보세요.</p>':places.length?'<p>현재 검색어·분류에 맞는 장소가 없어요. 조건을 자동으로 완화하지 않았어요.</p>'+(curation.hidden?'<p class="muted">정보가 부족해 숨긴 장소 '+curation.hidden+'곳은 검색에 포함하지 않았어요.</p>':''):'<p>이 지역에서 조회된 장소가 없어요. 다른 지역을 직접 선택해 보세요.</p>'):
     (good.length?section('서버 자료 기준 조건 일치',good):'')+
     (review.length?section('방문 전 확인할 장소',review):'')+
-    (excluded.length?'<details class="hb-conflict"><summary>확인된 이동 조건 충돌 '+excluded.length+'곳</summary><div class="grid">'+excluded.slice(0,limited).map(card).join('')+'</div></details>':'')+
+    (excluded.length?'<details class="hb-conflict"><summary>확인된 이동 조건 충돌 '+excluded.length+'곳</summary><div class="grid">'+excluded.slice(0,limited).map(x=>card(x)).join('')+'</div></details>':'')+
     (Math.max(good.length,review.length,excluded.length)>limited?'<button type="button" class="light" id="hb-more">장소 더 보기</button>':'');
   const extraPrefs=[
     s.hbMobilityAid&&s.hbMobilityAid!=='none'?hbMobilityAidLabels[s.hbMobilityAid]:null,
@@ -369,11 +373,11 @@ function browse(){
     [30,45,60].includes(Number(s.hbRestIntervalMinutes))?'휴식 간격 '+Number(s.hbRestIntervalMinutes)+'분 (일정 초안)':null,
     s.hbIndoorPreference==='indoor'?'실내 위주':s.hbIndoorPreference==='outdoor'?'야외 위주':null
   ].filter(Boolean);
-  const stairs={impossible:'이용 불가',avoid:'피하기',possible:'이용 가능'}[s.hbStairsChoice]||'미선택';
-  const foodNote=foodUnsupported?'<p class="warn" role="status">선택한 음식 선호는 자동 필터 미지원이에요. 방문 전 식당 메뉴를 직접 확인해 주세요.</p>':
+  const stairs={impossible:'이용 불가',avoid:'피하기',possible:'이용 가능'}[s.hbStairsChoice]||'선택해 주세요';
+  const foodNote=foodUnsupported?'<p class="warn" role="status">선택한 음식 선호는 식당 자동 필터에 반영하지 않아요. 방문 전 식당 메뉴를 직접 확인해 주세요.</p>':
     foodPrefs.length?'<p class="muted">서버가 음식 선호 반영을 보고했어요. 실제 메뉴는 방문 전 확인해 주세요.</p>':'';
   const selectedList=selections.length?'<ul class="hb-selected-places">'+selections.map(({id,place})=>
-    '<li><span>'+safe(place?.name||'현재 자료에서 조회되지 않은 장소')+'</span> '+
+    '<li><span>'+safe(place?.name||'이전에 담은 장소')+'</span> '+
     '<button type="button" class="light" data-hb-must="'+safe(id)+'" aria-pressed="'+String(must.includes(id))+'"'+(!place?' disabled':'')+'>'+(must.includes(id)?'필수 방문지 ✓':'필수 방문지 지정')+'</button> '+
     '<button type="button" class="light" data-hb-unpick="'+safe(id)+'">선택 취소</button></li>'
   ).join('')+'</ul>':'<p>상세 정보를 확인하고 일정에 넣을 장소를 담아보세요.</p>';
@@ -392,19 +396,23 @@ function browse(){
       '곳 · 조건 충돌 '+[...serverState.result.byId.values()].filter(x=>x.status==='excluded').length+'곳.':
     '이동 조건 확인 대기';
   const serverZero=serverState?.state==='ready'&&serverState.result.byId.size===0;
+  const seasonalView=hbSeasonalView({ready,profile,serverState,chosen,pool:curation.visible});
+  const tripSummary=hbTripResultSummary({ready,curation,good,review,excluded,serverState,travel});
   const retry=serverState?.state==='error'?'<button type="button" id="hb-recommend-retry" class="light">서버 추천 다시 확인</button>':'';
   el.innerHTML='<h1>여행 장소 찾기</h1>'+hbDiscoveryPendingMarkup()+prefs()+
-    '<div class="hb-profile-summary"><strong>여행 조건</strong><p>'+safe(s.date)+' · '+safe(s.hbPlanStart||'시작 제안받기')+' ~ '+safe(s.hbPlanEnd||'종료 제안받기')+'</p><p>걷기 '+safe(s.hbWalkConfirmed?s.walk+'분':'미선택')+' · 계단 '+safe(stairs)+
+    '<div class="hb-profile-summary"><strong>여행 조건</strong><p>'+safe(s.date)+' · '+safe(s.hbPlanStart||'시작 제안받기')+' ~ '+safe(s.hbPlanEnd||'종료 제안받기')+'</p><p>걷기 '+safe(s.hbWalkConfirmed?s.walk+'분':'선택해 주세요')+' · 계단 '+safe(stairs)+
     (extraPrefs.length?' · '+safe(extraPrefs.join(' / ')):'')+'</p><button type="button" class="light" id="hb-edit-profile">조건 수정</button></div>'+tray+
     '<section class="panel"><h2>이동 조건 추천 판정</h2><p id="hb-recommend-status" role="'+(serverState?.state==='error'?'alert':'status')+'">'+serverStatus+'</p>'+retry+
     (serverZero?'<p class="muted">서버 추천 결과 0건이에요. 아래에 서버에서 판정하지 않은 장소가 있더라도 조건 일치로 간주하지 않아요.</p>':'')+
+    tripSummary+hbTripQuickConditions()+
     '<p class="muted">현장 동선·영업시간·실제 보행 거리는 별도로 확인해 주세요.</p></section>'+
+    hbSeasonalMarkup(seasonalView)+
     (typeof weatherCard==='function'?weatherCard():'')+
     '<form class="row" role="search" id="hb-browse-search"><div class="field"><label for="hb-place-search">장소 이름 또는 주소</label><input type="search" id="hb-place-search" maxlength="100" value="'+safe(query)+'"></div>'+
     '<button type="submit" id="hb-place-search-submit">검색</button>'+(query?'<button type="button" class="light" id="hb-search-reset">검색 지우기</button>':'')+'</form>'+
     '<div class="hb-filter-bar" role="group" aria-label="장소 필터">'+[['all','전체'],['spot','관광지'],['culture','문화시설'],['food','식당'],['access','편의시설 안내 있음']].map(([id,label])=>
     '<button type="button" data-hb-filter="'+id+'" class="light '+(filter===id?'hb-filter-active':'')+'" aria-pressed="'+String(filter===id)+'">'+label+'</button>').join('')+'</div>'+
-    '<p class="muted">미확인 장소는 자동으로 조건을 완화해 추천하지 않아요. 편의시설 존재만으로 휠체어 동선을 보장하지 않아요.</p>'+foodNote+
+    '<p class="muted">조건을 자동으로 완화해 추천하지 않아요. 편의시설 존재만으로 휠체어 동선을 보장하지 않아요.</p>'+foodNote+
     '<p role="status">'+(ready?ranked.length+'곳이 현재 검색·분류에 표시돼요.':'')+'</p><div id="hb-place-results" aria-busy="'+loading+'">'+results+'</div>';
   hbDiscoveryBindPending(browse);bindPrefs();
   const trayList=el.querySelector('.hb-selection-list');
@@ -436,12 +444,14 @@ function browse(){
     const next=hbUniquePlaceIds(s.chosen);
     const wasPicked=next.includes(id);
     if(!wasPicked&&!available.has(id))return;
+    if(!wasPicked&&!places.some(p=>p.id===id))places.push({...available.get(id),hbPickedRegion:s.region,accessFacts:[],accessStatus:'unknown'});
     if(!wasPicked&&serverState?.state==='ready'&&serverState.result.byId.get(id)?.status==='excluded')return;
     s.chosen=wasPicked?next.filter(x=>x!==id):[...next,id];
     s.hbMustVisitIds=hbUniquePlaceIds(s.hbMustVisitIds).filter(x=>s.chosen.includes(x));
     save();
     browse();
-    const button=fromTray?['.hb-selection-tray [data-hb-unpick]','.hb-selection-tray summary','#build'].map(q=>document.querySelector(q)).find(Boolean):[...document.querySelectorAll('[data-hb-pick]')].find(node=>node.dataset.hbPick===id);
+    const fromSeasonal=!!b.closest?.('.hb-seasonal');
+    const button=fromTray?['.hb-selection-tray [data-hb-unpick]','.hb-selection-tray summary','#build'].map(q=>document.querySelector(q)).find(Boolean):[...document.querySelectorAll(fromSeasonal?'.hb-seasonal [data-hb-pick]':'#hb-place-results [data-hb-pick]')].find(node=>node.dataset.hbPick===id)||[...document.querySelectorAll('[data-hb-pick]')].find(node=>node.dataset.hbPick===id);
     (button||document.getElementById('hb-place-search'))?.focus();
   });
   document.querySelectorAll('[data-hb-must]').forEach(b=>b.onclick=()=>{
@@ -465,4 +475,347 @@ function browse(){
     }
     return true;
   };
+  hbSeasonalBind(seasonalView,{profile,serverState,chosen});
+  hbTripBindQuickConditions();
 }
+
+// BEGIN HB_SEASONAL_RECOMMENDATION
+// Travel-date season is an editorial theme (ADR-008): not bloom, festival, operation,
+// crowd, weather or indoor facts. Accessibility groups come only from hbReconcileRecommendation.
+// Routes are visit-order / place-group candidates; travel times stay with the itinerary engine.
+const hbSeasonalThemes={
+  spring:{idea:'정원·공원 산책과 궁궐·한옥 나들이',kinds:[],pattern:/정원|수목원|공원|숲|호수|습지|산책|궁|한옥|성곽|산성|유적/},
+  summer:{idea:'박물관·미술관 같은 전시·문화시설',kinds:['culture'],pattern:/박물관|미술관|기념관|전시|과학관|도서관|아쿠아리움|디자인플라자/},
+  autumn:{idea:'공원·숲 산책과 궁궐·성곽 역사 여행',kinds:[],pattern:/정원|수목원|공원|숲|호수|습지|산책|궁|한옥|성곽|산성|유적/},
+  winter:{idea:'박물관·미술관 같은 전시·문화시설',kinds:['culture'],pattern:/박물관|미술관|기념관|전시|과학관|도서관|아쿠아리움|디자인플라자/}
+};
+const hbSeasonalBasisLabels={editorial_course:'함께봄 계절 편집 코스 장소',official_category:'관광공사 분류: 문화시설',name_keyword:'장소 이름 기준 계절 테마'};
+const hbSeasonalBasisRank={editorial_course:3,official_category:2,name_keyword:1};
+const hbSeasonalStatusRank={eligible:2,needsReview:1,excluded:0};
+const hbSeasonalRegionCodes={서울:'1',경기:'31'};
+const hbSeasonalCenters={서울:[37.5665,126.9780],경기:[37.2636,127.0286]};
+const hbSeasonalFeatured=new Map();
+let hbSeasonalMapOpen=null,hbSeasonalMapDispose=null,hbSeasonalMessage='',hbSeasonalLeaveBound=false;
+
+function hbSeasonalTodaySeoul(now=new Date()){
+  return new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).format(now);
+}
+function hbSeasonalValidDate(date){
+  if(typeof date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(date))return false;
+  const parsed=new Date(date+'T00:00:00Z');
+  return Number.isFinite(+parsed)&&parsed.toISOString().slice(0,10)===date;
+}
+/** The travel date is already a Seoul calendar date; only the fallback reads the clock. */
+function hbTravelSeason(date,today=hbSeasonalTodaySeoul()){
+  const fromTravel=hbSeasonalValidDate(date);
+  const basisDate=fromTravel?date:today;
+  const month=Number(String(basisDate).slice(5,7));
+  const season=hbDiscoveryCurrentSeason(month);
+  return {season,label:hbDiscoverySeasonLabel(season),month,date:basisDate,basis:fromTravel?'travel_date':'today'};
+}
+function hbSeasonalRegionMatch(p,region){
+  const code=hbSeasonalRegionCodes[region];
+  if(!code||!p)return false;
+  if(p.areaCode!=null&&p.areaCode!=='')return String(p.areaCode)===code;
+  if(typeof p.region==='string'&&p.region)return p.region===region;
+  const prefix=region==='서울'?/^서울(?:특별시|\s)/:/^경기(?:도|\s)/;
+  return typeof p.address==='string'&&prefix.test(p.address);
+}
+function hbSeasonalCourseIds(season,region){
+  return new Set(hbDiscoveryCourses.filter(c=>c.region===region&&c.seasons.includes(season)).flatMap(c=>c.ids));
+}
+function hbSeasonalPlaceMatch(p,season,courseIds){
+  const theme=hbSeasonalThemes[season];
+  if(!theme||!p||p.kind==='food')return null;
+  if(courseIds.has(p.id))return 'editorial_course';
+  if(theme.kinds.includes(p.kind))return 'official_category';
+  return theme.pattern.test(String(p.name||''))?'name_keyword':null;
+}
+function hbSeasonalSort(a,b){
+  return hbSeasonalStatusRank[b.e.status]-hbSeasonalStatusRank[a.e.status]||
+    hbSeasonalBasisRank[b.basis]-hbSeasonalBasisRank[a.basis]||(b.e.score||0)-(a.e.score||0)||
+    String(a.p.name).localeCompare(String(b.p.name),'ko');
+}
+/** Season-themed places in the selected trip region; excluded rows are counted, never shown as fits. */
+function hbSeasonalPlaces(list,season,region,evaluate){
+  const courseIds=hbSeasonalCourseIds(season,region);
+  const seen=new Set(),rows=[];
+  for(const p of Array.isArray(list)?list:[]){
+    if(!p||!hbValidPlaceId(p.id)||seen.has(p.id)||typeof p.name!=='string'||!p.name.trim()||!hbSeasonalRegionMatch(p,region))continue;
+    const basis=hbSeasonalPlaceMatch(p,season,courseIds);
+    if(!basis)continue;
+    seen.add(p.id);rows.push({p,e:evaluate(p),basis});
+  }
+  rows.sort(hbSeasonalSort);
+  return {shown:rows.filter(x=>x.e.status!=='excluded'),excluded:rows.filter(x=>x.e.status==='excluded')};
+}
+function hbSeasonalDistrict(address){
+  const m=typeof address==='string'&&address.match(/^(?:서울(?:특별시)?|경기(?:도)?)\s+([가-힣]{1,10}(?:시|군|구))(?:\s|$)/);
+  return m?m[1]:null;
+}
+/** Existing editorial courses; shown only when every exact ID resolves in the trip region. */
+function hbSeasonalEditorialCourses(season,region,records,evaluate){
+  return hbDiscoveryCourses.filter(c=>c.region===region&&c.seasons.includes(season)).map(c=>{
+    const stops=c.ids.map(id=>(Array.isArray(records)?records:[]).find(p=>p&&p.id===id&&hbSeasonalRegionMatch(p,region))||null);
+    const complete=stops.every(Boolean);
+    return {id:'editorial-'+c.id,kind:'editorial',title:c.title,description:c.description,complete,
+      stops:complete?stops.map(p=>({p,e:evaluate(p),basis:'editorial_course'})):[]};
+  });
+}
+/** Same district (address) groups of non-excluded season places. Unordered; no distance claim. */
+function hbSeasonalComposedCourses(shown,editorial=[],limit=3){
+  const groups=new Map();
+  for(const row of Array.isArray(shown)?shown:[]){
+    if(row.e.status==='excluded')continue;
+    const district=hbSeasonalDistrict(row.p.address);
+    if(!district)continue;
+    if(!groups.has(district))groups.set(district,[]);
+    groups.get(district).push(row);
+  }
+  const editorialSets=editorial.filter(c=>c.complete).map(c=>c.stops.map(x=>x.p.id).sort().join('|'));
+  const value=c=>c.stops.reduce((sum,x)=>sum+hbSeasonalStatusRank[x.e.status]*10+hbSeasonalBasisRank[x.basis],0);
+  return [...groups].filter(([,rows])=>rows.length>=2)
+    .map(([district,rows])=>({kind:'composed',district,title:district+' 계절 테마 장소 묶음',complete:true,stops:[...rows].sort(hbSeasonalSort).slice(0,2)}))
+    .filter(c=>!editorialSets.includes(c.stops.map(x=>x.p.id).sort().join('|')))
+    .sort((a,b)=>value(b)-value(a)||a.district.localeCompare(b.district,'ko')).slice(0,limit)
+    .map((c,i)=>({...c,id:'auto-'+(i+1)}));
+}
+function hbSeasonalCounts(stops){
+  const count=key=>stops.filter(x=>x.e.status===key).length;
+  return {eligible:count('eligible'),needsReview:count('needsReview'),excluded:count('excluded')};
+}
+function hbRecommendationStatusText(e){
+  return e.status==='eligible'?'서버 기준 조건 일치':e.status==='excluded'?'이동 조건 충돌':e.reason==='conflicting_evidence'||e.conflict?'자료 상충 · 확인 필요':'접근성 확인 필요';
+}
+/** One bounded editorial-featured lookup per trip region (exact TourAPI IDs, address-verified rows). */
+function hbSeasonalEnsureFeatured(region){
+  if(hbSeasonalFeatured.has(region)||!hbSeasonalCenters[region]||typeof get!=='function')return;
+  hbSeasonalFeatured.set(region,{state:'loading',records:[]});
+  const [lat,lng]=hbSeasonalCenters[region];
+  Promise.resolve().then(()=>get('/api/featured.js?lat='+lat+'&lng='+lng+'&region='+encodeURIComponent(region)))
+    .then(data=>{hbSeasonalFeatured.set(region,{state:'ready',records:hbDiscoveryFeaturedRows(data)});})
+    .catch(()=>{hbSeasonalFeatured.set(region,{state:'error',records:[]});})
+    .then(()=>{if(path()==='/places'&&s.region===region&&hbSeasonalFeaturedChangesView(region))browse();});
+}
+/** Redraw only when the lookup changes what is shown, so rendered cards are not replaced needlessly. */
+function hbSeasonalFeaturedChangesView(region){
+  const entry=hbSeasonalFeatured.get(region);
+  const known=new Set((Array.isArray(places)?places:[]).map(p=>p?.id));
+  if(entry?.state==='ready')return entry.records.some(p=>!known.has(p.id));
+  const season=hbTravelSeason(s.date).season;
+  return hbDiscoveryCourses.some(c=>c.region===region&&c.seasons.includes(season)&&c.ids.some(id=>!known.has(id)));
+}
+function hbSeasonalClearMap(){
+  if(typeof hbSeasonalMapDispose==='function')hbSeasonalMapDispose();
+  hbSeasonalMapDispose=null;
+}
+function hbSeasonalView({ready,profile,serverState,chosen,pool}){
+  const season=hbTravelSeason(s.date);
+  const region=s.region;
+  if(!ready)return {season,region,ready:false,courses:[],rows:{shown:[],excluded:[]},hidden:0,featured:null};
+  const evaluate=p=>hbReconcileRecommendation(p,profile,serverState);
+  const rows=hbSeasonalPlaces(pool,season.season,region,evaluate);
+  const editorial=hbSeasonalEditorialCourses(season.season,region,pool,evaluate);
+  const courses=[...editorial.filter(c=>c.complete),...hbSeasonalComposedCourses(rows.shown,editorial)];
+  return {season,region,ready:true,courses,rows,hidden:editorial.filter(c=>!c.complete).length,
+    featured:hbSeasonalFeatured.get(region)?.state||null,chosen};
+}
+function hbSeasonalMarkup(view){
+  const {season}=view;
+  const theme=hbSeasonalThemes[season.season];
+  const basis=season.basis==='travel_date'?'여행 날짜 '+safe(season.date)+' 기준 '+safe(season.label)+'이에요':
+    '여행 날짜를 확인할 수 없어 오늘('+safe(season.date)+', 서울 기준) 계절인 '+safe(season.label)+'로 보여 드려요';
+  const head='<section class="panel hb-seasonal" aria-labelledby="hb-seasonal-title"><h2 id="hb-seasonal-title">'+safe(season.label)+' 여행 추천 · 이동 조건 반영</h2>'+
+    '<p class="hb-seasonal-basis">'+basis+' (서울 시간대 · 3~5월 봄, 6~8월 여름, 9~11월 가을, 12~2월 겨울).</p>'+
+    '<p class="muted">'+safe(season.label)+' 편집 테마: '+safe(theme.idea)+'. 함께봄 편집 테마예요. 개화·행사·운영 시간과 날씨는 방문 전에 확인해 주세요.</p>';
+  if(!view.ready)return head+'<p role="status">장소 자료를 불러오면 계절 추천 코스와 장소를 보여 드려요.</p></section>';
+  const chosen=view.chosen||[];
+  const courseCard=c=>{
+    const counts=hbSeasonalCounts(c.stops);
+    const addable=c.stops.filter(x=>x.e.status!=='excluded');
+    const remaining=addable.filter(x=>!chosen.includes(x.p.id));
+    const List=c.kind==='editorial'?'ol':'ul';
+    const label=!addable.length?'담을 수 있는 장소 없음':!remaining.length?'코스 장소를 모두 담았어요':'이 코스 장소 담기 ('+remaining.length+'곳)';
+    return '<article class="hb-seasonal-course" data-hb-season-course="'+safe(c.id)+'">'+
+      '<p class="hb-discovery-kicker">'+(c.kind==='editorial'?'함께봄 편집 코스 · '+safe(view.region)+' · '+safe(season.label):'조건 기반 자동 묶음 · '+safe(c.district))+'</p>'+
+      '<h4>'+safe(c.title)+'</h4><p class="muted">'+(c.kind==='editorial'?safe(c.description)+'. 방문 순서 아이디어예요.':'같은 시·군·구 주소의 계절 테마 장소 '+c.stops.length+'곳이에요. 방문 순서는 정하지 않았어요.')+'</p>'+
+      '<p class="hb-seasonal-summary">조건 일치 '+counts.eligible+' · 확인 필요 '+counts.needsReview+' · 조건 충돌 '+counts.excluded+'</p>'+
+      '<'+List+' class="hb-seasonal-stops">'+c.stops.map(({p,e})=>'<li><a data-hb-season-open="'+safe(p.id)+'" href="'+safe(hbPlaceDetailPath(p.id))+'">'+safe(p.name)+'</a> <span class="hb-recommend-state">'+safe(hbRecommendationStatusText(e))+'</span>'+
+        (e.status==='excluded'?' <span class="muted">이 장소는 담지 않아요.</span>':hbVisibleGaps(e.gaps).length?' <span class="muted">'+safe(hbVisibleGaps(e.gaps)[0])+'</span>':'')+'</li>').join('')+'</'+List+'>'+
+      (counts.excluded?'<p class="warn">확인된 이동 조건 충돌 장소가 포함돼 있어요. 충돌 장소는 담기에서 빠져요.</p>':'')+
+      '<p class="muted">장소 간 이동시간·경로·보행 난이도는 계산하지 않았어요. 일정 만들기에서 확인해 주세요. 보행 안전을 보장하지 않아요.</p>'+
+      '<div class="actions"><button type="button" class="light" data-hb-season-map="'+safe(c.id)+'" aria-expanded="'+String(hbSeasonalMapOpen===c.id)+'">지도에서 위치 보기</button>'+
+      '<button type="button" data-hb-season-course-pick="'+safe(c.id)+'"'+(remaining.length?'':' disabled')+'>'+label+'</button></div>'+
+      '<div class="hb-seasonal-course-map" data-hb-season-map-host="'+safe(c.id)+'"'+(hbSeasonalMapOpen===c.id?'':' hidden')+'></div></article>';
+  };
+  const featuredNote=view.hidden?(view.featured==='loading'?'<p class="muted" role="status">편집 코스 장소 자료를 확인하고 있어요.</p>':
+    '<p class="muted">장소 자료가 모두 갖춰지지 않은 '+safe(season.label)+' 편집 코스 '+view.hidden+'개는 표시하지 않았어요.'+(view.featured==='error'?' 편집 코스 장소 조회에 실패했어요.':'')+'</p>'):'';
+  const courses='<h3>추천 코스 후보 <span class="hb-result-count">'+view.courses.length+'개</span></h3>'+
+    (view.courses.length?'<div class="hb-seasonal-course-grid">'+view.courses.map(courseCard).join('')+'</div>':
+      '<p>이 지역 조회 자료로는 '+safe(season.label)+' 코스 후보를 만들지 못했어요. 조건을 자동으로 완화하지 않았어요.</p>')+featuredNote;
+  const shown=view.rows.shown.slice(0,6);
+  const placesMarkup='<h3>'+safe(season.label)+' 테마 추천 장소 <span class="hb-result-count">'+view.rows.shown.length+'곳</span></h3>'+
+    (shown.length?'<div class="grid">'+shown.map(row=>hbSeasonalPlaceCard(row,chosen)).join('')+'</div>'+
+      (view.rows.shown.length>shown.length?'<p class="muted">나머지 '+(view.rows.shown.length-shown.length)+'곳은 아래 전체 목록에서 확인할 수 있어요.</p>':''):
+      '<p>이 지역 조회 자료에서 '+safe(season.label)+' 테마와 맞는 장소를 찾지 못했어요. 조건을 자동으로 완화하지 않았어요. 아래 전체 목록에서 직접 확인해 주세요.</p>')+
+    (view.rows.excluded.length?'<p class="muted">확인된 이동 조건 충돌로 계절 추천에서 제외한 장소 '+view.rows.excluded.length+'곳</p>':'');
+  return head+courses+placesMarkup+'<p role="status" id="hb-seasonal-status">'+safe(hbSeasonalMessage)+'</p>'+
+    '<p class="muted">‘방문 전 확인’ 장소는 계단·연속 보행시간·동선을 방문 전에 직접 확인해 주세요. 이동 안전을 보장하지 않아요.</p></section>';
+}
+function hbSeasonalBind(view,{serverState}){
+  hbSeasonalMessage='';
+  if(!view?.ready)return;
+  const find=id=>view.courses.find(c=>c.id===id&&c.complete);
+  document.querySelectorAll('[data-hb-season-open]').forEach(a=>a.onclick=()=>{
+    const id=a.dataset.hbSeasonOpen;
+    if(!places.some(p=>p.id===id)){
+      const stop=view.courses.flatMap(c=>c.stops).find(x=>x.p.id===id);
+      if(stop&&typeof hbRichSelected!=='undefined')hbRichSelected=stop.p;
+    }
+  });
+  document.querySelectorAll('[data-hb-season-course-pick]').forEach(b=>b.onclick=()=>{
+    const course=find(b.dataset.hbSeasonCoursePick);
+    if(!course)return;
+    const blocked=id=>serverState?.state==='ready'&&serverState.result.byId.get(id)?.status==='excluded';
+    const addable=course.stops.filter(x=>x.e.status!=='excluded'&&!blocked(x.p.id)&&hbValidPlaceId(x.p.id)&&hbSeasonalRegionMatch(x.p,s.region));
+    const before=hbUniquePlaceIds(s.chosen);
+    for(const {p} of addable){
+      if(!places.some(x=>x.id===p.id))places.push({...p,hbPickedRegion:s.region,accessFacts:[],accessStatus:'unknown'});
+    }
+    const next=hbUniquePlaceIds([...before,...addable.map(x=>x.p.id)]);
+    const added=next.length-before.length;
+    s.chosen=next;
+    save();
+    hbSeasonalMessage=added?course.title+'에서 '+added+'곳을 담았어요. 일정은 아직 만들지 않았고 기존 일정도 바뀌지 않았어요.':'이미 담긴 장소예요.';
+    browse();
+    [...document.querySelectorAll('[data-hb-season-course-pick]')].find(n=>n.dataset.hbSeasonCoursePick===course.id)?.focus?.();
+  });
+  document.querySelectorAll('[data-hb-season-map]').forEach(b=>b.onclick=()=>{
+    const id=b.dataset.hbSeasonMap;
+    hbSeasonalMapOpen=hbSeasonalMapOpen===id?null:id;
+    browse();
+    [...document.querySelectorAll('[data-hb-season-map]')].find(n=>n.dataset.hbSeasonMap===id)?.focus?.();
+  });
+  const open=hbSeasonalMapOpen&&find(hbSeasonalMapOpen);
+  if(!open){hbSeasonalMapOpen=null;return;}
+  const host=[...document.querySelectorAll('[data-hb-season-map-host]')].find(n=>n.dataset.hbSeasonMapHost===open.id);
+  if(!host||typeof hbRichMapAdapter!=='function')return;
+  // Pins only: an editorial order is not a verified driving or walking line.
+  hbSeasonalMapDispose=hbRichMapAdapter({container:host,points:open.stops.map(x=>x.p),onSelect:id=>{
+    const link=[...document.querySelectorAll('[data-hb-season-open]')].find(n=>n.dataset.hbSeasonOpen===id);
+    link?.focus?.();
+  }});
+  if(!hbSeasonalLeaveBound&&typeof window!=='undefined'&&window.addEventListener){
+    hbSeasonalLeaveBound=true;
+    window.addEventListener('hashchange',()=>{if(path()!=='/places')hbSeasonalClearMap();});
+  }
+}
+// Seasonal cards deliberately avoid .hb-recommend-card/data-hb-info: the main list owns those hooks.
+function hbSeasonalPlaceCard({p,e,basis},chosen){
+  const picked=chosen.includes(p.id);
+  return '<article class="card hb-seasonal-card"><div class="hb-card-top"><span class="chip">'+hbPlaceCategory(p)+'</span><span class="hb-recommend-state">'+safe(hbRecommendationStatusText(e))+'</span></div>'+
+    '<h3>'+safe(p.name)+'</h3>'+(p.address?'<p class="muted">'+safe(p.address)+'</p>':'')+
+    '<p class="hb-seasonal-tag">계절 근거: '+safe(hbSeasonalBasisLabels[basis])+'</p>'+
+    (hbVisibleGaps(e.gaps).length?'<p class="muted">'+safe(hbVisibleGaps(e.gaps).slice(0,2).join(' · '))+'</p>':'')+
+    '<div class="actions"><a class="light" data-hb-season-open="'+safe(p.id)+'" href="'+safe(hbPlaceDetailPath(p.id))+'">상세 정보</a>'+
+    '<button type="button" data-hb-pick="'+safe(p.id)+'" aria-pressed="'+picked+'">'+(picked?'선택 취소':'일정에 담기')+'</button></div></article>';
+}
+// END HB_SEASONAL_RECOMMENDATION
+
+// BEGIN HB_TRIP_DATA_CURATION
+// Single adjustable rule for 여행 만들기 → 여행 장소 찾기 (#/places), incl. "방문 전 확인할 장소".
+// Hidden places are not deleted. enabled:false, or localStorage[offStorageKey]='off', shows every place again.
+const HB_TRIP_DATA_RULE={enabled:true,kinds:['spot','culture'],minFacts:1,acceptEditorialFeatured:true,offStorageKey:'hamkkebom-trip-curation'};
+let hbTripMessage='';
+function hbTripCurationEnabled(rule=HB_TRIP_DATA_RULE){
+  if(!rule.enabled)return false;
+  try{return typeof localStorage==='undefined'||localStorage.getItem(rule.offStorageKey)!=='off';}catch{return true;}
+}
+/** Identity, category, coordinates and region address are required, plus one concrete data signal. */
+function hbTripDataEvidence(p,region,rule=HB_TRIP_DATA_RULE){
+  const missing=[];
+  if(!p||!/^tour-\d{1,12}$/.test(String(p.id))||typeof p.name!=='string'||!p.name.trim())missing.push('identity');
+  if(!rule.kinds.includes(p?.kind))missing.push('kind');
+  if(!(Number.isFinite(p?.lat)&&Number.isFinite(p?.lng)&&p.lat>=33&&p.lat<=39&&p.lng>=124&&p.lng<=132))missing.push('coordinates');
+  const prefix=region==='서울'?/^서울(?:특별시|\s)/:region==='경기'?/^경기(?:도|\s)/:null;
+  if(!prefix||typeof p?.address!=='string'||!prefix.test(p.address))missing.push('address');
+  const facts=hbAccessFacts(p).filter(f=>typeof f.label==='string'&&f.label.trim()&&typeof f.description==='string'&&f.description.trim());
+  const signals=[];
+  if(facts.length>=rule.minFacts)signals.push('access_facts');
+  if(rule.acceptEditorialFeatured&&p?.featured===true)signals.push('editorial_featured');
+  if(!signals.length)missing.push('concrete_data');
+  return {ok:!missing.length,signals,missing,factCount:facts.length};
+}
+function hbTripKeepIds(chosen,stops){
+  return new Set([...hbUniquePlaceIds(chosen),...(Array.isArray(stops)?stops:[]).map(x=>x?.placeId||x?.id).filter(hbValidPlaceId)]);
+}
+function hbTripCandidatePool(region){
+  const base=Array.isArray(places)?places:[];
+  const ids=new Set(base.map(p=>p?.id));
+  return [...base,...(hbSeasonalFeatured.get(region)?.records||[]).filter(p=>!ids.has(p.id))];
+}
+function hbTripCuration(list,region,keepIds=new Set(),rule=HB_TRIP_DATA_RULE){
+  const seen=new Set();
+  const unique=(Array.isArray(list)?list:[]).filter(p=>p&&hbValidPlaceId(p.id)&&!seen.has(p.id)&&seen.add(p.id));
+  if(!hbTripCurationEnabled(rule))return {enabled:false,visible:unique,hidden:0,kept:0,qualified:unique.length};
+  const visible=[];let hidden=0,kept=0,qualified=0;
+  for(const p of unique){
+    if(hbTripDataEvidence(p,region,rule).ok){qualified++;visible.push(p);}
+    else if(keepIds.has(p.id)){kept++;visible.push(p);}
+    else hidden++;
+  }
+  return {enabled:true,visible,hidden,kept,qualified};
+}
+function hbTripResultSummary({ready,curation,good,review,excluded,serverState,travel}){
+  if(!ready)return '<p class="muted">장소 자료를 불러오면 이동 조건을 반영한 추천 결과를 보여 드려요. 자료 상태는 위 안내를 확인해 주세요.</p>';
+  const parts=[];
+  if(curation.enabled){
+    if(curation.hidden)parts.push('<p class="hb-curation-note" role="status">정보가 부족한 장소 '+curation.hidden+'곳은 숨겼어요. 공공 접근성 시설 안내가 있거나 함께봄 편집 명소로 공식 정보가 확인된 관광지·문화시설만 보여 드려요.</p>');
+    if(curation.kept)parts.push('<p class="muted">저장된 일정·담은 장소 '+curation.kept+'곳은 기준과 관계없이 그대로 보여요.</p>');
+    if(!curation.qualified&&!curation.kept)parts.push('<p class="warn">이 지역 조회 자료에서 정보가 충분한 관광지·문화시설을 찾지 못했어요. 다른 지역을 선택해 보세요.</p>');
+  }
+  const walk=s.hbWalkConfirmed?s.walk+'분':'';
+  const stairs={impossible:'이용 불가',avoid:'피하기',possible:'이용 가능'}[s.hbStairsChoice]||'';
+  const total=good.length+review.length+excluded.length;
+  if(!travel.errors.length&&total){
+    parts.push('<p class="hb-trip-result-line"><strong>걷기 '+safe(walk)+' · 계단 '+safe(stairs)+' 조건 결과</strong>: 조건 일치 '+good.length+'곳 · 방문 전 확인 '+review.length+'곳 · 조건 충돌 '+excluded.length+'곳</p>');
+    if(serverState?.state==='ready'&&!good.length){
+      parts.push(review.length?
+        '<p class="muted">선택한 조건을 검증된 동선 자료로 확인한 장소가 아직 없어 후보가 모두 ‘방문 전 확인’으로 표시돼요. 걷기 시간을 늘려도 동선 검증 자료가 없으면 결과는 같아요. 상세 정보의 시설 안내를 확인하거나 방문 전 장소에 문의해 주세요.</p>':
+        '<p class="warn">모든 후보가 확인된 이동 조건과 충돌해요. 아래에서 계단 조건을 ‘가능하면 피하기’ 또는 ‘이용 가능’으로 바꾸거나 다른 지역을 선택해 보세요.</p>');
+    }
+  }
+  return '<div class="hb-trip-summary">'+parts.join('')+'</div>';
+}
+function hbTripQuickConditions(){
+  const walk=s.hbWalkConfirmed?String(s.walk):null;
+  const chip=(key,id,label,current)=>'<button type="button" class="hb-choice '+(current===id?'chosen':'')+'" data-hb-quick-'+key+'="'+id+'" aria-pressed="'+String(current===id)+'">'+safe(label)+'</button>';
+  return '<div class="hb-quick-conditions" role="group" aria-labelledby="hb-quick-title"><h3 id="hb-quick-title">이동 조건 바로 바꾸기</h3><p class="muted">바꾸면 서버 판정과 계절 추천을 다시 계산해요.</p>'+
+    '<div class="hb-choice-grid">'+[['5','5분 이하'],['10','10분 정도'],['15','15분 정도'],['20','20분 정도'],['30','30분 이상']].map(([id,label])=>chip('walk',id,'걷기 '+label,walk)).join('')+'</div>'+
+    '<div class="hb-choice-grid">'+[['possible','계단 이용 가능'],['avoid','가능하면 계단 피하기'],['impossible','계단 이용 불가']].map(([id,label])=>chip('stairs',id,label,s.hbStairsChoice||null)).join('')+'</div>'+
+    '<p role="status" id="hb-quick-status">'+safe(hbTripMessage)+'</p></div>';
+}
+function hbTripBindQuickConditions(){
+  hbTripMessage='';
+  const refocus=(name,value)=>[...document.querySelectorAll('[data-hb-quick-'+name+']')].find(n=>n.dataset[name==='walk'?'hbQuickWalk':'hbQuickStairs']===value)?.focus?.();
+  document.querySelectorAll('[data-hb-quick-walk]').forEach(b=>b.onclick=()=>{
+    const v=b.dataset.hbQuickWalk;
+    if(!['5','10','15','20','30'].includes(v))return;
+    s.walk=v;s.hbWalkConfirmed=true;save();
+    hbTripMessage='걷기 '+v+'분 조건으로 다시 확인하고 있어요.';
+    browse();refocus('walk',v);
+  });
+  document.querySelectorAll('[data-hb-quick-stairs]').forEach(b=>b.onclick=()=>{
+    const v=b.dataset.hbQuickStairs;
+    if(!['impossible','avoid','possible'].includes(v))return;
+    // Same mapping as the 이동 조건 step.
+    s.hbStairsChoice=v;s.stairs=v==='possible'?'possible':'avoid';save();
+    hbTripMessage='계단 조건을 바꿔 다시 확인하고 있어요.';
+    browse();refocus('stairs',v);
+  });
+}
+/** MVP wording: show only action guidance, never "미확인/미지원/자료 없음/미선택" gap text. */
+function hbVisibleGaps(gaps){
+  return (Array.isArray(gaps)?gaps:[]).filter(x=>typeof x==='string'&&!/미확인|미지원|미선택|자료\s*없음|확인되지\s*않|확인\s*안\s*됨/.test(x));
+}
+// END HB_TRIP_DATA_CURATION

@@ -22,3 +22,22 @@
 .hb-discovery-seasonal{padding:24px;background:var(--hb-quiet);border-radius:16px;min-width:0}
 .hb-discovery-season-links{display:flex;flex-wrap:wrap;gap:8px 20px}
 .hb-discovery-season-links a{min-height:44px;display:inline-flex;align-items:center;color:var(--hb-ink);text-decoration:underline}
+
+/* #/places travel-date season section (REC-04/UI-03). Tokens remain owned by 13-editorial.css. */
+.hb-seasonal{display:grid;gap:16px;min-width:0;overflow-wrap:anywhere}
+.hb-seasonal h2,.hb-seasonal h3,.hb-seasonal h4{margin:0}
+.hb-seasonal-basis{font-weight:700}
+.hb-seasonal-course-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:16px}
+.hb-seasonal-course{display:grid;gap:8px;min-width:0;padding:16px;border:1px solid var(--hb-line);border-radius:16px;background:var(--hb-surface)}
+.hb-seasonal-summary{font-weight:700}
+.hb-seasonal-stops{display:grid;gap:8px;padding-inline-start:24px;margin:0}
+.hb-seasonal-stops a,.hb-seasonal-course a{display:inline-flex;align-items:center;min-height:44px;color:var(--hb-ink);text-decoration:underline}
+.hb-seasonal-course .actions{flex-wrap:wrap}
+.hb-seasonal-course .actions button{min-height:48px}
+.hb-seasonal-course-map:not([hidden]){min-height:240px}
+.hb-seasonal-tag{font-size:14px}
+.hb-seasonal :focus-visible{outline:2px solid var(--hb-ink);outline-offset:3px}
+.hb-trip-summary{display:grid;gap:8px;margin:12px 0}
+.hb-curation-note{font-weight:700}
+.hb-quick-conditions{display:grid;gap:8px;margin-top:16px;min-width:0}
+.hb-quick-conditions h3{margin:0}
