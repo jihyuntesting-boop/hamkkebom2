@@ -631,5 +631,16 @@ if(hbNewTripNav)hbNewTripNav.addEventListener('click',event=>{
  if(hbBeginNewTravel()===true&&initialized&&hbPlacesLoadedRegion!==s.region)load();
 });
 }
-addEventListener('hashchange',render);hbBindNewTripNav();render()
+function hbBindHomeNav(){
+// Header logo and 홈 always show the main screen from the top. A same-hash
+// link fires no hashchange, so on #/ the main screen is redrawn here; other
+// routes still change the hash and render through the hashchange listener.
+document.querySelectorAll('header a.hb-brand-home,header nav a[href="#/"]').forEach(link=>link.addEventListener('click',event=>{
+ if(event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
+ event.preventDefault();
+ if(location.hash==='#/')render();else location.hash='#/';
+ window.scrollTo(0,0);
+}));
+}
+addEventListener('hashchange',render);hbBindNewTripNav();hbBindHomeNav();render()
 })();
