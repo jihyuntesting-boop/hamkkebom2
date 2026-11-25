@@ -75,7 +75,7 @@ function hbBeginNewTravel(){
   // separate, already protected schedule replacement flow is confirmed.
   if(Array.isArray(s.chosen)&&s.chosen.length&&!confirm('새 여행 조건을 시작할까요? 담은 장소 선택은 초기화되지만 저장한 일정은 유지돼요.'))return;
   const before=s;
-  const next={...s,date:hbTodaySeoul(),hbDateExplicit:false,hbDraftActive:true,hbStep:1,hbPlanStart:'',hbPlanEnd:'',chosen:[],hbMustVisitIds:[]};
+  const next={...s,date:hbTodaySeoul(),hbDateExplicit:false,hbDraftActive:true,hbStep:1,hbPlanStart:'',hbPlanEnd:'',hbDepartTime:'',hbReturnTime:'',hbReturnDay:0,chosen:[],hbMustVisitIds:[]};
   delete next.hbDateRefreshedFrom;
   if(Array.isArray(s.stops)&&s.stops.length)
     next.hbPlanInfo={...s.hbPlanInfo,date:s.hbPlanInfo?.date||s.date,region:s.hbPlanInfo?.region||s.region};
@@ -91,8 +91,69 @@ function hbTimeInputErrors(start,end){
   const minute=value=>typeof value==='string'&&/^([01]\d|2[0-3]):[0-5]\d$/.test(value)?Number(value.slice(0,2))*60+Number(value.slice(3)):null;
   const a=minute(start),b=minute(end);
   if(start!=null&&start!==''&&a===null||end!=null&&end!==''&&b===null)return ['올바른 시간을 선택해 주세요.'];
-  if(a!==null&&b!==null&&a>=b)return ['종료 시간은 시작보다 늦어야 해요. 다음 날까지 이어지는 일정은 아직 지원하지 않아요.'];
+  if(a!==null&&b!==null&&a>=b)return ['종료 시간은 시작보다 늦어야 해요. 하루 일정은 자정 전에 끝나도록 정해 주세요.'];
   return [];
+}
+// §5 typed or picked clock input → 24-hour HH:MM. Accepts 7:30, 07:30, 7.30,
+// 0730, 730, 19:05, 7, 오전/오후 7:30, 7시 30분 and full-width digits.
+function hbParseClockInput(raw){
+  let text=String(raw??'').replace(/[０-９]/g,d=>String.fromCharCode(d.charCodeAt(0)-0xFEE0)).replace(/：/g,':').replace(/\s+/g,'').toLowerCase();
+  if(!text)return {value:'',error:''};
+  const format='시간은 7:30, 0730, 19:05처럼 입력해 주세요.';
+  if(text.length>20)return {value:'',error:format};
+  let meridiem=null;
+  const mark=/^(오전|오후|am|pm)/.exec(text)||/(오전|오후|am|pm)$/.exec(text);
+  if(mark){meridiem=/오후|pm/.test(mark[1])?'pm':'am';text=text.replace(mark[1],'');}
+  text=text.replace(/^(\d{1,2})시(\d{1,2})분?$/,(_,h,m)=>h+':'+m.padStart(2,'0')).replace(/^(\d{1,2})시$/,'$1');
+  const match=/^(\d{1,2})[:.](\d{2})$/.exec(text)||/^(\d{1,2})(\d{2})$/.exec(text);
+  let hour,minute;
+  if(match){hour=Number(match[1]);minute=Number(match[2]);}
+  else if(/^\d{1,2}$/.test(text)){hour=Number(text);minute=0;}
+  else return {value:'',error:format};
+  if(hour===24&&minute===0)return {value:'',error:'24:00은 입력할 수 없어요. 자정은 00:00으로 입력해 주세요.'};
+  if(minute>59)return {value:'',error:'분은 00~59 사이로 입력해 주세요.'};
+  if(meridiem){
+    if(hour<1||hour>12)return {value:'',error:'오전·오후와 함께 쓸 때는 1~12시로 입력해 주세요.'};
+    hour=meridiem==='pm'?(hour===12?12:hour+12):(hour===12?0:hour);
+  }
+  if(hour>23)return {value:'',error:'시는 0~23 사이로 입력해 주세요.'};
+  return {value:String(hour).padStart(2,'0')+':'+String(minute).padStart(2,'0'),error:''};
+}
+// Calendar weekday of a Seoul travel date (YYYY-MM-DD is already a Seoul
+// calendar date, so UTC arithmetic on it yields the Seoul weekday).
+const HB_WEEKDAYS=['일','월','화','수','목','금','토'];
+function hbTravelWeekday(date,offset=0){
+  if(typeof date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(date)||!Number.isInteger(offset))return null;
+  const base=Date.parse(date+'T00:00:00Z');
+  if(!Number.isFinite(base)||new Date(base).toISOString().slice(0,10)!==date)return null;
+  const day=new Date(base+offset*86400000),index=day.getUTCDay();
+  return {date:day.toISOString().slice(0,10),index,short:HB_WEEKDAYS[index],
+    label:(day.getUTCMonth()+1)+'월 '+day.getUTCDate()+'일 ('+HB_WEEKDAYS[index]+')'};
+}
+// Return day: 0 = travel date. Day trips may return the next day (after
+// midnight); overnight trips up to the 7th day. Without an explicit later day,
+// a return earlier than the departure is an error, never silently "next day".
+function hbReturnDayLimit(tripType){return tripType==='overnight'?6:1}
+function hbReturnDay(value,tripType){
+  const n=Number(value??0);
+  return Number.isInteger(n)&&n>=0&&n<=hbReturnDayLimit(tripType)?n:null;
+}
+// Home-based step-1 times (집 출발 / 집 도착 희망). Stored only when normalized.
+function hbHomeTimeErrors(depart,back,returnDay=0,tripType='day'){
+  const a=hbParseClockInput(depart),b=hbParseClockInput(back),errors=[],day=hbReturnDay(returnDay,tripType);
+  if(a.error)errors.push('여행 출발 희망 시각: '+a.error);
+  if(b.error)errors.push('집 도착 희망 시각: '+b.error);
+  if(day===null)errors.push('집 도착 날짜를 다시 선택해 주세요.');
+  else if(!errors.length&&!day&&a.value&&b.value&&a.value>=b.value)
+    errors.push('종료 시간(집 도착 희망 시각)은 같은 날의 여행 출발 희망 시각보다 늦어야 해요. 자정을 넘겨 도착하려면 집 도착 날짜를 다음 날로 골라 주세요.');
+  return errors;
+}
+function hbClockSummary(date,time,offset,verb){
+  const day=hbTravelWeekday(date,offset);
+  if(!day)return '여행 날짜를 먼저 선택해 주세요.';
+  const parsed=hbParseClockInput(time);
+  if(parsed.error)return day.label+' · 시각을 다시 확인해 주세요';
+  return parsed.value?day.label+' '+parsed.value+' '+verb:day.label+' · 시각을 비우면 일정에 맞춰 제안해요';
 }
 function hbTravelInput(profile,today=hbTodaySeoul()){
   const errors=[];
@@ -104,6 +165,7 @@ function hbTravelInput(profile,today=hbTodaySeoul()){
   const dateError=hbTravelDateError(date,today);
   if(dateError)errors.push(dateError);
   errors.push(...hbTimeInputErrors(profile.hbPlanStart??'',profile.hbPlanEnd??''));
+  errors.push(...hbHomeTimeErrors(profile.hbDepartTime??'',profile.hbReturnTime??'',profile.hbReturnDay??0,profile.hbDuration||'day'));
   const duration=allowed(profile.hbDuration||'day',['day','overnight']);
   const transport=allowed(profile.hbTransport||'car',['car','transit','mixed']);
   const party=Number(profile.hbParty||2);
@@ -138,10 +200,57 @@ function hbWizardStep(state,today=hbTodaySeoul()){
   if(Number(state.hbStep)===3&&result.errors.length)return 2;
   return Number(state.hbStep);
 }
+function hbReturnDayOptions(){
+  const limit=hbReturnDayLimit(s.hbDuration||'day'),chosen=hbReturnDay(s.hbReturnDay,s.hbDuration||'day')??0;
+  let html='';
+  for(let n=0;n<=limit;n++){
+    const day=hbTravelWeekday(s.date,n);
+    html+='<option value="'+n+'"'+(n===chosen?' selected':'')+'>'+(n===0?'같은 날':n===1?'다음 날':(n+1)+'일차')+(day?' · '+day.label:'')+'</option>';
+  }
+  return html;
+}
+function hbClockField(id,label,value,help,withDay=false){
+  const parsed=hbParseClockInput(value??'');
+  return '<div class="field hb-clock-field"><label for="'+id+'">'+label+'</label><div class="hb-clock-inputs"><input type="text" id="'+id+'" inputmode="decimal" autocomplete="off" maxlength="20" placeholder="예: 07:30" aria-describedby="'+id+'-help hb-step-error"'+(parsed.error?' aria-invalid="true"':'')+' value="'+safe(value??'')+'">'+
+    '<input type="time" id="'+id+'-picker" class="hb-clock-picker" aria-label="'+label.replace(/ \(선택\)$/,'')+' 시계로 고르기" value="'+safe(parsed.error?'':parsed.value)+'">'+(withDay?'<select id="'+id+'-day" class="hb-clock-day" aria-label="집 도착 날짜">'+hbReturnDayOptions()+'</select>':'')+'</div><small id="'+id+'-help">'+help+'</small><p class="hb-clock-summary" id="'+id+'-summary" aria-live="polite"></p></div>';
+}
+function hbUpdateTripDateLabels(){
+  const weekday=document.getElementById('hb-date-weekday'),day=hbTravelWeekday(s.date);
+  if(weekday)weekday.textContent=day?' · 선택한 날: '+day.date+' ('+day.short+')':' · 날짜를 먼저 선택해 주세요';
+  const start=document.getElementById('hb-trip-start-summary'),end=document.getElementById('hb-trip-end-summary');
+  if(start)start.textContent=hbClockSummary(s.date,s.hbDepartTime??'',0,'출발');
+  if(end){
+    const offset=hbReturnDay(s.hbReturnDay,s.hbDuration||'day');
+    end.textContent=offset===null?'집 도착 날짜를 다시 선택해 주세요.':hbClockSummary(s.date,s.hbReturnTime??'',offset,'도착')+(offset===0?' · 같은 날로 해석해요':'');
+  }
+}
+function hbBindClockFields(pairs){
+  const refresh=()=>{const box=document.getElementById('hb-step-error');if(box)box.textContent=[...hbHomeTimeErrors(s.hbDepartTime??'',s.hbReturnTime??'',s.hbReturnDay??0,s.hbDuration||'day'),...hbTimeInputErrors(s.hbPlanStart??'',s.hbPlanEnd??'')].join(' ');hbUpdateTripDateLabels();};
+  const daySelect=document.getElementById('hb-trip-end-day');
+  if(daySelect)daySelect.onchange=()=>{s.hbReturnDay=Number(daySelect.value);try{save()}catch{}refresh();};
+  refresh();
+  for(const [id,key] of pairs){
+    const field=document.getElementById(id),picker=document.getElementById(id+'-picker');
+    if(!field)continue;
+    const commit=(raw,normalize)=>{
+      const parsed=hbParseClockInput(raw);
+      s[key]=parsed.error?String(raw??'').trim().slice(0,20):parsed.value;
+      try{save()}catch{}
+      if(normalize&&!parsed.error)field.value=parsed.value;
+      if(picker)picker.value=parsed.error?'':parsed.value;
+      if(parsed.error)field.setAttribute('aria-invalid','true');else field.removeAttribute('aria-invalid');
+      refresh();
+    };
+    // Typing never shows a format error mid-entry; the change event validates and normalizes.
+    field.oninput=()=>{if(!hbParseClockInput(field.value).error)commit(field.value,false)};
+    field.onchange=()=>commit(field.value,true);
+    if(picker)picker.onchange=()=>{field.value=picker.value;commit(picker.value,true)};
+  }
+}
 function newPlan(){
   s=hbRefreshAutomaticDate(s);
   const dateIssue=hbTravelDateError(s.date);
-  const timeIssues=hbTimeInputErrors(s.hbPlanStart??'',s.hbPlanEnd??'');
+  const timeIssues=[...hbTimeInputErrors(s.hbPlanStart??'',s.hbPlanEnd??''),...hbHomeTimeErrors(s.hbDepartTime??'',s.hbReturnTime??'',s.hbReturnDay??0,s.hbDuration||'day')];
   const step=hbWizardStep(s);
   s.hbStep=step;s.hbDraftActive=true;
   s.momNeeds=Array.isArray(s.momNeeds)?s.momNeeds:[];
@@ -154,19 +263,22 @@ function newPlan(){
   const prev=step>1?'<button class="light" type="button" id="hb-prev">← 이전 단계</button>':'';
   const intro=hbDiscoveryPendingMarkup()+'<h1>부모님과 여행 만들기</h1><p class="muted">여행 지역과 이동 조건부터 확인해요. 방문 가능한 동선이 검증됐다는 뜻은 아니에요.</p><ol class="hb-progress" aria-label="여행 만들기 3단계 중 '+step+'단계">'+['여행 정보','이동 조건','선호사항'].map((name,i)=>'<li'+(i+1===step?' aria-current="step"':i+1<step?' class="hb-step-done"':'')+'><span class="hb-step-num" aria-hidden="true">'+(i+1)+'</span>'+name+'</li>').join('')+'</ol>';
   if(step===1){
-    el.innerHTML=intro+'<section class="panel"><h2 tabindex="-1">1. 여행 정보</h2>'+prefs()+(s.hbDateRefreshedFrom?'<p role="status">이전에 저장된 날짜를 오늘로 갱신했어요. 기존 일정의 날짜는 그대로 유지돼요.</p>':'')+'<div class="actions"><button class="light" type="button" id="hb-date-today">오늘</button><button class="light" type="button" id="hb-date-tomorrow">내일</button></div><div class="row"><div class="field"><label for="hb-trip-start">첫 방문지 시작 희망 시간 (선택)</label><input type="time" id="hb-trip-start" value="'+safe(s.hbPlanStart??'')+'"></div><div class="field"><label for="hb-trip-end">일정 종료 희망 시간 (선택)</label><input type="time" id="hb-trip-end" value="'+safe(s.hbPlanEnd??'')+'"></div></div><p class="muted">시간을 비워 두면 선택한 장소에 맞춰 시간표 초안을 제안해요. 직접 입력하면 새벽·저녁 시간도 가능해요. 첫 방문지 기준이며 집에서 출발·귀가하는 이동시간은 아직 계산하지 않아요.</p><div class="row"><div class="field"><label for="hb-duration">여행 형태</label><select id="hb-duration"><option value="day">당일 여행</option><option value="overnight">숙박 여행</option></select></div><div class="field"><label for="hb-transport">주요 이동 수단</label><select id="hb-transport"><option value="car">자동차</option><option value="transit">대중교통</option><option value="mixed">상황에 따라 선택</option></select></div><div class="field"><label for="hb-party">동행 인원</label><select id="hb-party"><option value="2">2명</option><option value="3">3명</option><option value="4">4명</option><option value="5">5명</option><option value="6">6명</option><option value="7">7명</option><option value="8">8명</option><option value="9">9명</option><option value="10">10명</option><option value="11">11명</option><option value="12">12명</option></select></div></div><div class="actions"><button type="button" id="hb-next">다음: 이동 조건 →</button></div><p class="muted" id="hb-step-error" role="alert"></p></section>'+(typeof weatherCard==='function'?weatherCard():'');
+    el.innerHTML=intro+'<section class="panel"><h2 tabindex="-1">1. 여행 정보</h2>'+prefs()+(s.hbDateRefreshedFrom?'<p role="status">이전에 저장된 날짜를 오늘로 갱신했어요. 기존 일정의 날짜는 그대로 유지돼요.</p>':'')+'<div class="actions"><button class="light" type="button" id="hb-date-today">오늘</button><button class="light" type="button" id="hb-date-tomorrow">내일</button></div><div class="row hb-trip-time-row">'+hbClockField('hb-trip-start','여행 출발 희망 시각 (선택)',s.hbDepartTime,'집(출발지)에서 출발하는 시각')+hbClockField('hb-trip-end','집 도착 희망 시각 (선택)',s.hbReturnTime,'집(귀가 위치)에 도착하고 싶은 날짜와 시각',true)+'</div><p class="muted" id="hb-trip-time-help">시간을 비워 두면 선택한 장소에 맞춰 시간표 초안을 제안해요. 숫자로 7:30, 0730, 19:05처럼 직접 입력하거나 시계로 고를 수 있고, 새벽·저녁 시간도 가능해요. 출발 시각을 정하면 출발지에서 첫 방문지까지 이동시간을 더해 첫 방문지 도착 시각을 잡아요. 경로를 계산하기 전에는 이동 약 25분 (예상)으로 넣어요.</p>'+((s.hbPlanStart||s.hbPlanEnd)?'<p class="hb-legacy-time-note" role="note">이전에 저장한 첫 방문지 기준 시각('+safe(s.hbPlanStart||'제안')+' ~ '+safe(s.hbPlanEnd||'제안')+')은 그 의미 그대로 유지돼요. 값이 있으면 집 출발·도착 희망 시각보다 우선해요. <button type="button" class="light" id="hb-legacy-time-clear">이전 첫 방문지 시각 지우기</button></p>':'')+hbTripOriginStepMarkup()+'<div class="row"><div class="field"><label for="hb-duration">여행 형태</label><select id="hb-duration"><option value="day">당일 여행</option><option value="overnight">숙박 여행</option></select></div><div class="field"><label for="hb-transport">주요 이동 수단</label><select id="hb-transport"><option value="car">자동차</option><option value="transit">대중교통</option><option value="mixed">상황에 따라 선택</option></select></div><div class="field"><label for="hb-party">동행 인원</label><select id="hb-party"><option value="2">2명</option><option value="3">3명</option><option value="4">4명</option><option value="5">5명</option><option value="6">6명</option><option value="7">7명</option><option value="8">8명</option><option value="9">9명</option><option value="10">10명</option><option value="11">11명</option><option value="12">12명</option></select></div></div><div class="actions"><button type="button" id="hb-next">다음: 이동 조건 →</button></div><p class="muted" id="hb-step-error" role="alert"></p></section>'+(typeof weatherCard==='function'?weatherCard():'');
     hbDiscoveryBindPending(newPlan);bindPrefs();
     const dateField=document.getElementById('date');
     const chooseDate=value=>{dateField.value=value;dateField.onchange({target:dateField});document.getElementById('hb-step-error').textContent='';};
     document.getElementById('hb-date-today').onclick=()=>chooseDate(hbTodaySeoul());
     document.getElementById('hb-date-tomorrow').onclick=()=>chooseDate(new Date(Date.parse(hbTodaySeoul()+'T00:00:00Z')+86400000).toISOString().slice(0,10));
-    for(const [id,key] of [['hb-trip-start','hbPlanStart'],['hb-trip-end','hbPlanEnd']]){
-      const field=document.getElementById(id);
-      field.onchange=()=>{s[key]=field.value;save();document.getElementById('hb-step-error').textContent=hbTimeInputErrors(s.hbPlanStart??'',s.hbPlanEnd??'').join(' ');};
-    }
+    hbBindClockFields([['hb-trip-start','hbDepartTime'],['hb-trip-end','hbReturnTime']]);
+    const legacyClear=document.getElementById('hb-legacy-time-clear');
+    if(legacyClear)legacyClear.onclick=()=>{const before={start:s.hbPlanStart,end:s.hbPlanEnd};s.hbPlanStart='';s.hbPlanEnd='';try{save()}catch{s.hbPlanStart=before.start;s.hbPlanEnd=before.end;return;}newPlan();document.getElementById('hb-trip-start')?.focus();};
+    dateField.addEventListener('change',hbUpdateTripDateLabels);
+    hbBindTripOriginStep(()=>{newPlan();document.getElementById('hb-trip-origin-title')?.scrollIntoView?.({block:'nearest'})});
     document.getElementById('hb-step-error').textContent=[dateIssue,...timeIssues].filter(Boolean).join(' ');
     const ids=[['hb-duration','hbDuration','day'],['hb-transport','hbTransport','car'],['hb-party','hbParty','2']];
-    ids.forEach(([id,key,defaultValue])=>{const x=document.getElementById(id);x.value=s[key]||defaultValue;x.onchange=()=>{s[key]=x.value;save()}});
+    ids.forEach(([id,key,defaultValue])=>{const x=document.getElementById(id);x.value=s[key]||defaultValue;x.onchange=()=>{s[key]=x.value;
+      if(key==='hbDuration'){if(hbReturnDay(s.hbReturnDay,s.hbDuration)===null)s.hbReturnDay=Math.min(Number(s.hbReturnDay)||0,hbReturnDayLimit(s.hbDuration));save();newPlan();document.getElementById('hb-duration')?.focus();return;}
+      save()}});
     document.getElementById('hb-next').onclick=()=>{s=hbRefreshAutomaticDate(s);dateField.value=s.date;dateField.min=hbTodaySeoul();const result=hbTravelInput(s);const issues=result.errors.filter(x=>!x.includes('걸을 수 있는 시간')&&!x.includes('계단 이용 조건'));if(issues.length){document.getElementById('hb-step-error').textContent=issues.join(' ');return;}changeStep(2)};
     return;
   }

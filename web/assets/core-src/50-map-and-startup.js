@@ -20,6 +20,8 @@ function setNearbyStatus(){
   else if(nearbyResultMeta?.nationwideCatalogStatus)status.textContent+=' · 전국 수집 자료 미적용, '+(nearbyResultMeta.searchMethod==='locationBasedList2'?'제한된 실시간 위치 조회':'일부 저장 자료');
   if((nearbyError||nearbyLoading)&&nearbyItems.length&&nearbyResultCategory===nearFilter)status.textContent+=' · 마지막 정상 조회: '+nearbyResultCenterLabel;
   if(nearbyPinWarning)status.textContent+=' · '+nearbyPinWarning;
+  // The default map centre is only a browsing reference; the trip origin is chosen in 여행 만들기.
+  if(!nearbyUser&&nearbyCenterLabel==='서울 시청')status.textContent+=' · 출발지는 여행 만들기 1단계에서 따로 설정해요';
 }
 function requestLocation(){
   const request=++nearbyRequestId;
@@ -35,7 +37,7 @@ function requestLocation(){
     fetchNearby(37.5665,126.978,false);
   };
   if(!navigator.geolocation){
-    fallback('기기 위치를 사용할 수 없어 서울 시청 중심을 표시해요.');
+    fallback('기기 위치를 사용할 수 없어 지도 기본 중심(서울 시청)을 표시해요. 출발지가 아니에요.');
     return;
   }
   try{
@@ -43,21 +45,21 @@ function requestLocation(){
       if(request!==nearbyRequestId)return;
       const lat=position?.coords?.latitude,lng=position?.coords?.longitude;
       if(!hbValidMapPoint(lat,lng)){
-        fallback('현재 위치 좌표를 확인할 수 없어 서울 시청 중심을 표시해요.');
+        fallback('현재 위치 좌표를 확인할 수 없어 지도 기본 중심(서울 시청)을 표시해요. 출발지가 아니에요.');
         return;
       }
       nearbyMode='내 현재 위치 기준';
       fetchNearby(lat,lng,true);
     },error=>{
       const messages={
-        1:'위치 권한이 꺼져 있어 서울 시청 중심을 표시해요.',
-        2:'현재 위치를 확인할 수 없어 서울 시청 중심을 표시해요.',
-        3:'위치 확인이 오래 걸려 서울 시청 중심을 표시해요.'
+        1:'위치 권한이 꺼져 있어 지도 기본 중심(서울 시청)을 표시해요. 출발지가 아니에요.',
+        2:'현재 위치를 확인할 수 없어 지도 기본 중심(서울 시청)을 표시해요. 출발지가 아니에요.',
+        3:'위치 확인이 오래 걸려 지도 기본 중심(서울 시청)을 표시해요. 출발지가 아니에요.'
       };
       fallback(messages[error?.code]||messages[2]);
     },{enableHighAccuracy:false,timeout:9000,maximumAge:180000});
   }catch{
-    fallback('위치를 확인할 수 없어 서울 시청 중심을 표시해요.');
+    fallback('위치를 확인할 수 없어 지도 기본 중심(서울 시청)을 표시해요. 출발지가 아니에요.');
   }
 }
 function leaflet(){if(window.L)return Promise.resolve(window.L);if(leafletPromise)return leafletPromise;leafletPromise=new Promise((resolve,reject)=>{let css=document.createElement('link');css.rel='stylesheet';css.href='https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css';document.head.appendChild(css);let js=document.createElement('script');js.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';js.integrity='sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=';js.crossOrigin='';js.onload=()=>resolve(window.L);js.onerror=()=>reject(Error('지도 라이브러리를 불러올 수 없어'));document.head.appendChild(js)});return leafletPromise}

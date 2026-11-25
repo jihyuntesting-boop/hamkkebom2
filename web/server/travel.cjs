@@ -2,7 +2,7 @@
 const {normalizePlaceEvidence}=require('./access-evidence.cjs');
 const {getCatalog,PlaceError,resolveRoutePlace}=require('./place-catalog.cjs');
 const {enrichCatalog}=require('./catalog-accessibility.cjs');
-const {getDrivingRoute,configuration:naverConfiguration}=require('./naver-directions.cjs');
+const {getDrivingRoute,configuration:naverConfiguration,diagnoseReason}=require('./naver-directions.cjs');
 
 /** Use the same-release catalog only. A missing provider key yields the
  * explicitly partial snapshot; upstream failures never trigger a remote legacy fallback.
@@ -106,15 +106,8 @@ function point(place){
 async function travelTimes(input,fetcher,env){
   if(input.transport!=='car')return {status:'unsupported_mode',segments:[]};
   const config=naverConfiguration(env);
-  if(!config.ready)return {status:'provider_disabled',reason:config.reason,segments:[]};
-  const places=new Map((await catalog(input.region,fetcher,env)).places.map(p=>[p.id,p]));
-  // Nearby search and regional catalog have different coverage. Resolve at most the
-  // already bounded 2–3 requested IDs from the authoritative provider, not client coordinates.
-  for(const id of input.stopIds){
-    if(point(places.get(id))||!/^tour-[0-9]{1,12}$/.test(id))continue;
-    const place=await resolveRoutePlace(id,input.region,{fetcher,env});
-    if(place)places.set(id,place);
-  }
+  if(!config.ready)return {status:'provider_disabled',reason:config.reason,diagnostic:diagnoseReason(config.reason,env),segments:[]};
+  const places=await routePlaces(input.region,input.stopIds,fetcher,env);
   const segments=[];
   for(let i=1;i<input.stopIds.length;i++){
     const from=input.stopIds[i-1],to=input.stopIds[i];
@@ -124,10 +117,74 @@ async function travelTimes(input,fetcher,env){
       continue;
     }
     const result=await getDrivingRoute({start,goal,mode:input.transport},{fetcher,env});
+    const diagnostic=diagnoseReason(result.reason,env);
     segments.push({from,to,status:result.status,minutes:result.minutes,distanceMeters:result.distanceMeters,
-      reason:result.reason,source:result.source,checkedAt:result.checkedAt});
+      reason:result.reason,...(diagnostic?{diagnostic}:{}),source:result.source,checkedAt:result.checkedAt});
   }
   return {status:segments.every(s=>s.status==='estimated')?'estimated':'incomplete',segments};
+}
+
+// Nearby search and regional catalog have different coverage. Resolve at most the
+// already bounded requested IDs from the authoritative provider, not client coordinates.
+async function routePlaces(region,ids,fetcher,env){
+  const places=new Map((await catalog(region,fetcher,env)).places.map(p=>[p.id,p]));
+  for(const id of ids){
+    if(point(places.get(id))||!/^tour-[0-9]{1,12}$/.test(id))continue;
+    const place=await resolveRoutePlace(id,region,{fetcher,env});
+    if(place)places.set(id,place);
+  }
+  return places;
+}
+
+/* §5 home departure / return legs. Stops are still resolved from the catalog by ID;
+ * only the traveller's own origin/return point is a client coordinate. It is
+ * accepted under a separate opt-in flag, rounded to 3 decimals (~100 m) before
+ * the provider request, bounded to Korea, never echoed back, logged or cached,
+ * and limited to at most two provider requests per call. Policy note: F05-02
+ * forbids routing arbitrary client coordinates *as stops*; enabling this flag in
+ * an environment is an owner decision (see PR description). */
+const ENDPOINT_FLAG='HB_TRIP_ENDPOINT_ROUTES_ENABLED';
+const ENDPOINT_KEYS=['region','transport','origin','returnTo','firstStopId','lastStopId'];
+function userPoint(value){
+  if(!value||typeof value!=='object'||Array.isArray(value))return null;
+  if(Object.keys(value).some(key=>key!=='lat'&&key!=='lng'))return null;
+  if(typeof value.lat!=='number'||typeof value.lng!=='number')return null;
+  const round=n=>Math.round(n*1000)/1000;
+  return point({lat:round(value.lat),lng:round(value.lng)});
+}
+function validTripEndpointsRequest(body){
+  if(!body||Object.keys(body).some(key=>!ENDPOINT_KEYS.includes(key)))return false;
+  if(!includes(regions,body.region)||!includes(transports,body.transport))return false;
+  const departure=body.origin!=null,back=body.returnTo!=null;
+  if(!departure&&!back)return false;
+  if(departure&&(!userPoint(body.origin)||!validId(body.firstStopId)))return false;
+  if(back&&(!userPoint(body.returnTo)||!validId(body.lastStopId)))return false;
+  if(!departure&&body.firstStopId!=null||!back&&body.lastStopId!=null)return false;
+  return true;
+}
+async function tripEndpoints(input,fetcher,env){
+  if(input.transport!=='car')return {status:'unsupported_mode',legs:[]};
+  const config=naverConfiguration(env);
+  if(!config.ready)return {status:'provider_disabled',reason:config.reason,diagnostic:diagnoseReason(config.reason,env),legs:[]};
+  if(env?.[ENDPOINT_FLAG]!=='1')return {status:'provider_disabled',reason:'endpoint_routes_disabled',diagnostic:'feature_disabled',legs:[]};
+  const wanted=[];
+  if(input.origin!=null)wanted.push({kind:'departure',stopId:input.firstStopId,user:userPoint(input.origin)});
+  if(input.returnTo!=null)wanted.push({kind:'return',stopId:input.lastStopId,user:userPoint(input.returnTo)});
+  const places=await routePlaces(input.region,[...new Set(wanted.map(w=>w.stopId))],fetcher,env);
+  const legs=[];
+  for(const want of wanted){
+    const stop=point(places.get(want.stopId));
+    if(!stop||!want.user){
+      legs.push({kind:want.kind,stopId:want.stopId,status:'unknown',minutes:null,distanceMeters:null,reason:'invalid_coordinates',source:null,checkedAt:null});
+      continue;
+    }
+    const route=want.kind==='departure'?{start:want.user,goal:stop}:{start:stop,goal:want.user};
+    const result=await getDrivingRoute({...route,mode:'car'},{fetcher,env});
+    const diagnostic=diagnoseReason(result.reason,env);
+    legs.push({kind:want.kind,stopId:want.stopId,status:result.status,minutes:result.minutes,distanceMeters:result.distanceMeters,
+      reason:result.reason,...(diagnostic?{diagnostic}:{}),source:result.source,checkedAt:result.checkedAt});
+  }
+  return {status:legs.every(leg=>leg.status==='estimated')?'estimated':'incomplete',legs};
 }
 
 function handler(kind,{fetcher=fetch,env=process.env}={}){
@@ -144,8 +201,10 @@ function handler(kind,{fetcher=fetch,env=process.env}={}){
     if(kind==='travel-times'&&(!includes(regions,body.region)||!includes(transports,body.transport)||!Array.isArray(body.stopIds)||
       body.stopIds.length<2||body.stopIds.length>3||body.stopIds.some(id=>!validId(id))||new Set(body.stopIds).size!==body.stopIds.length))
       return res.status(400).json({error:'invalid_route'});
+    if(kind==='trip-endpoints'&&!validTripEndpointsRequest(body))return res.status(400).json({error:'invalid_route'});
     try{
       if(kind==='travel-times')return res.status(200).json(await travelTimes(body,fetcher,env));
+      if(kind==='trip-endpoints')return res.status(200).json(await tripEndpoints(body,fetcher,env));
       const resultCatalog=await catalog(body.region,fetcher,env,true);
       const places=resultCatalog.places;
       const groups={eligible:[],needsReview:[],excluded:[]};
@@ -163,4 +222,4 @@ function handler(kind,{fetcher=fetch,env=process.env}={}){
     }
   };
 }
-module.exports={handler,validProfile,classify,travelTimes,catalog,catalogProvider};
+module.exports={handler,validProfile,classify,travelTimes,tripEndpoints,validTripEndpointsRequest,userPoint,ENDPOINT_FLAG,catalog,catalogProvider};

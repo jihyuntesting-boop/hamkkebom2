@@ -20,6 +20,39 @@ function configuration(env=process.env){
   return {ready:true,reason:null};
 }
 
+/**
+ * Operator diagnostic for the Directions configuration (names only, never values).
+ * Five categories are kept separate so the UI and logs never blur them:
+ *  - env_missing: neither credential name exists in this runtime env
+ *    (not registered for this environment; registration itself cannot be
+ *    observed from inside the function).
+ *  - env_not_injected: a credential name exists but is blank, or only one of
+ *    the ID/SECRET pair reached the runtime (partial/empty injection).
+ *  - feature_disabled: credentials present, HB_NAVER_DIRECTIONS_ENABLED is not '1'.
+ *  - provider_unauthorized: provider answered 401/403 (application lacks Directions permission or wrong key).
+ *  - quota_exceeded: provider answered 429 (rate/quota limit).
+ * The first three come from env; the last two from an actual provider response.
+ */
+const CREDENTIAL_NAMES=['HB_NAVER_DIRECTIONS_ID','HB_NAVER_DIRECTIONS_SECRET'];
+function diagnoseConfiguration(env=process.env){
+  const source=env&&typeof env==='object'?env:{};
+  const present=CREDENTIAL_NAMES.filter(name=>source[name]!==undefined&&source[name]!==null);
+  const filled=present.filter(name=>typeof source[name]==='string'&&source[name].trim());
+  if(!present.length)return 'env_missing';
+  if(filled.length!==CREDENTIAL_NAMES.length)return 'env_not_injected';
+  if(source.HB_NAVER_DIRECTIONS_ENABLED!=='1')return 'feature_disabled';
+  return 'ready';
+}
+const PROVIDER_ISSUES={authentication_failed:'provider_unauthorized',rate_limited:'quota_exceeded'};
+function diagnoseReason(reason,env){
+  if(PROVIDER_ISSUES[reason])return PROVIDER_ISSUES[reason];
+  if(reason==='provider_disabled'||reason==='missing_credentials'){
+    const state=diagnoseConfiguration(env);
+    return state==='ready'?'feature_disabled':state;
+  }
+  return null;
+}
+
 function unknown(reason){
   return {status:'unknown',minutes:null,reason,source:null,checkedAt:null};
 }
@@ -122,4 +155,4 @@ async function getDrivingSegments(stops,options={}){
   }
   return {status:segments.every(s=>s.status==='estimated')?'estimated':'incomplete',segments};
 }
-module.exports={ENDPOINT,OPTION,SOURCE,validCoordinates,configuration,validResponse,getDrivingTime,getDrivingRoute,getDrivingSegments};
+module.exports={ENDPOINT,OPTION,SOURCE,CREDENTIAL_NAMES,validCoordinates,configuration,diagnoseConfiguration,diagnoseReason,validResponse,getDrivingTime,getDrivingRoute,getDrivingSegments};

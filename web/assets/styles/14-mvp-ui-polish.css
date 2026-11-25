@@ -601,3 +601,19 @@ html[data-large-type="true"] #app :is(button, .actions > a) { min-height: 52px; 
   body, html { background: #FFFFFF !important; }
   .hb-itinerary-row { border: 1px solid #999 !important; }
 }
+
+/* §5 step 1 (여행 정보) alignment, scoped to this form only.
+   Cause: the shared .row is align-items:flex-end, so the date field's help line
+   (and the weekday text) lifted the date input above the region select.
+   Align these rows by the top, give controls one height, keep help text below. */
+#app .row.hb-prefs-row, #app .row.hb-trip-time-row { align-items: flex-start; }
+#app .hb-prefs-row > .field > :is(select, input),
+#app .hb-trip-time-row :is(select, input) { min-height: 52px; box-sizing: border-box; }
+#app .row.hb-prefs-row > button { align-self: flex-start; margin-top: calc(1.55rem + 10px); }
+#app .hb-prefs-row > .field small, #app .hb-clock-field small { display: block; margin-top: 6px; }
+#app .hb-clock-inputs { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+#app .hb-clock-inputs > input[type="text"] { flex: 1 1 8em; width: auto; min-width: 0; }
+#app .hb-clock-inputs > .hb-clock-picker { flex: 0 0 auto; width: auto; }
+#app .hb-clock-inputs > .hb-clock-day { flex: 1 1 100%; width: 100%; }
+.hb-clock-summary { margin: 6px 0 0; font-weight: 600; }
+.hb-trip-point-missing { font-weight: 600; }

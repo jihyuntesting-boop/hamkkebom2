@@ -42,8 +42,8 @@ function hbPlaceDataMessage(){
 }
 
 function prefs(){
- return '<div class="row"><div class="field"><label for="region">여행 지역</label><select id="region"><option>서울</option><option>경기</option></select></div>'+
-  '<div class="field"><label for="date">여행 날짜</label><input type="date" id="date" min="'+hbTodaySeoul()+'" required aria-describedby="hb-date-help" value="'+safe(s.date)+'"><small id="hb-date-help">한국 시간 기준 · 오늘부터 선택할 수 있어요.</small></div>'+
+ return '<div class="row hb-prefs-row"><div class="field"><label for="region">여행 지역</label><select id="region"><option>서울</option><option>경기</option></select></div>'+
+  '<div class="field"><label for="date">여행 날짜</label><input type="date" id="date" min="'+hbTodaySeoul()+'" required aria-describedby="hb-date-help" value="'+safe(s.date)+'"><small id="hb-date-help">한국 시간 기준 · 오늘부터 선택할 수 있어요.<span id="hb-date-weekday">'+(typeof hbTravelWeekday==='function'&&hbTravelWeekday(s.date)?' · 선택한 날: '+safe(s.date)+' ('+hbTravelWeekday(s.date).short+')':'')+'</span></small></div>'+
   button('refresh',issue?'다시 조회':'장소 조회')+'</div>'+hbPlaceDataMessage();
 }
 
@@ -72,6 +72,7 @@ function bindPrefs(){
   s.hbDateExplicit=true;
   delete s.hbDateRefreshedFrom;
   save();
+  if(typeof hbUpdateTripDateLabels==='function')hbUpdateTripDateLabels();
   if(!hbTravelDateError(s.date))getWeather();
  };
  document.getElementById('refresh').onclick=load;
