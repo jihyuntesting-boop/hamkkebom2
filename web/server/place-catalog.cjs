@@ -143,7 +143,10 @@ async function fetchType(region, type, kind, { fetcher, key, checkedAt }) {
 async function getCatalog(region, options = {}) {
   if (!Object.hasOwn(REGION_CODES, region)) throw new PlaceError('invalid_region', 400);
   const env = options.env || process.env;
-  const key = typeof env.HB_TOURAPI_KEY === 'string' ? env.HB_TOURAPI_KEY.trim() : '';
+  // Migration alias: the previous deployment used DATA_GO_KR_KEY for TourAPI.
+  // Prefer the explicit provider-specific key. Never expose either key to the client.
+  const key = [env.HB_TOURAPI_KEY, env.DATA_GO_KR_KEY]
+    .find(value => typeof value === 'string' && value.trim())?.trim() || '';
   if (!key) return staticCatalog(region);
   const fetcher = options.fetcher || globalThis.fetch;
   // Cache only normal live runtime calls; injected test clients bypass caching.
