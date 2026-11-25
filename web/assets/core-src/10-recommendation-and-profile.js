@@ -102,7 +102,7 @@ function newPlan(){
   const refreshChoice=selector=>{newPlan();document.querySelector(selector)?.focus()};
   const changeStep=next=>{s.hbStep=next;save();newPlan();el.querySelector('h2')?.focus()};
   const prev=step>1?'<button class="light" type="button" id="hb-prev">← 이전 단계</button>':'';
-  const intro='<h1>부모님과 여행 만들기</h1><p class="muted">여행 지역과 이동 조건부터 확인해요. 방문 가능한 동선이 검증됐다는 뜻은 아니에요.</p><div class="hb-progress" aria-label="3단계 중 '+step+'단계">1. 여행 정보 <span>›</span> 2. 이동 조건 <span>›</span> 3. 선호사항 <strong>('+step+'/3)</strong></div>';
+  const intro='<h1>부모님과 여행 만들기</h1><p class="muted">여행 지역과 이동 조건부터 확인해요. 방문 가능한 동선이 검증됐다는 뜻은 아니에요.</p><ol class="hb-progress" aria-label="여행 만들기 3단계 중 '+step+'단계">'+['여행 정보','이동 조건','선호사항'].map((name,i)=>'<li'+(i+1===step?' aria-current="step"':i+1<step?' class="hb-step-done"':'')+'><span class="hb-step-num" aria-hidden="true">'+(i+1)+'</span>'+name+'</li>').join('')+'</ol>';
   if(step===1){
     el.innerHTML=intro+'<section class="panel"><h2 tabindex="-1">1. 여행 정보</h2>'+prefs()+'<div class="row"><div class="field"><label for="hb-duration">여행 형태</label><select id="hb-duration"><option value="day">당일 여행</option><option value="overnight">숙박 여행</option></select></div><div class="field"><label for="hb-transport">주요 이동 수단</label><select id="hb-transport"><option value="car">자동차</option><option value="transit">대중교통</option><option value="mixed">상황에 따라 선택</option></select></div><div class="field"><label for="hb-party">동행 인원</label><select id="hb-party"><option value="2">2명</option><option value="3">3명</option><option value="4">4명</option><option value="5">5명</option><option value="6">6명</option><option value="7">7명</option><option value="8">8명</option><option value="9">9명</option><option value="10">10명</option><option value="11">11명</option><option value="12">12명</option></select></div></div><div class="actions"><button type="button" id="hb-next">다음: 이동 조건 →</button></div><p class="muted" id="hb-step-error" role="alert"></p></section>';
     bindPrefs();
@@ -171,6 +171,7 @@ function hbPlaceDetailPath(id){
   return '#/place/'+encodeURIComponent(id);
 }
 
+let hbSelectionListOpen=false;
 function browse(){
   const filter=['all','spot','food','access'].includes(s.hbBrowseFilter)?s.hbBrowseFilter:(s.hbInterest||'all');
   const query=typeof s.hbBrowseQuery==='string'?s.hbBrowseQuery:'';
@@ -219,10 +220,19 @@ function browse(){
   const note=s.hbWalkConfirmed&&s.hbStairsChoice?'공공자료 안내만 있는 장소는 방문 전 확인이 필요해요.':'이동 조건이 아직 없어 일반 장소를 보여드려요.';
   const selectedList=selections.length?'<ul class="hb-selected-places">'+selections.map(({id,place})=>
     '<li><span>'+safe(place?.name||'현재 자료에서 조회되지 않은 장소')+'</span> <button type="button" class="light" data-hb-unpick="'+safe(id)+'">선택 취소</button></li>'
-  ).join('')+'</ul>':'<p>상세 정보를 확인하고 일정에 넣을 장소를 담아보세요.</p>';
+  ).join('')+'</ul>':'';
+  const canBuild=ready&&selections.some(x=>x.place);
+  // Selection tray stays at the top (sticky) so the count and the build action
+  // are visible while scrolling the place list.
+  const tray='<section class="hb-selection-tray" aria-labelledby="hb-selection-title">'+
+    '<div class="hb-selection-bar"><h2 id="hb-selection-title">일정에 담은 장소 <span class="hb-selection-count">'+chosen.length+'</span>곳</h2>'+
+    '<button type="button" id="build"'+(canBuild?'':' disabled')+'>선택한 장소로 일정 만들기</button></div>'+
+    (selections.length?'<details class="hb-selection-list"'+(hbSelectionListOpen?' open':'')+'><summary>담은 장소 보기</summary>'+selectedList+'</details>':
+      '<p class="muted hb-selection-hint">아래 목록에서 \'일정에 담기\'를 누르면 여기에 바로 반영돼요.</p>')+
+    '</section>';
   el.innerHTML='<h1>여행 장소 찾기</h1>'+prefs()+
     '<div class="hb-profile-summary"><strong>여행 조건</strong><p>걷기 '+safe(s.hbWalkConfirmed?s.walk+'분':'미선택')+' · 계단 '+safe(stairs)+
-    (extraPrefs.length?' · '+safe(extraPrefs.join(' / ')):'')+'</p><button type="button" class="light" id="hb-edit-profile">조건 수정</button></div>'+
+    (extraPrefs.length?' · '+safe(extraPrefs.join(' / ')):'')+'</p><button type="button" class="light" id="hb-edit-profile">조건 수정</button></div>'+tray+
     (s.hbWalkConfirmed&&s.hbStairsChoice?'<section class="panel"><h2>서버 추천 확인</h2><button type="button" class="light" id="hb-server-recommend">서버에서 조건 확인</button><p id="hb-server-recommend-status" role="status"></p></section>':'')+
     (typeof weatherCard==='function'?weatherCard():'')+
     '<form class="row" role="search" id="hb-browse-search"><div class="field"><label for="hb-place-search">장소 이름 또는 주소</label><input type="search" id="hb-place-search" maxlength="100" value="'+safe(query)+'"></div>'+
@@ -230,9 +240,10 @@ function browse(){
     '<div class="hb-filter-bar" role="group" aria-label="장소 필터">'+[['all','전체'],['spot','관광지'],['food','식당'],['access','편의시설 안내 있음']].map(([id,label])=>
     '<button type="button" data-hb-filter="'+id+'" class="light '+(filter===id?'hb-filter-active':'')+'" aria-pressed="'+String(filter===id)+'">'+label+'</button>').join('')+'</div>'+
     '<p class="muted">'+note+'</p>'+foodNote+
-    '<p role="status">'+(ready?ranked.length+'곳을 찾았어요.':'')+'</p><div id="hb-place-results" aria-busy="'+loading+'">'+results+'</div>'+
-    panel('일정에 담은 장소 '+chosen.length+'곳',selectedList+'<button type="button" id="build"'+(ready&&selections.some(x=>x.place)?'':' disabled')+'>선택한 장소로 일정 만들기</button>');
+    '<p role="status">'+(ready?ranked.length+'곳을 찾았어요.':'')+'</p><div id="hb-place-results" aria-busy="'+loading+'">'+results+'</div>';
   bindPrefs();
+  const trayList=el.querySelector('.hb-selection-list');
+  if(trayList)trayList.ontoggle=()=>{hbSelectionListOpen=trayList.open};
   const serverButton=document.getElementById('hb-server-recommend');
   if(serverButton)serverButton.onclick=async()=>{
     const note=document.getElementById('hb-server-recommend-status');
@@ -279,13 +290,22 @@ function browse(){
   });
   document.querySelectorAll('[data-hb-pick],[data-hb-unpick]').forEach(b=>b.onclick=()=>{
     const id=b.dataset.hbPick||b.dataset.hbUnpick;
+    const fromTray=!!b.closest('.hb-selection-tray');
     s.chosen=chosen.includes(id)?chosen.filter(x=>x!==id):[...chosen,id];
     save();
     browse();
-    const button=document.querySelector('[data-hb-pick="'+CSS.escape(id)+'"],[data-hb-unpick="'+CSS.escape(id)+'"]');
+    // Keep focus (and scroll position) where the user acted: the card in the
+    // list, or the selection tray at the top.
+    const button=fromTray
+      ?['.hb-selection-tray [data-hb-unpick]','.hb-selection-tray summary','#build'].map(q=>document.querySelector(q)).find(Boolean)
+      :document.querySelector('#hb-place-results [data-hb-pick="'+CSS.escape(id)+'"]');
     (button||document.getElementById('hb-place-search'))?.focus();
   });
   const more=document.getElementById('hb-more');
-  if(more)more.onclick=()=>{s.hbBrowseLimit=limited+30;updateAndFocus('#hb-more, #build')};
+  if(more)more.onclick=()=>{
+    s.hbBrowseLimit=limited+30;save();browse();
+    // Focus the first newly shown card, or the button if there are still more.
+    (document.getElementById('hb-more')||el.querySelectorAll('#hb-place-results [data-hb-info]')[limited])?.focus();
+  };
   document.getElementById('build').onclick=hbApplyScheduleFromSelection;
 }

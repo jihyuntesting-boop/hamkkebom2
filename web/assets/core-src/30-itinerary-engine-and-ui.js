@@ -7,6 +7,23 @@ function hbMapCoordinates(location){
  return Number.isFinite(pair.lat)&&Math.abs(pair.lat)<=90&&Number.isFinite(pair.lng)&&Math.abs(pair.lng)<=180&&
   (pair.lat!==0||pair.lng!==0)?pair:null;
 }
+const HB_PLAN_TRAVEL_NOTE='장소 사이 이동시간은 임시로 25분씩 잡았어요. 아래 \'자동차 이동시간 확인\'으로 실제 시간을 볼 수 있어요.';
+const HB_PLAN_HOURS_NOTE='영업시간·휴무일·예약 여부는 방문 전에 확인해 주세요.';
+// Plans saved before the wording cleanup still carry the old warning text.
+function hbPlanCheckList(warnings){
+ const legacy=[
+  [/^장소 간 이동은 실제 경로/,HB_PLAN_TRAVEL_NOTE],[/^모든 방문지의 영업시간/,HB_PLAN_HOURS_NOTE],
+  [/^휴식 블록은 휴식 장소가/,null],[/^식당을 선택하지 않아/,null]
+ ];
+ const out=[];
+ for(const text of Array.isArray(warnings)?warnings:[]){
+  if(typeof text!=='string')continue;
+  const hit=legacy.find(([pattern])=>pattern.test(text));
+  const value=hit?hit[1]:text;
+  if(value&&!out.includes(value))out.push(value);
+ }
+ return out;
+}
 function hbCreateSchedule(ids, all, opt={}){
  const errors=[],warnings=[],unique=[];
  for(const id of ids||[]){if(!unique.includes(id))unique.push(id)}
@@ -35,15 +52,15 @@ function hbCreateSchedule(ids, all, opt={}){
  append('food',foods[0]||null,60,'점심 식사 (식당 미정)',25);
  if(sights[1]){append(sights[1].kind||'spot',sights[1],sightStay,'',25);append('rest',null,15,'휴식 시간 (장소 미정)',0)}
  if(now>1080){errors.push('하루 일정이 오후 6시를 넘어요. 시작 시간이나 선택 장소를 조정해 주세요.');return {stops:[],errors,warnings}}
- if(restInterval)warnings.push('요청한 휴식 간격 '+restInterval+'분에 맞춰 관광지 체류시간 초안을 '+sightStay+'분으로 조정하고 방문 뒤 휴식을 배치했어요. 방문지 안에서 필요한 휴식과 실제 이동·보행시간은 계산하지 않았어요.');
- else if(opt.restIntervalMinutes!=null&&opt.restIntervalMinutes!=='')warnings.push('저장된 휴식 간격을 확인할 수 없어 기본 관광지 체류시간 60분으로 구성했어요. 조건을 다시 확인해 주세요.');
- if(opt.slopePreference==='avoid_steep')warnings.push('경사 회피 선호가 있지만 실제 경사·계단 없는 동선이 검증되지 않았어요. 방문 전 확인이 필요해요.');
- if(['indoor','outdoor'].includes(opt.indoorPreference))warnings.push('실내외 선호를 선택했지만 장소·이동 구간의 실내외 상태는 검증되지 않았어요.');
- warnings.push('장소 간 이동은 실제 경로 소요시간이 아니라 임시 여유 시간 25분으로 배치했어요. 실제 이동·보행시간은 미확인입니다.');
- warnings.push('모든 방문지의 영업시간·시설 운영·예약 가능 여부는 확인 전이에요.');
- warnings.push('휴식 블록은 휴식 장소가 지정된 상태가 아니에요.');
- if(!foods.length)warnings.push('식당을 선택하지 않아 점심 식사 블록을 임시로 만들었어요.');
- if(opt.tripType==='overnight')warnings.push('현재는 숙박 여행이라도 첫날 일정 초안만 생성해요.');
+ // Only items the user can act on. "장소 미정" rest/lunch blocks already say so on
+ // the itinerary row, so they are not repeated here.
+ if(restInterval)warnings.push('휴식 간격 '+restInterval+'분에 맞춰 관광지 체류시간을 '+sightStay+'분으로 잡고, 방문 뒤 휴식을 넣었어요.');
+ else if(opt.restIntervalMinutes!=null&&opt.restIntervalMinutes!=='')warnings.push('저장된 휴식 간격을 확인할 수 없어 관광지 체류시간을 기본 60분으로 잡았어요. 여행 조건을 다시 확인해 주세요.');
+ if(opt.slopePreference==='avoid_steep')warnings.push('가파른 경사를 피하도록 선택했지만, 경사·계단 없는 동선은 아직 확인되지 않았어요.');
+ if(['indoor','outdoor'].includes(opt.indoorPreference))warnings.push('실내·야외 여부는 장소마다 아직 확인되지 않았어요.');
+ warnings.push(HB_PLAN_TRAVEL_NOTE);
+ warnings.push(HB_PLAN_HOURS_NOTE);
+ if(opt.tripType==='overnight')warnings.push('숙박 여행은 현재 첫날 일정만 만들어요.');
  return {stops:result,errors,warnings,summary:{start:hbClock(start),end:hbClock(now),sightCount:sights.length,foodSelected:!!foods.length}}
 }
 /** Fully client-side draft editor; authoritative server editing comes later. */
@@ -114,6 +131,7 @@ function hbApplyScheduleFromSelection(){
  try{save()}catch{ s=previous;alert('초안 저장에 실패했어요. 기존 일정을 유지해요.');return false;}
  go('/plan');return true;
 }
+let hbPlanEditMode=false,hbPlanChecksOpen=false;
 function hbPlanViewEnhance(){
  const oldView=plan;
  plan=function(){
@@ -121,22 +139,43 @@ function hbPlanViewEnhance(){
   const now=Array.isArray(s.stops)?s.stops:[];
   const choices=['09:00','09:30','10:00','10:30','11:00','11:30'];
   const selection=s.hbPlanStart||'10:00';
-  const html='<section class="panel hb-plan-generator"><h2>하루 여행 일정 자동 구성</h2><p>관광지 최대 2곳과 점심·휴식 시간을 배치해요. 이동시간이 검증된 여행 경로가 아니라 <strong>사용자가 확인할 초안</strong>이에요.</p><label for="hb-plan-start">여행 시작 시간</label> <select id="hb-plan-start">'+choices.map(t=>'<option value="'+t+'" '+(t===selection?'selected':'')+'>'+t+'</option>').join('')+'</select> <button type="button" id="hb-plan-regenerate">선택한 장소로 일정 재구성</button>'+(s.hbDuration==='overnight'?'<p class="warn">숙박 여행을 선택했지만 현재는 첫날 하루 일정만 구성돼요.</p>':'')+(s.hbPlanWarnings?.length?'<div class="hb-plan-warnings"><h3>현장 확인 사항</h3><ul>'+s.hbPlanWarnings.map(w=>'<li>'+safe(w)+'</li>').join('')+'</ul></div>':'')+'</section>';
-  el.insertAdjacentHTML(now.length?'beforeend':'afterbegin',html);
-  const generator=el.querySelector('.hb-plan-generator');
-  generator.insertAdjacentHTML('afterbegin','<div class="hb-plan-view-controls" aria-label="일정표 표시 방식"><button type="button" id="hb-large-toggle" class="light" aria-pressed="'+String(!!s.hbLargePlanMode)+'">'+(s.hbLargePlanMode?'일반 글씨로 보기':'부모님 큰 글씨로 보기')+'</button><button type="button" id="hb-print-itinerary" class="light">일정표 인쇄</button></div>');
+  const checks=hbPlanCheckList(s.hbPlanWarnings);
+  // Page order: title → settings toolbar → one grouped check list → itinerary
+  // → main actions → travel times → map → weather. Built from existing nodes
+  // at the end so every handler attached by the base view survives.
+  const toolbar='<section class="hb-plan-generator" aria-label="일정 설정">'+
+   '<div class="hb-plan-view-controls" role="group" aria-label="일정표 표시 방식">'+
+    (now.length?'<button type="button" id="hb-edit-toggle" class="light" aria-pressed="'+String(hbPlanEditMode)+'">'+(hbPlanEditMode?'편집 끝내기':'일정 편집')+'</button>':'')+
+    '<button type="button" id="hb-large-toggle" class="light" aria-pressed="'+String(!!s.hbLargePlanMode)+'">'+(s.hbLargePlanMode?'일반 글씨로 보기':'부모님 큰 글씨로 보기')+'</button>'+
+    '<button type="button" id="hb-print-itinerary" class="light">일정표 인쇄</button></div>'+
+   '<div class="hb-plan-regen"><div class="field"><label for="hb-plan-start">여행 시작 시간</label><select id="hb-plan-start">'+choices.map(t=>'<option value="'+t+'" '+(t===selection?'selected':'')+'>'+t+'</option>').join('')+'</select></div>'+
+    '<button type="button" id="hb-plan-regenerate">선택한 장소로 일정 다시 만들기</button></div>'+
+   '<p class="hb-plan-local-notice">관광지 최대 2곳과 점심·휴식을 배치한 초안이에요. 수정 내용은 이 기기에만 저장되고 가족과 자동으로 동기화되지 않아요.</p>'+
+   '<p id="hb-plan-edit-feedback" class="hb-plan-edit-feedback" role="status" aria-live="polite"></p></section>';
+  const checkHtml=checks.length?'<details class="hb-plan-warnings"'+(hbPlanChecksOpen?' open':'')+'><summary>방문 전 확인할 점 <span class="hb-plan-check-count">'+checks.length+'개</span></summary><ul>'+
+   checks.map(w=>'<li>'+safe(w)+'</li>').join('')+'</ul></details>':'';
+  const routeStops=now.filter(stop=>stop.placeId);
+  const routeHtml=routeStops.length>=2?'<section class="panel hb-plan-route" aria-labelledby="hb-plan-route-title"><h2 id="hb-plan-route-title">장소 간 이동시간</h2><p class="muted">주소가 있는 방문지 사이의 자동차 이동시간만 조회해요.</p><button type="button" class="light" id="hb-route-estimate">자동차 이동시간 확인</button><div id="hb-route-result" role="status"></div></section>':'';
+  const h1=el.querySelector(':scope > h1'),dateLine=h1?.nextElementSibling;
+  const mapSlot=document.getElementById('hb-plan-map-slot');
+  const weather=el.querySelector(':scope > .hb-weather-card');
+  const actions=el.querySelector(':scope > .actions');
+  const content=[...el.children].filter(node=>node!==h1&&node!==dateLine&&node!==mapSlot&&node!==weather&&node!==actions);
+  const frag=document.createElement('template');
+  frag.innerHTML=toolbar+checkHtml+routeHtml;
+  const [toolbarNode,...rest]=[...frag.content.children];
+  const checkNode=rest.find(n=>n.matches('.hb-plan-warnings'));
+  const routeNode=rest.find(n=>n.matches('.hb-plan-route'));
+  el.replaceChildren(...[h1,dateLine,toolbarNode,checkNode,...content,actions,routeNode,mapSlot,weather].filter(Boolean));
+  checkNode?.addEventListener('toggle',()=>{hbPlanChecksOpen=checkNode.open});
+  document.getElementById('hb-edit-toggle')?.addEventListener('click',()=>{hbPlanEditMode=!hbPlanEditMode;plan();document.getElementById('hb-edit-toggle')?.focus()});
   document.getElementById('hb-large-toggle').onclick=()=>{s.hbLargePlanMode=!s.hbLargePlanMode;try{save()}catch{alert('글씨 크기 설정을 저장하지 못했어요.');}plan()};
-  document.getElementById('hb-print-itinerary').onclick=()=>window.print();
+  // Closed <details> content does not print, so open the check list first.
+  document.getElementById('hb-print-itinerary').onclick=()=>{if(checkNode)checkNode.open=true;window.print()};
   document.getElementById('hb-plan-start').onchange=e=>{s.hbPlanStart=e.target.value;save()};
   document.getElementById('hb-plan-regenerate').onclick=hbApplyScheduleFromSelection;
-  const liveNote=document.createElement('p');
-  liveNote.id='hb-plan-edit-feedback';liveNote.className='hb-plan-edit-feedback';
-  liveNote.setAttribute('role','status');liveNote.setAttribute('aria-live','polite');
-  el.querySelector('.hb-plan-generator').append(liveNote);
-  el.querySelector('.hb-plan-generator').insertAdjacentHTML('beforeend','<p class="hb-plan-local-notice">시간과 방문 순서를 직접 수정할 수 있어요. 수정 내용은 <strong>이 기기에만 저장</strong>되며 가족과 자동 동기화되지 않아요. 이동시간은 확인되지 않은 임시 여유 시간이에요.</p>');
-  const routeStops=now.filter(stop=>stop.placeId);
-  if(routeStops.length>=2){
-   generator.insertAdjacentHTML('beforeend','<section><h3>장소 간 이동시간</h3><p>주소가 있는 방문지만 조회해요. 장소 미정 휴식·식사와 교통 상황 변화는 포함되지 않아요.</p><button type="button" class="light" id="hb-route-estimate">자동차 이동시간 확인</button><div id="hb-route-result" role="status"></div></section>');
+  const liveNote=document.getElementById('hb-plan-edit-feedback');
+  if(routeNode){
    const routeButton=document.getElementById('hb-route-estimate');
    routeButton.onclick=async()=>{
     const output=document.getElementById('hb-route-result');
@@ -184,13 +223,14 @@ function hbPlanViewEnhance(){
   };
   document.querySelectorAll('.hb-itinerary-row').forEach((node,i)=>{
    const stop=now[i];if(!stop)return;
-   let facts=['예정 체류 '+(Number(stop.stayMinutes)||'?')+'분'];
-   if(stop.travelTimeStatus==='unknown')facts.push('이전 장소에서 이동시간 미확인 (임시 여유 '+stop.transitionBufferMinutes+'분)');
-   if(stop.kind==='rest'&&stop.isPlaceholder)facts.push('휴식할 실제 위치는 아직 미정');
-   if(stop.isPlaceholder&&stop.kind==='food')facts.push('식당 미지정');
+   const facts=[(stop.kind==='rest'?'휴식 ':'머무는 시간 ')+(Number(stop.stayMinutes)||'?')+'분'];
+   if(stop.travelTimeStatus==='unknown'&&stop.transitionBufferMinutes)facts.push('이동 여유 '+stop.transitionBufferMinutes+'분 (임시)');
    const parent=node.querySelector('.hb-itinerary-flags');
    if(!parent)return;
    parent.insertAdjacentHTML('beforebegin','<p class="hb-plan-meta">'+safe(facts.join(' · '))+'</p>');
+   // Delete and the time/order editor only show in edit mode, so the default
+   // view is a calm, readable timetable.
+   if(!hbPlanEditMode){node.querySelector('[data-remove]')?.remove();return;}
    const locked=!!(stop.done||stop.must||stop.reserved||stop.booked);
    if(locked){
     parent.insertAdjacentHTML('beforebegin','<p class="hb-plan-protected">보호 중: 완료·필수·예약 표시를 해제해야 시간과 순서를 수정할 수 있어요.</p>');
@@ -211,7 +251,7 @@ function hbPlanViewEnhance(){
   // Wrap existing DOM nodes instead of replacing innerHTML: preserve all
   // existing click/change handlers from the original plan and edit controls.
   const layout=document.createElement('section');
-  layout.className=s.hbLargePlanMode?'hb-large-plan':'hb-regular-plan';
+  layout.className=(s.hbLargePlanMode?'hb-large-plan':'hb-regular-plan')+(hbPlanEditMode?' hb-plan-editing':'');
   layout.setAttribute('aria-label','여행 일정표');
   while(el.firstChild)layout.appendChild(el.firstChild);
   el.appendChild(layout);
