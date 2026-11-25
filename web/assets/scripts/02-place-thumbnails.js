@@ -113,11 +113,7 @@
     photo.dataset.placeName = name || '장소';
     photo.dataset.photoState = 'pending';
     empty(photo, '장소 사진 확인 중');
-    if (detail) {
-      photo.style.margin = '12px 0 20px';
-      photo.style.borderRadius = '12px';
-      photo.style.maxWidth = '900px';
-    }
+    // Detail spacing lives in .hb-detail-photo (13-editorial.css).
     return photo;
   }
 

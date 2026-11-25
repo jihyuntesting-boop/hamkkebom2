@@ -74,7 +74,7 @@ function share() {
     base.hash = '/share/' + code;
     url = base.href;
   } catch {
-    el.innerHTML = '<h1>가족에게 일정 공유</h1><p id="hb-share-error">여행 날짜와 시간, 장소명이 있는 일정을 먼저 준비해 주세요. 일정이 너무 길면 링크로 만들 수 없어요.</p><p><a href="#/plan">내 일정으로 돌아가기</a></p>';
+    el.innerHTML = '<h1>가족에게 일정 공유</h1><p id="hb-share-error">여행 날짜와 시간, 장소명이 있는 일정을 먼저 준비해 주세요. 일정이 너무 길면 링크로 만들 수 없어요.</p><p><a class="hb-back-link" href="#/plan"><span aria-hidden="true">←</span> 내 일정으로 돌아가기</a></p>';
     return;
   }
   el.innerHTML = '<h1>가족에게 일정 공유</h1>'
@@ -86,7 +86,7 @@ function share() {
     + '<input id="hb-share-url" class="link" type="url" readonly value="' + safe(url) + '"></div>'
     + '<div class="actions"><button id="copy" type="button">링크 복사</button>'
     + '<a id="hb-share-open" href="' + safe(url) + '" target="_blank" rel="noopener noreferrer">공유 일정 미리 보기</a></div>'
-    + '<p id="hb-share-copy-status" role="status"></p></div></section><p><a href="#/plan">내 일정으로 돌아가기</a></p>';
+    + '<p id="hb-share-copy-status" role="status"></p></div></section><p><a class="hb-back-link" href="#/plan"><span aria-hidden="true">←</span> 내 일정으로 돌아가기</a></p>';
   const input = document.getElementById('hb-share-url');
   const status = document.getElementById('hb-share-copy-status');
   document.getElementById('hb-share-confirm').onchange = event => {
@@ -110,7 +110,7 @@ function shared(code) {
     if (data?.v !== 1 && data?.v !== 2) throw Error('Unsupported share link');
     const {date, stops, sharedAt} = data.v === 2 ? hbReadShareMap(data) : shareData(data.date, data.stops);
     const names = stops.map(stop => '<li class="hb-share-stop"><time datetime="' + stop.time + '">'
-      + stop.time + '</time> <strong style="overflow-wrap:anywhere">' + safe(stop.name) + '</strong></li>').join('');
+      + stop.time + '</time> <strong class="hb-break-anywhere">' + safe(stop.name) + '</strong></li>').join('');
     el.innerHTML = '<section id="hb-share-receiver" aria-labelledby="hb-share-heading">'
       + '<h1 id="hb-share-heading">가족 여행 일정</h1><p><time datetime="' + date + '">' + date + '</time> · 읽기 전용</p>'
       + (sharedAt ? '<p class="muted">링크 생성 <time datetime="' + safe(sharedAt) + '">' +

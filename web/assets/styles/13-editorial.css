@@ -410,3 +410,261 @@ footer {
 .hb-trip-amenity { background: #fff; color: #234e44; border: 2px solid #234e44; }
 #hb-trip-arrival .hb-detail-access { margin-bottom: 8px; }
 @media print { .hb-trip-map-panel { display: none !important; } }
+
+/* Place selection tray: sticky at the top of /places so the selected count
+   and the build action stay visible while browsing. Uses the shared tokens. */
+.hb-selection-tray {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  margin: 16px 0 24px;
+  padding: 12px 16px;
+  background: var(--hb-surface);
+  border: 1px solid var(--hb-line);
+  border-radius: var(--hb-radius);
+  box-shadow: 0 4px 12px rgb(36 51 65 / 8%);
+}
+
+.hb-selection-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+
+.hb-selection-bar h2 {
+  margin: 0;
+  font-size: 1.125rem;
+}
+
+.hb-selection-count {
+  color: var(--hb-brand);
+  font-variant-numeric: tabular-nums;
+}
+
+.hb-selection-bar #build {
+  margin: 0;
+  padding-inline: 20px;
+}
+
+.hb-selection-hint {
+  margin: 8px 0 0;
+  font-size: .9rem;
+}
+
+.hb-selection-list summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--hb-touch);
+  color: var(--hb-brand);
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.hb-selection-list .hb-selected-places {
+  max-height: 40vh;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--hb-line);
+}
+
+.hb-selection-list .hb-selected-places li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--hb-line);
+}
+
+.hb-selection-list .hb-selected-places button { margin: 0; }
+
+@media (max-width: 560px) {
+  .hb-selection-tray { padding: 10px 12px; }
+  .hb-selection-bar #build { width: 100%; justify-content: center; }
+}
+
+@media print { .hb-selection-tray { position: static; box-shadow: none; } }
+
+/* ============================================================
+   UX-02: design-audit fixes. Shared scale tokens + components.
+   Everything below uses tokens; older theme files (00-12) are
+   only overridden here, never extended.
+   ============================================================ */
+:root {
+  --hb-text-xs: .875rem;   /* 14px: smallest allowed text */
+  --hb-text-sm: .9375rem;  /* 15px */
+  --hb-text-md: 1rem;      /* 16px: body */
+  --hb-text-lg: 1.125rem;  /* 18px */
+  --hb-text-xl: 1.25rem;   /* 20px */
+  --hb-radius-sm: 8px;
+  --hb-radius-pill: 999px;
+  --hb-space-1: 4px;
+  --hb-space-2: 8px;
+  --hb-space-3: 12px;
+  --hb-space-4: 16px;
+  --hb-space-5: 24px;
+  --hb-space-6: 32px;
+  --hb-food: #a4560f;      /* 5.2:1 on white */
+  --hb-food-bg: #fbeee2;
+  --hb-featured: #7a5a00;  /* 6.4:1 on #fff8de */
+  --hb-featured-bg: #fff8de;
+}
+
+/* Icons (replace emoji). Decorative; sized to the surrounding text. */
+.hb-icon { width: 1.2em; height: 1.2em; flex: none; vertical-align: -.22em; margin-right: .35em; }
+header b { display: inline-flex; align-items: center; }
+.hb-brand-mark { width: 1em; height: 1em; }
+/* The editorial landing intentionally shows these lists without icons. */
+.hb-benefit .hb-icon, .hb-how-grid .hb-icon { display: none; }
+
+/* Buttons: one size everywhere (was 46/47/48/58px and 15/16px).
+   Map SDK controls inside the map containers are left alone. */
+main button:not(#nearby-map *):not(#hb-trip-map *) {
+  min-height: var(--hb-touch) !important;
+  padding: 10px 16px !important;
+  font-size: var(--hb-text-md) !important;
+  line-height: 1.4 !important;
+  border-radius: var(--hb-radius-sm) !important;
+}
+
+/* Header nav: 44px minimum in both directions. */
+header nav a { min-width: var(--hb-touch); }
+
+/* Smallest text is 14px (chips, status labels, meta lines, map labels). */
+.chip, .hb-recommend-state, .hb-photo-empty, .hb-evidence-status, .hb-plan-meta,
+.hb-result-count, main small, #nearby-map .hb-map-place, #nearby-map .hb-current,
+#nearby-map .hb-featured-marker, .hb-trip-amenity {
+  font-size: var(--hb-text-xs) !important;
+}
+.chip { border-radius: var(--hb-radius-pill) !important; display: inline-flex; align-items: center; }
+
+/* One radius scale: 12px surfaces, 8px controls, pill for chips and markers. */
+.card, .hb-profile-summary, .hb-stop-editor, .hb-plan-generator,
+.hb-place-photo, #nearby-map, #hb-trip-map, details.hb-conflict {
+  border-radius: var(--hb-radius) !important;
+}
+input:not([type="checkbox"]):not([type="radio"]), select { border-radius: var(--hb-radius-sm) !important; }
+
+/* Back links: real 44px targets (were 21px tall). */
+.hb-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--hb-space-2);
+  min-height: var(--hb-touch);
+  padding: 0 var(--hb-space-3) 0 var(--hb-space-2);
+  margin-left: calc(-1 * var(--hb-space-2));
+  border-radius: var(--hb-radius-sm);
+  font-weight: 650;
+  text-decoration: none !important;
+}
+.hb-back-link:hover { background: var(--hb-quiet); }
+
+/* Evidence source links: 44px tap height (were 18px). */
+.hb-evidence-row a, .hb-access-map-source {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--hb-touch);
+}
+
+/* Place photos: hide the empty grey box when no licensed photo exists. */
+.hb-place-photo[data-photo-state="unavailable"],
+.hb-place-photo[data-photo-state="pending"] { display: none !important; }
+.hb-detail-photo { margin: var(--hb-space-3) 0 var(--hb-space-5); max-width: 900px; }
+
+/* Home: former inline styles. */
+.hb-nearby-panel { padding: var(--hb-space-4) !important; margin-bottom: var(--hb-space-4); }
+.hb-nearby-head { align-items: center; justify-content: space-between; margin: 2px 0 var(--hb-space-3); }
+.hb-actions-flush { margin: 0; }
+.hb-actions-tight { margin-bottom: var(--hb-space-3); }
+.hb-featured-summary { margin-bottom: var(--hb-space-3); }
+.hb-section-title { margin-bottom: var(--hb-space-2); }
+.hb-map-credit { padding-top: var(--hb-space-2); font-size: var(--hb-text-xs); }
+.hb-break-anywhere { overflow-wrap: anywhere; }
+#nearby-map { height: min(57vh, 510px); min-height: 330px; z-index: 0; }
+
+/* Map overlays and info windows. One palette from tokens. */
+.hb-map-info { padding: var(--hb-space-3); max-width: 260px; color: var(--hb-ink); font-size: var(--hb-text-xs); line-height: 1.5; }
+.hb-map-info-meta { margin: var(--hb-space-1) 0; font-size: var(--hb-text-xs); }
+.hb-map-fallback { padding: var(--hb-space-5); max-width: 520px; }
+.hb-map-loading { padding: var(--hb-space-5); }
+#nearby-map .hb-map-place {
+  display: inline-flex; align-items: center;
+  background: var(--hb-surface) !important; color: var(--hb-ink) !important;
+  border: 2px solid var(--hb-brand) !important; border-radius: var(--hb-radius-pill) !important;
+}
+#nearby-map .hb-map-place.hb-food { border-color: var(--hb-food) !important; }
+#nearby-map .hb-map-place .hb-icon { color: var(--hb-brand); }
+#nearby-map .hb-map-place.hb-food .hb-icon { color: var(--hb-food); }
+#nearby-map .hb-map-dot { background: var(--hb-brand) !important; }
+#nearby-map .hb-map-dot.hb-food { background: var(--hb-food) !important; }
+#nearby-map .hb-current { display: inline-flex; align-items: center; background: var(--hb-brand) !important; color: var(--hb-surface) !important; }
+#nearby-map .hb-featured-marker {
+  display: inline-flex; align-items: center;
+  background: var(--hb-featured-bg) !important; color: var(--hb-featured) !important;
+  border: 2px solid var(--hb-featured) !important; border-radius: var(--hb-radius-pill) !important;
+}
+#nearby-map [role="button"]:focus-visible { outline: 3px solid var(--hb-brand); outline-offset: 2px; }
+#near-all, #near-spot, #near-food, #near-famous {
+  background: var(--hb-surface) !important; border-color: var(--hb-control-line) !important;
+}
+#nearby-list .card, #nearby-list .card:nth-child(even) { border-left: 0 !important; }
+
+/* Trip planner stepper (was a sentence ending with "(1/3)"). */
+ol.hb-progress {
+  list-style: none; display: flex; flex-wrap: wrap; gap: var(--hb-space-2);
+  margin: var(--hb-space-4) 0; padding: 0; background: none; font-size: var(--hb-text-sm);
+}
+ol.hb-progress li {
+  display: inline-flex; align-items: center; gap: var(--hb-space-2);
+  min-height: var(--hb-touch); padding: 4px 14px 4px 6px;
+  border: 1px solid var(--hb-line); border-radius: var(--hb-radius-pill);
+  background: var(--hb-surface); color: var(--hb-muted); font-weight: 650;
+}
+ol.hb-progress .hb-step-num {
+  display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 50%;
+  background: var(--hb-quiet); color: var(--hb-brand); font-size: var(--hb-text-xs); font-weight: 800;
+}
+ol.hb-progress li[aria-current="step"] { border-color: var(--hb-brand); color: var(--hb-brand); background: var(--hb-quiet); }
+ol.hb-progress li[aria-current="step"] .hb-step-num { background: var(--hb-brand); color: var(--hb-surface); }
+ol.hb-progress li.hb-step-done { color: var(--hb-ink); }
+
+/* Itinerary page: settings toolbar, grouped checks, edit mode. */
+.hb-plan-generator {
+  margin: var(--hb-space-4) 0 !important; padding: var(--hb-space-4) !important;
+  background: var(--hb-quiet) !important; border: 0 !important;
+}
+.hb-plan-view-controls { margin-bottom: var(--hb-space-3) !important; }
+.hb-plan-view-controls button { min-height: var(--hb-touch) !important; font-size: var(--hb-text-md) !important; border-radius: var(--hb-radius-sm) !important; }
+.hb-plan-regen { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--hb-space-2) var(--hb-space-3); }
+.hb-plan-regen .field { margin: 0; }
+.hb-plan-regen select, .hb-plan-regen button { margin: 0 !important; }
+.hb-plan-local-notice { margin: var(--hb-space-3) 0 0 !important; font-size: var(--hb-text-sm) !important; color: var(--hb-muted) !important; }
+.hb-plan-edit-feedback:empty { display: none; }
+details.hb-plan-warnings {
+  margin: 0 0 var(--hb-space-4) !important; padding: 0 var(--hb-space-4) !important;
+  background: var(--hb-warning-bg); color: var(--hb-warning-ink) !important;
+  border: 0 !important; border-radius: var(--hb-radius);
+}
+details.hb-plan-warnings summary {
+  display: flex; align-items: center; gap: var(--hb-space-2);
+  min-height: var(--hb-touch); font-weight: 700; cursor: pointer;
+}
+.hb-plan-check-count {
+  padding: 0 var(--hb-space-2); border-radius: var(--hb-radius-pill);
+  background: var(--hb-surface); font-size: var(--hb-text-xs); font-weight: 700;
+}
+details.hb-plan-warnings ul { margin: 0; padding: 0 0 var(--hb-space-3) 1.25em; }
+details.hb-plan-warnings li { padding: 2px 0; }
+.hb-plan-editing .hb-itinerary-row { box-shadow: inset 3px 0 0 var(--hb-brand); }
+.hb-plan-route { margin-top: var(--hb-space-5); }
+
+@media (max-width: 560px) {
+  .hb-plan-regen > *, .hb-plan-regen .field { width: 100%; }
+}
+@media print {
+  .hb-plan-route, .hb-plan-check-count { display: none !important; }
+}
