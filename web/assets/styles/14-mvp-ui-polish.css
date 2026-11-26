@@ -617,6 +617,10 @@ html[data-large-type="true"] #app :is(button, .actions > a) { min-height: 52px; 
 #app .hb-clock-inputs > .hb-clock-day { flex: 1 1 100%; width: 100%; }
 .hb-clock-summary { margin: 6px 0 0; font-weight: 600; }
 .hb-trip-point-missing { font-weight: 600; }
+/* 1단계 집 출발·귀가 미리보기 (hbHomePreviewMarkup): 비어 있으면 자리를 차지하지 않는다. */
+#app .hb-trip-home-preview:empty { display: none; }
+#app .hb-trip-home-preview-list { margin: 8px 0 4px; padding-left: 1.2em; font-weight: 600; }
+#app .hb-trip-home-preview-list li + li { margin-top: 4px; }
 
 /* UI-02 stepper: each step is a button inside the existing pill (li keeps aria-current styling). */
 #app ol.hb-progress li { padding: 0; }

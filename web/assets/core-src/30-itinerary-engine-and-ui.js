@@ -429,26 +429,62 @@ function hbDayClock(minute){
  const offset=Math.floor(minute/1440),clock=hbClock(((minute%1440)+1440)%1440);
  return {clock,dayOffset:offset,label:(offset===-1?'전날 ':offset===1?'다음날 ':offset?(offset>0?offset+'일 뒤 ':-offset+'일 전 '):'')+clock};
 }
-/** Home departure = first arrival − verified leg; return = schedule end + verified leg.
- * Without a verified leg the time is 'unknown' — the 25-minute buffer is never used here. */
+// Single home-leg rule (2026-11-26 사용자 결정 "같은 로직이어야 한다"): 집↔첫 방문지, 마지막 방문지↔집 이동시간은
+// hbHomeLeg 하나로 구한다. 1단계 미리보기(hbHomePreview)·일정 생성(hbScheduleWithHomeLegs/hbHomeWindow)·일정 페이지
+// (hbTripEndpointTimes, 패널 렌더는 HB_PLAN_PANEL_ENDPOINTS=false로 숨김)가 모두 이 함수를 쓴다.
+// 우선순위: s.hbTripEndpoints.result에 저장된 네이버 자동차 경로(같은 출발/귀가 좌표·같은 방문지일 때, 조회 시각 포함)
+// → 없으면 같은 기본 예상값 HB_HOME_PLACEHOLDER_MINUTES(25분, "예상").
+const HB_HOME_PLACEHOLDER_MINUTES=25;
+function hbHomeLegPoint(kind,state={}){
+ if(kind==='departure')return state?.origin||null;
+ return state?.returnMode==='none'?null:state?.returnMode==='other'?state.returnTo||null:state?.origin||null;
+}
+/** {kind,stopId,minutes,basis:'naver_directions'|'placeholder',checkedAt,reason?,diagnostic?}. */
+function hbHomeLeg(kind,stopId,state={}){
+ const fallback=reason=>({kind,stopId:stopId||null,minutes:HB_HOME_PLACEHOLDER_MINUTES,basis:'placeholder',checkedAt:null,reason});
+ const point=hbHomeLegPoint(kind,state),result=state&&typeof state==='object'?state.result:null;
+ if(!point)return fallback('no_point');
+ if(!hbTripPointRoutable(point))return fallback('invalid_coordinates');
+ if(!stopId)return fallback('no_anchor');
+ if(!result||typeof result!=='object'||!Array.isArray(result.legs))return fallback('unchecked');
+ let key=null;
+ try{key=JSON.parse(result.key)}catch{key=null}
+ const pair=Array.isArray(key)?key[kind==='departure'?0:1]:null,anchor=Array.isArray(key)?key[kind==='departure'?2:3]:null;
+ if(!Array.isArray(pair)||pair[0]!==point.lat||pair[1]!==point.lng||anchor!==stopId)return fallback('stale');
+ const leg=result.legs.find(l=>l&&l.kind===kind&&l.stopId===stopId);
+ if(!leg)return fallback('unchecked');
+ if(leg.status!=='estimated'||(leg.source!=null&&leg.source!=='naver_directions')||!Number.isSafeInteger(leg.minutes)||leg.minutes<1||leg.minutes>1440)
+  return {...fallback('unknown'),diagnostic:leg.diagnostic||null,providerReason:leg.reason||null};
+ return {kind,stopId,minutes:leg.minutes,basis:'naver_directions',checkedAt:typeof leg.checkedAt==='string'?leg.checkedAt:null};
+}
+/** Seoul clock label for a stored check time (e.g. "11월 26일 09:12"); '' when unusable. */
+function hbHomeLegCheckedLabel(iso){
+ const t=typeof iso==='string'?Date.parse(iso):NaN;
+ if(!Number.isFinite(t))return '';
+ const d=new Date(t+9*3600000);
+ return (d.getUTCMonth()+1)+'월 '+d.getUTCDate()+'일 '+String(d.getUTCHours()).padStart(2,'0')+':'+String(d.getUTCMinutes()).padStart(2,'0');
+}
+/** "약 N분, 예상" / "약 N분, 네이버 자동차 경로 · 조회 11월 26일 09:12". */
+function hbHomeLegText(leg){
+ if(leg?.basis!=='naver_directions')return '약 '+(Number(leg?.minutes)||HB_HOME_PLACEHOLDER_MINUTES)+'분, 예상';
+ const checked=hbHomeLegCheckedLabel(leg.checkedAt);
+ return '약 '+leg.minutes+'분, 네이버 자동차 경로'+(checked?' · 조회 '+checked:'');
+}
+/** Home departure = first arrival − home leg; return = schedule end + home leg (hbHomeLeg: NAVER first, else 25분 예상). */
 function hbTripEndpointTimes(items,state={}){
  const anchors=hbTripEndpointAnchors(items),origin=state.origin||null;
- const returnTo=state.returnMode==='none'?null:state.returnMode==='other'?state.returnTo||null:origin;
+ const returnTo=hbHomeLegPoint('return',state);
  const key=hbTripEndpointKey(origin,returnTo,anchors);
- const saved=state.result&&state.result.key===key&&Array.isArray(state.result.legs)?state.result.legs:[];
  const side=(kind,point,anchor)=>{
   if(state.returnMode==='none'&&kind==='return')return {status:'not_requested'};
   if(!point)return {status:'no_point'};
   if(!anchor)return {status:'no_anchor'};
-  if(!hbTripPointRoutable(point))return {status:'unknown',reason:'invalid_coordinates'};
   const base=kind==='departure'?anchor.arrival:anchor.scheduleEnd;
   if(base===null||base===undefined)return {status:'unknown',reason:'invalid_schedule'};
-  const leg=saved.find(l=>l.kind===kind&&l.stopId===anchor.placeId);
-  if(state.result&&state.result.key!==key)return {status:'stale'};
-  if(!leg)return {status:'unchecked'};
-  if(leg.status!=='estimated')return {status:'unknown',reason:leg.reason||null,diagnostic:leg.diagnostic||null};
+  const leg=hbHomeLeg(kind,anchor.placeId,state);
   const minute=kind==='departure'?base-leg.minutes:base+leg.minutes;
-  return {status:'estimated',minutes:leg.minutes,checkedAt:leg.checkedAt,...hbDayClock(minute)};
+  if(leg.basis==='naver_directions')return {status:'estimated',basis:leg.basis,minutes:leg.minutes,checkedAt:leg.checkedAt,...hbDayClock(minute)};
+  return {status:'default',basis:leg.basis,minutes:leg.minutes,reason:leg.reason,diagnostic:leg.diagnostic||null,providerReason:leg.providerReason||null,...hbDayClock(minute)};
  };
  return {key,anchors,departure:side('departure',origin,anchors.first),return:side('return',returnTo,anchors.last)};
 }
@@ -491,9 +527,10 @@ async function hbFetchTripEndpoints(items,context,state,request=hbTravelRequest)
 }
 function hbTripEndpointLine(kind,side,anchors){
  const what=kind==='departure'?'집 출발 예상':'귀가 도착 예상';
- if(side.status==='estimated'){
+ if(side.status==='estimated'||side.status==='default'){
   const basis=kind==='departure'?(anchors.first?.name||'첫 방문지')+' 도착 시각 기준':'일정 종료 후 '+(anchors.last?.name||'마지막 방문지')+'에서 출발 기준';
-  return what+': '+side.label+' ('+basis+' · 네이버 자동차 경로 약 '+side.minutes+'분'+(side.checkedAt?' · 조회 '+side.checkedAt:'')+')';
+  const failed=side.status==='default'&&side.reason==='unknown'?' · 네이버 경로를 계산하지 못해 예상값을 썼어요 (사유: '+(hbTravelIssueReason(side.diagnostic,side.providerReason)||'경로 서비스 오류')+')':'';
+  return what+': '+side.label+' ('+basis+' · 이동 '+hbHomeLegText(side)+')'+failed;
  }
  const why={
   not_requested:'귀가 시간은 계산하지 않도록 선택했어요',
@@ -508,7 +545,7 @@ function hbTripEndpointLine(kind,side,anchors){
 // §5 step-1 home times. depart/returnTime are home-based HH:MM ("집 출발 / 집 도착
 // 희망"). Legacy planStart/planEnd keep their saved first-visit meaning and win
 // when present, so an existing trip is never silently reinterpreted.
-const HB_HOME_PLACEHOLDER_MINUTES=25;
+// opt.departLeg / opt.returnLeg come from hbHomeLeg; without them the same 25분 예상 applies.
 function hbHomeWindow(opt={}){
  const text=v=>typeof v==='string'?v.trim():'';
  const planStart=text(opt.planStart),planEnd=text(opt.planEnd),depart=text(opt.depart),back=text(opt.returnTime);
@@ -517,16 +554,20 @@ function hbHomeWindow(opt={}){
   if(depart||back)warnings.push('일정표에서 정한 첫 방문지 시작·종료 희망 시각이 있어 집 출발·도착 희망 시각 대신 사용했어요.');
   return {start:planStart,end:planEnd,errors,warnings,source:'first_visit',homeDeparture:null,homeReturn:null};
  }
- const originNote=opt.originSet?'"집 출발·귀가 시간 확인"을 누르면 실제 자동차 이동시간으로 맞출 수 있어요.':'출발지를 입력하면 이동시간을 계산해요.';
+ const usable=leg=>leg&&Number.isSafeInteger(leg.minutes)&&leg.minutes>0&&leg.minutes<=1440;
+ const dLeg=usable(opt.departLeg)?opt.departLeg:hbHomeLeg('departure',null,{});
+ const rLeg=usable(opt.returnLeg)?opt.returnLeg:hbHomeLeg('return',null,{});
+ const originNote=dLeg.basis==='naver_directions'?'':opt.originSet?' "집 출발·귀가 시간 확인"을 누르면 실제 자동차 이동시간으로 맞출 수 있어요.':' 출발지를 입력하면 이동시간을 계산해요.';
+ const legInfo=leg=>({basis:leg.basis,bufferMinutes:leg.minutes,stopId:leg.stopId||null,checkedAt:leg.checkedAt||null});
  let start='',end='',homeDeparture=null,homeReturn=null;
  if(depart){
   const minute=hbDraftMinute(depart);
   if(minute===null)errors.push('집 출발 희망 시각을 다시 확인해 주세요.');
-  else if(minute+HB_HOME_PLACEHOLDER_MINUTES>=1440)errors.push('집 출발 희망 시각에 이동시간을 더하면 자정을 넘어요. 출발 시각을 앞당겨 주세요.');
+  else if(minute+dLeg.minutes>=1440)errors.push('집 출발 희망 시각에 이동시간을 더하면 자정을 넘어요. 출발 시각을 앞당겨 주세요.');
   else{
-   start=hbClock(minute+HB_HOME_PLACEHOLDER_MINUTES);
-   homeDeparture={time:hbClock(minute),basis:'placeholder',bufferMinutes:HB_HOME_PLACEHOLDER_MINUTES,originSet:!!opt.originSet};
-   warnings.push('집 출발 희망 '+hbClock(minute)+' 기준으로 첫 방문지 도착을 '+start+'로 잡았어요 (이동 약 '+HB_HOME_PLACEHOLDER_MINUTES+'분, 예상). '+originNote);
+   start=hbClock(minute+dLeg.minutes);
+   homeDeparture={time:hbClock(minute),...legInfo(dLeg),originSet:!!opt.originSet};
+   warnings.push('집 출발 희망 '+hbClock(minute)+' 기준으로 첫 방문지 도착을 '+start+'로 잡았어요 (이동 '+hbHomeLegText(dLeg)+').'+originNote);
   }
  }
  const returnDay=Number.isInteger(opt.returnDay)&&opt.returnDay>0?opt.returnDay:0;
@@ -534,21 +575,81 @@ function hbHomeWindow(opt={}){
   const minute=hbDraftMinute(back);
   if(minute===null)errors.push('집 도착 희망 시각을 다시 확인해 주세요.');
   else{
-   homeReturn={time:hbClock(minute),dayOffset:returnDay,basis:'placeholder',bufferMinutes:HB_HOME_PLACEHOLDER_MINUTES};
+   homeReturn={time:hbClock(minute),dayOffset:returnDay,...legInfo(rLeg)};
    warnings.push('집 도착 희망이 '+(returnDay===1?'다음 날':(returnDay+1)+'일차')+' '+hbClock(minute)+'이라 첫날 일정은 종료 제한 없이 구성했어요. 현재는 첫날 일정만 만들어요.');
   }
  }else if(back){
   const minute=hbDraftMinute(back);
   if(minute===null)errors.push('집 도착 희망 시각을 다시 확인해 주세요.');
-  else if(minute-HB_HOME_PLACEHOLDER_MINUTES<=0)errors.push('집 도착 희망 시각이 너무 일러 일정을 넣을 수 없어요. 자정을 넘겨 도착하려면 집 도착 날짜를 다음 날로 골라 주세요.');
+  else if(minute-rLeg.minutes<=0)errors.push('집 도착 희망 시각이 너무 일러 일정을 넣을 수 없어요. 자정을 넘겨 도착하려면 집 도착 날짜를 다음 날로 골라 주세요.');
   else{
-   end=hbClock(minute-HB_HOME_PLACEHOLDER_MINUTES);
-   homeReturn={time:hbClock(minute),dayOffset:0,basis:'placeholder',bufferMinutes:HB_HOME_PLACEHOLDER_MINUTES};
-   warnings.push('집 도착 희망 '+hbClock(minute)+'에 맞춰 일정이 '+end+'까지 끝나도록 했어요 (귀가 이동 약 '+HB_HOME_PLACEHOLDER_MINUTES+'분, 예상).');
+   end=hbClock(minute-rLeg.minutes);
+   homeReturn={time:hbClock(minute),dayOffset:0,...legInfo(rLeg)};
+   warnings.push('집 도착 희망 '+hbClock(minute)+'에 맞춰 일정이 '+end+'까지 끝나도록 했어요 (귀가 이동 '+hbHomeLegText(rLeg)+').');
   }
  }
  if(start&&end&&hbDraftMinute(start)>=hbDraftMinute(end))errors.push('집 출발과 집 도착 희망 시각 사이에 이동 여유를 빼면 일정을 넣을 시간이 없어요. 시간을 늘려 주세요.');
  return {start,end,errors,warnings,source:depart||back?'home':'automatic',homeDeparture,homeReturn};
+}
+/** Schedule creation with the unified home leg. Build once with the leg known before the
+ * schedule exists (25분 예상), then, when a saved NAVER leg matches the resulting first/last
+ * visit and the current origin/return point, rebuild with those minutes. The rebuilt draft
+ * is kept only if its first/last visits still match the legs used. create(home)->plan. */
+function hbScheduleWithHomeLegs(homeInput,state,create){
+ const home=hbHomeWindow(homeInput);
+ if(home.errors.length)return {home,plan:null};
+ const plan=create(home);
+ if(home.source!=='home'||!plan||plan.errors?.length)return {home,plan};
+ const anchors=hbTripEndpointAnchors(plan.stops);
+ const naver=leg=>leg&&leg.basis==='naver_directions'?leg:null;
+ const departLeg=homeInput.depart&&anchors.first?naver(hbHomeLeg('departure',anchors.first.placeId,state)):null;
+ const sameDayReturn=homeInput.returnTime&&!(Number.isInteger(homeInput.returnDay)&&homeInput.returnDay>0);
+ const returnLeg=sameDayReturn&&anchors.last?naver(hbHomeLeg('return',anchors.last.placeId,state)):null;
+ if(!departLeg&&!returnLeg)return {home,plan};
+ const next=hbHomeWindow({...homeInput,departLeg:departLeg||undefined,returnLeg:returnLeg||undefined});
+ if(next.errors.length)return {home:next,plan:null};
+ const nextPlan=create(next);
+ if(!nextPlan||nextPlan.errors?.length)return {home,plan};
+ const after=hbTripEndpointAnchors(nextPlan.stops);
+ if(departLeg&&after.first?.placeId!==departLeg.stopId||returnLeg&&after.last?.placeId!==returnLeg.stopId)return {home,plan};
+ return {home:next,plan:nextPlan};
+}
+/** Step-1 (여행 정보) preview from the same rule. Shown only with an origin and a home time;
+ * legacy first-visit times win (their own note is shown instead). savedStops: the stored draft,
+ * whose first/last visit lets a saved NAVER leg be reused. */
+function hbHomePreview(input={},state={},savedStops=[]){
+ const text=v=>typeof v==='string'?v.trim():'';
+ if(text(input.planStart)||text(input.planEnd))return null;
+ const depart=hbDraftMinute(text(input.depart)),back=hbDraftMinute(text(input.returnTime));
+ if(!state?.origin||depart===null&&back===null)return null;
+ const anchors=hbTripEndpointAnchors(Array.isArray(savedStops)?savedStops:[]);
+ const departLeg=hbHomeLeg('departure',anchors.first?.placeId||null,state);
+ const returnLeg=hbHomeLeg('return',anchors.last?.placeId||null,state);
+ const where=(leg,anchor)=>leg.basis==='naver_directions'&&anchor?.name?anchor.name+'까지 ':'';
+ const returnDay=Number.isInteger(input.returnDay)&&input.returnDay>0?input.returnDay:0;
+ const lines=[];
+ if(depart!==null){
+  const at=hbDayClock(depart+departLeg.minutes);
+  lines.push({kind:'arrival',basis:departLeg.basis,minutes:departLeg.minutes,label:at.label,dayOffset:at.dayOffset,
+   text:'예상 첫 방문지 도착 '+at.label+' (집 출발 '+hbClock(depart)+' · '+where(departLeg,anchors.first)+'이동 '+hbHomeLegText(departLeg)+')'+(at.dayOffset>0?' · 출발 시각을 앞당기면 같은 날 일정으로 만들 수 있어요':'')});
+ }
+ if(back!==null){
+  const dayWord=returnDay===1?'다음날 ':returnDay>1?(returnDay+1)+'일차 ':'';
+  const endAt=returnDay?null:hbDayClock(back-returnLeg.minutes);
+  lines.push({kind:'return',basis:returnLeg.basis,minutes:returnLeg.minutes,label:dayWord+hbClock(back),dayOffset:returnDay,
+   text:'예상 귀가 '+dayWord+hbClock(back)+' (집 도착 희망'+(endAt?' · 일정은 '+endAt.label+'까지':'')+' · '+where(returnLeg,anchors.last)+'귀가 이동 '+hbHomeLegText(returnLeg)+')'});
+ }else if(anchors.last&&anchors.last.scheduleEnd!==null&&anchors.last.scheduleEnd!==undefined&&hbHomeLegPoint('return',state)){
+  const at=hbDayClock(anchors.last.scheduleEnd+returnLeg.minutes);
+  lines.push({kind:'return',basis:returnLeg.basis,minutes:returnLeg.minutes,label:at.label,dayOffset:at.dayOffset,
+   text:'예상 귀가 '+at.label+' (저장된 일정 종료 '+hbDayClock(anchors.last.scheduleEnd).label+' 후 '+where(returnLeg,anchors.last)+'귀가 이동 '+hbHomeLegText(returnLeg)+')'});
+ }
+ return lines.length?{lines,departLeg,returnLeg}:null;
+}
+function hbHomePreviewMarkup(){
+ if(typeof s==='undefined'||!s)return '';
+ const preview=hbHomePreview({planStart:s.hbPlanStart,planEnd:s.hbPlanEnd,depart:s.hbDepartTime,returnTime:s.hbReturnTime,returnDay:Number(s.hbReturnDay)||0},hbTripEndpointState(),s.stops);
+ if(!preview)return '';
+ return '<ul class="hb-trip-home-preview-list">'+preview.lines.map(line=>'<li data-hb-preview="'+line.kind+'" data-hb-preview-basis="'+safe(line.basis)+'">'+safe(line.text)+'</li>').join('')+'</ul>';
 }
 /** Shift every stop by delta minutes (same day only); protected stops block it. */
 function hbShiftDraft(items,delta,window={}){
@@ -717,7 +818,7 @@ function hbWeatherDraftReason(signal,stops,classOf){
 }
 function hbWeatherStopClassifier(){
  const list=typeof places!=='undefined'&&Array.isArray(places)?places:[];
- return stop=>typeof hbWeatherPlaceClass==='function'?hbWeatherPlaceClass(list.find(p=>p&&p.id===stop?.placeId)||{name:stop?.name,kind:stop?.kind}).kind:null;
+ return stop=>typeof hbWeatherPlaceClass==='function'?hbWeatherPlaceClass(list.find(p=>p&&p.id===stop?.placeId)||{id:stop?.placeId,name:stop?.name,kind:stop?.kind}).kind:null;
 }
 /** Default draft for a new plan: weather-ordered when it removes outdoor exposure; the original is kept for 되돌리기. */
 function hbWeatherDraftForNewPlan(stops,state){
@@ -823,8 +924,9 @@ function hbApplyScheduleFromSelection(){
  if(dateError){alert(dateError);s.hbStep=1;go('/new');return false;}
  const timeIssues=[...hbTimeInputErrors(s.hbPlanStart??'',s.hbPlanEnd??''),...hbHomeTimeErrors(s.hbDepartTime??'',s.hbReturnTime??'',s.hbReturnDay??0,s.hbDuration||'day')];
  if(timeIssues.length){alert(timeIssues.join(' '));return false;}
- const home=hbHomeWindow({planStart:s.hbPlanStart,planEnd:s.hbPlanEnd,depart:s.hbDepartTime,returnTime:s.hbReturnTime,returnDay:Number(s.hbReturnDay)||0,originSet:!!hbTripEndpointState().origin});
- if(home.errors.length){alert(home.errors.join(' '));return false;}
+ const homeInput={planStart:s.hbPlanStart,planEnd:s.hbPlanEnd,depart:s.hbDepartTime,returnTime:s.hbReturnTime,returnDay:Number(s.hbReturnDay)||0,originSet:!!hbTripEndpointState().origin};
+ const firstHome=hbHomeWindow(homeInput);
+ if(firstHome.errors.length){alert(firstHome.errors.join(' '));return false;}
  const selected=Array.isArray(s.chosen)?s.chosen:[];
  const profile={
   walk:s.hbWalkConfirmed?s.walk:null,stairsMode:s.hbStairsChoice,needs:s.momNeeds,
@@ -835,7 +937,10 @@ function hbApplyScheduleFromSelection(){
   alert(blocked.name+'의 이동 조건이 현재 선택과 맞지 않아요. 장소 목록에서 선택을 취소한 뒤 다시 시도해 주세요.');
   return false;
  }
- const plan=hbCreateSchedule(selected,places,{start:home.start,end:home.end,tripType:s.hbDuration||'day',restIntervalMinutes:s.hbRestIntervalMinutes,slopePreference:s.hbSlopePreference,indoorPreference:s.hbIndoorPreference});
+ // Same home-leg rule as the step-1 preview: a saved NAVER leg for the resulting first/last visit wins, else 25분 예상.
+ const built=hbScheduleWithHomeLegs(homeInput,hbTripEndpointState(),range=>hbCreateSchedule(selected,places,{start:range.start,end:range.end,tripType:s.hbDuration||'day',restIntervalMinutes:s.hbRestIntervalMinutes,slopePreference:s.hbSlopePreference,indoorPreference:s.hbIndoorPreference}));
+ const home=built.home,plan=built.plan;
+ if(!plan){alert(home.errors.join(' '));return false;}
  if(plan.errors.length){alert(plan.errors.join('\n'));return false;}
  plan.warnings.unshift(...home.warnings);
  // A first-visit start derived from the home departure is not a user window.

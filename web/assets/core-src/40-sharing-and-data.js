@@ -450,7 +450,7 @@ function weatherScope() {
 const currentWeatherKey = () => JSON.stringify([weatherScope().region, weatherScope().date]);
 function hbWeatherTime(value) {
   return typeof value==='string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+09:00$/.test(value)
-    ? value.slice(0,16).replace('T',' ')+' KST' : '미확인';
+    ? value.slice(0,16).replace('T',' ')+' KST' : '';
 }
 function weatherText() {
   if (forecast.key !== currentWeatherKey() || forecast.state==='loading') return '여행일 예보를 확인하고 있어요…';
@@ -460,17 +460,17 @@ function weatherText() {
   else if(forecast.state==='stale') text='오래된 예보예요. 최신 정보를 다시 확인해 주세요.';
   else if(forecast.state==='no_forecast') text='선택한 날짜의 예보 제공 범위를 확인해 주세요.';
   else if(forecast.state==='available' && typeof f?.summary==='string' && f.summary.trim()){
-    text=f.summary+' (발표 '+hbWeatherTime(f.issuedAt)+' / 대표 '+hbWeatherTime(f.evidence?.representativeAt)+')';
-    if(['비','비 또는 눈','눈','소나기'].includes(f.precipitationType)) text+=' · 야외 동선을 줄이고 실내 대안을 확인해 주세요.';
+    // 2026-11-26 사용자 지시: 안내 문구(대표 예보·지역 기준점·특보 재확인·보장 안 함·미확인 등)는 숨기고
+    // 기온·강수확률·날씨 상태와 발표 시각만 남긴다. 발표 시각이 없으면 시각 표기 자체를 생략한다.
+    const issued=hbWeatherTime(f.issuedAt);
+    text=f.summary+(issued?' (발표 '+issued+')':'');
   }else text='선택한 날짜의 예보를 확인할 수 없어요.';
-  if(f?.location?.scope==='regional_reference')text+=' · 지역 기준점 예보';
+  // 실제로 발효 중인 특보는 정보이므로 종류·지역·발효 시각을 그대로 보여 준다(재검토·확인 필요 같은 안내만 뺀다).
   if(a?.status==='active' && Array.isArray(a.active) && a.active.length){
-    const hazards=a.active.map(x=>x.hazard+x.severity).join(', ');
-    text+=' · 기준 지역 특보: '+hazards+' / 발효 '+hbWeatherTime(a.effectiveAt)+' · 출발 전 일정 재검토 필요';
-  }else if(a?.status==='none' && a.area?.verified)text+=' · 확인한 기준 지역에 발효 특보 없음 (다른 지역·미래 안전 보장 아님)';
-  else if(a?.reason==='current_warning_only')text+=' · 특보는 여행일에 다시 확인해 주세요.';
-  else if(a?.status==='stale')text+=' · 특보 자료가 오래되었어요.';
-  else text+=' · 특보 상태 확인 필요';
+    const hazards=a.active.map(x=>String(x.hazard??'')+String(x.severity??'')+(x.areaName?'('+x.areaName+')':'')).join(', ');
+    const effective=hbWeatherTime(a.effectiveAt);
+    text+=' · 발효 중인 특보: '+hazards+(effective?' / 발효 '+effective:'');
+  }
   return text;
 }
 // Illustration state is derived only from the same scoped, available forecast DTO.
@@ -499,9 +499,10 @@ function hbWeatherRecommendation(snapshot,key){
     typeof v.precipitationProbabilityPercent==='number'&&v.precipitationProbabilityPercent>=R.wetProbabilityPercent&&v.precipitationProbabilityPercent<=100||
     typeof v.temperatureC==='number'&&(v.temperatureC>=R.hotTemperatureC||v.temperatureC<=R.coldTemperatureC));
   if(precipitation||probability||temperature!==null&&(temperature>=R.hotTemperatureC||temperature<=R.coldTemperatureC)||hourlyBurden){
-    return {kind:'adverse',message:'여행일 예보의 일부 시간대에 강수 또는 기온 부담 신호가 있어요. '+(HB_WEATHER_CATEGORY_COMPARE_ENABLED?'문화시설 후보, 휴식이 포함된 짧은 코스, 날짜 변경을 비교해 보세요. 시설의 실내 여부와 실제 운영은 별도 확인이 필요해요.':'휴식이 포함된 짧은 코스나 날짜 변경을 검토해 보세요. 실제 운영과 이동 여건은 별도 확인이 필요해요.')};
+    return {kind:'adverse',message:'여행일 예보의 일부 시간대에 강수 또는 기온 부담 신호가 있어요. '+(HB_WEATHER_CATEGORY_COMPARE_ENABLED?'문화시설 후보, 휴식이 포함된 짧은 코스, 날짜 변경을 비교해 보세요. 시설의 실내 여부와 실제 운영은 별도 확인이 필요해요.':'휴식이 포함된 짧은 코스나 날짜 변경을 검토해 보세요.')};
   }
-  return {kind:'regular',message:(HB_WEATHER_CATEGORY_COMPARE_ENABLED?'대표 예보를 참고해 일반 여행지와 문화시설 후보를 비교할 수 있어요. ':'대표 예보를 참고했어요. ')+'하루 전체 날씨나 특보 미발효를 보장하지 않아요.'};
+  // 2026-11-26 사용자 지시: '대표 예보를 참고했어요 · 보장하지 않아요' 안내는 숨긴다(비교 화면을 켤 때만 비교 안내).
+  return {kind:'regular',message:HB_WEATHER_CATEGORY_COMPARE_ENABLED?'일반 여행지와 문화시설 후보를 비교할 수 있어요.':''};
 }
 // 2026-11-26 사용자 결정: 의도(날씨 기반 일정·여행지 제안)와 다른 화면 진입을 끈다. 모듈·바인딩은 보존하며 true로 되돌릴 수 있다.
 const HB_WEATHER_CATEGORY_COMPARE_ENABLED=false; // '문화시설 후보 보기'·'전체 후보 비교'
@@ -599,7 +600,7 @@ function hbWeatherOptionsMarkup(){
   (rec.kind==='regular'?'':'<button type="button" class="light" id="hb-weather-short">짧은 코스 제안 보기</button><button type="button" class="light" id="hb-weather-date">날짜 다시 선택</button>')+'</div><div id="hb-weather-option-result" role="status"></div>':'';
  const timeOption=HB_WEATHER_TIME_COMPARE_ENABLED&&browsing&&rec.kind!=='caution'&&forecast.key===currentWeatherKey()&&forecast.state==='available'&&Array.isArray(forecast.data?.hourly)&&forecast.data.hourly.length?
     '<button type="button" class="light" id="hb-weather-times">시간대별 날씨와 일정 비교</button><div id="hb-weather-time-result" role="status"></div>':'';
- return '<p>'+safe(rec.message)+'</p>'+actions+timeOption;
+ return (rec.message?'<p>'+safe(rec.message)+'</p>':'')+actions+timeOption;
 }
 function hbBindWeatherOptions(){
  const node=document.querySelector?.('[data-hb-weather-options]');
@@ -645,7 +646,7 @@ function hbBindWeatherOptions(){
   const draft=hbCreateSchedule(candidate,places,{start:s.hbPlanStart,end:s.hbPlanEnd,restIntervalMinutes:s.hbRestIntervalMinutes});
   if(draft.errors.length){output.textContent=draft.errors.join(' ');return;}
   const list=draft.stops.map(stop=>'<li>'+safe(stop.time)+' · '+safe(stop.name)+'</li>').join('');
-  output.innerHTML='<p>선택한 장소 중 '+safe(keep.name)+' 중심의 짧은 초안이에요. 실제 운영·이동시간은 미확인입니다.</p><ol>'+list+'</ol><button type="button" class="light" id="hb-weather-apply-short">이 장소 선택으로 변경</button>';
+  output.innerHTML='<p>선택한 장소 중 '+safe(keep.name)+' 중심의 짧은 초안이에요.</p><ol>'+list+'</ol><button type="button" class="light" id="hb-weather-apply-short">이 장소 선택으로 변경</button>';
   document.getElementById('hb-weather-apply-short').onclick=()=>{
    if(JSON.stringify(hbUniquePlaceIds(s.chosen))!==JSON.stringify(ids)||hbUniquePlaceIds(s.hbMustVisitIds).some(id=>!candidate.includes(id))){output.textContent='선택 조건이 변경됐어요. 다시 비교해 주세요.';return;}
    const previous=s.chosen;s.chosen=candidate;
@@ -660,7 +661,7 @@ function weatherCard() {
   });
   queueMicrotask(()=>hbBindWeatherOptions());
   return '<section class="panel hb-weather-card"><h2>여행일 날씨 · 자동 조회</h2><p data-hb-weather role="status" data-hb-weather-art="'+hbWeatherArtKind()+'">'
-    + safe(weatherText()) + '</p><p class="muted">출처: 기상청 예보·특보. 지역 기준점의 대표 예보이며 실제 목적지·방문 시각과 다를 수 있어요.</p><div data-hb-weather-options>'+hbWeatherOptionsMarkup()+'</div></section>';
+    + safe(weatherText()) + '</p><p class="muted">출처: 기상청</p><div data-hb-weather-options>'+hbWeatherOptionsMarkup()+'</div></section>';
 }
 async function getWeather() {
   const key=currentWeatherKey(), id=++weatherRequest;

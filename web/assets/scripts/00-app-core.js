@@ -380,6 +380,9 @@ function hbUpdateTripDateLabels(){
     const offset=hbReturnDay(s.hbReturnDay,s.hbDuration||'day');
     end.textContent=offset===null?'집 도착 날짜를 다시 선택해 주세요.':hbClockSummary(s.date,s.hbReturnTime??'',offset,'도착')+(offset===0?' · 같은 날로 해석해요':'');
   }
+  // 출발지·출발/도착 희망 시각이 바뀌면 같은 이동시간 규칙(hbHomeLeg)으로 미리보기를 다시 그린다.
+  const preview=document.getElementById('hb-trip-home-preview');
+  if(preview&&typeof hbHomePreviewMarkup==='function'){const html=hbHomePreviewMarkup();if(preview.innerHTML!==html)preview.innerHTML=html;}
 }
 function hbBindClockFields(pairs){
   const refresh=()=>{const box=document.getElementById('hb-step-error');if(box)box.textContent=[...hbHomeTimeErrors(s.hbDepartTime??'',s.hbReturnTime??'',s.hbReturnDay??0,s.hbDuration||'day'),...hbTimeInputErrors(s.hbPlanStart??'',s.hbPlanEnd??'')].join(' ');hbUpdateTripDateLabels();};
@@ -427,7 +430,7 @@ function newPlan(){
   };
   const intro=hbDiscoveryPendingMarkup()+'<h1>부모님과 여행 만들기</h1><p class="muted">여행 지역과 이동 조건부터 확인해요. 방문 가능한 동선이 검증됐다는 뜻은 아니에요.</p><ol class="hb-progress" aria-label="여행 만들기 3단계 중 '+step+'단계">'+['여행 정보','이동 조건','선호사항'].map((name,i)=>'<li'+(i+1===step?' aria-current="step"':i+1<step?' class="hb-step-done"':'')+'>'+stepLink(name,i)+'</li>').join('')+'</ol><p id="hb-step-nav-notice" class="hb-step-nav-notice" role="status" aria-live="polite" hidden></p>';
   if(step===1){
-    el.innerHTML=intro+'<section class="panel"><h2 tabindex="-1">1. 여행 정보</h2>'+prefs()+(s.hbDateRefreshedFrom?'<p role="status">이전에 저장된 날짜를 오늘로 갱신했어요. 기존 일정의 날짜는 그대로 유지돼요.</p>':'')+'<div class="actions"><button class="light" type="button" id="hb-date-today">오늘</button><button class="light" type="button" id="hb-date-tomorrow">내일</button></div><div class="row hb-trip-time-row">'+hbClockField('hb-trip-start','여행 출발 희망 시각 (선택)',s.hbDepartTime,'집(출발지)에서 출발하는 시각')+hbClockField('hb-trip-end','집 도착 희망 시각 (선택)',s.hbReturnTime,'집(귀가 위치)에 도착하고 싶은 날짜와 시각',true)+'</div><p class="muted" id="hb-trip-time-help">시간을 비워 두면 선택한 장소에 맞춰 시간표 초안을 제안해요. 숫자로 7:30, 0730, 19:05처럼 직접 입력하거나 시계로 고를 수 있고, 새벽·저녁 시간도 가능해요. 출발 시각을 정하면 출발지에서 첫 방문지까지 이동시간을 더해 첫 방문지 도착 시각을 잡아요. 경로를 계산하기 전에는 이동 약 25분 (예상)으로 넣어요.</p>'+((s.hbPlanStart||s.hbPlanEnd)?'<p class="hb-legacy-time-note" role="note">이전에 저장한 첫 방문지 기준 시각('+safe(s.hbPlanStart||'제안')+' ~ '+safe(s.hbPlanEnd||'제안')+')은 그 의미 그대로 유지돼요. 값이 있으면 집 출발·도착 희망 시각보다 우선해요. <button type="button" class="light" id="hb-legacy-time-clear">이전 첫 방문지 시각 지우기</button></p>':'')+hbTripOriginStepMarkup()+'<div class="row"><div class="field"><label for="hb-duration">여행 형태</label><select id="hb-duration"><option value="day">당일 여행</option><option value="overnight">숙박 여행</option></select></div><div class="field"><label for="hb-transport">주요 이동 수단</label><select id="hb-transport"><option value="car">자동차</option><option value="transit">대중교통</option><option value="mixed">상황에 따라 선택</option></select></div><div class="field"><label for="hb-party">동행 인원</label><select id="hb-party"><option value="2">2명</option><option value="3">3명</option><option value="4">4명</option><option value="5">5명</option><option value="6">6명</option><option value="7">7명</option><option value="8">8명</option><option value="9">9명</option><option value="10">10명</option><option value="11">11명</option><option value="12">12명</option></select></div></div><div class="actions"><button type="button" id="hb-next">다음: 이동 조건 →</button></div><p class="muted" id="hb-step-error" role="alert"></p></section>'+(typeof weatherCard==='function'?weatherCard():'');
+    el.innerHTML=intro+'<section class="panel"><h2 tabindex="-1">1. 여행 정보</h2>'+prefs()+(s.hbDateRefreshedFrom?'<p role="status">이전에 저장된 날짜를 오늘로 갱신했어요. 기존 일정의 날짜는 그대로 유지돼요.</p>':'')+'<div class="actions"><button class="light" type="button" id="hb-date-today">오늘</button><button class="light" type="button" id="hb-date-tomorrow">내일</button></div><div class="row hb-trip-time-row">'+hbClockField('hb-trip-start','여행 출발 희망 시각 (선택)',s.hbDepartTime,'집(출발지)에서 출발하는 시각')+hbClockField('hb-trip-end','집 도착 희망 시각 (선택)',s.hbReturnTime,'집(귀가 위치)에 도착하고 싶은 날짜와 시각',true)+'</div><div id="hb-trip-home-preview" class="hb-trip-home-preview" aria-live="polite">'+(typeof hbHomePreviewMarkup==='function'?hbHomePreviewMarkup():'')+'</div><p class="muted" id="hb-trip-time-help">시간을 비워 두면 선택한 장소에 맞춰 시간표 초안을 제안해요. 숫자로 7:30, 0730, 19:05처럼 직접 입력하거나 시계로 고를 수 있고, 새벽·저녁 시간도 가능해요. 출발 시각을 정하면 출발지에서 첫 방문지까지 이동시간을 더해 첫 방문지 도착 시각을 잡아요. 네이버 자동차 경로로 계산한 이동시간이 있으면 그 값을, 없으면 이동 약 25분 (예상)으로 넣어요.</p>'+((s.hbPlanStart||s.hbPlanEnd)?'<p class="hb-legacy-time-note" role="note">이전에 저장한 첫 방문지 기준 시각('+safe(s.hbPlanStart||'제안')+' ~ '+safe(s.hbPlanEnd||'제안')+')은 그 의미 그대로 유지돼요. 값이 있으면 집 출발·도착 희망 시각보다 우선해요. <button type="button" class="light" id="hb-legacy-time-clear">이전 첫 방문지 시각 지우기</button></p>':'')+hbTripOriginStepMarkup()+'<div class="row"><div class="field"><label for="hb-duration">여행 형태</label><select id="hb-duration"><option value="day">당일 여행</option><option value="overnight">숙박 여행</option></select></div><div class="field"><label for="hb-transport">주요 이동 수단</label><select id="hb-transport"><option value="car">자동차</option><option value="transit">대중교통</option><option value="mixed">상황에 따라 선택</option></select></div><div class="field"><label for="hb-party">동행 인원</label><select id="hb-party"><option value="2">2명</option><option value="3">3명</option><option value="4">4명</option><option value="5">5명</option><option value="6">6명</option><option value="7">7명</option><option value="8">8명</option><option value="9">9명</option><option value="10">10명</option><option value="11">11명</option><option value="12">12명</option></select></div></div><div class="actions"><button type="button" id="hb-next">다음: 이동 조건 →</button></div><p class="muted" id="hb-step-error" role="alert"></p></section>'+(typeof weatherCard==='function'?weatherCard():'');
     hbDiscoveryBindPending(newPlan);bindPrefs();
     const dateField=document.getElementById('date');
     const chooseDate=value=>{dateField.value=value;dateField.onchange({target:dateField});document.getElementById('hb-step-error').textContent='';};
@@ -1109,8 +1112,33 @@ function hbVisibleGaps(gaps){
 
 // BEGIN HB_WEATHER_SUGGEST
 // 날씨 기반 여행지 제안 (사용자 원래 의도, DECISIONS 2026-11-26): 여행 날짜·지역 예보로 장소 순서·강조를 조정한다.
-// 실내/야외 분류는 앱에 이미 들어온 장소 자료(관광공사 콘텐츠 유형·분류 코드·장소 이름)만 쓴다.
+// 실내/야외 분류는 장소 ID별 확인 목록(HB_WEATHER_PLACE_ENV, 공식 근거)을 먼저 쓰고, 목록에 없는 장소만
+// 앱에 이미 들어온 자료(관광공사 콘텐츠 유형·분류 코드·장소 이름)로 보조 추정한다.
 // 분류는 "어떤 시설로 분류된 곳"이라는 사실만 말하며 이동 안전·현장 상태를 뜻하지 않는다. 근거가 없으면 null.
+// 장소 ID별 확인된 실내/야외 분류 (2026-11-26 사용자 지시 "제대로 분류해"): 시설 공식 홈페이지·운영기관 안내 또는
+// 관광공사 콘텐츠 유형으로 확인한 값만 둔다. 이 목록이 이름·분류 코드 추정보다 우선한다(목록에 있으면 추정 안 함).
+// kind: 'indoor'(실내 시설) | 'outdoor'(야외 장소) | 'mixed'(실내 시설과 야외 공간이 함께 있음 = "실내 시설 있음") | null(근거 없음, 문구 없음).
+// 분류는 시설 구성에 대한 사실일 뿐 이동 안전·현장 상태를 뜻하지 않는다. via: page(공식 페이지 직접 열람) | search(공식 페이지 검색 결과 요약) | tourapi(관광공사 콘텐츠 유형).
+const HB_WEATHER_PLACE_ENV=Object.freeze({
+ 'tour-126508':{name:'경복궁',kind:'outdoor',label:'야외 궁궐 관람지',sources:['https://royal.khs.go.kr/ROYAL/contents/menuInfo-gbg.do?grpCode=gbg'],via:'page',checkedAt:'2026-11-26'},
+ 'tour-126537':{name:'북촌한옥마을',kind:'outdoor',label:'야외 한옥 주거지 골목',sources:['https://bukchon.seoul.go.kr/front/kor/town/town01.do'],via:'search',checkedAt:'2026-11-26'},
+ 'tour-126535':{name:'남산서울타워',kind:'mixed',label:'실내 전망대(타워 4·5층)와 야외 루프테라스가 함께 있는 시설',sources:['https://www.nseoultower.co.kr/visit/floor.asp'],via:'page',checkedAt:'2026-11-26'},
+ 'tour-2470006':{name:'동대문디자인플라자(DDP)',kind:'mixed',label:'실내 전시관(DDP 뮤지엄)과 야외 광장이 함께 있는 시설',sources:['https://ddp.or.kr/?menuno=233','https://ddp.or.kr/?menuno=269'],via:'page',checkedAt:'2026-11-26'},
+ 'tour-129703':{name:'국립중앙박물관',kind:'mixed',label:'실내 상설전시관과 야외 전시·정원이 함께 있는 시설',sources:['https://www.museum.go.kr/MUSEUM/contents/M0103020000.do','https://www.museum.go.kr/MUSEUM/contents/M0103040000.do'],via:'page',checkedAt:'2026-11-26'},
+ 'tour-128611':{name:'서울숲',kind:'outdoor',label:'야외 공원',sources:['https://seoulforest.or.kr/info/park-info'],via:'page',checkedAt:'2026-11-26'},
+ 'tour-126532':{name:'올림픽공원',kind:'outdoor',label:'야외 공원',sources:['https://www.ksponco.or.kr/menu.es?mid=a10402000000'],via:'page',checkedAt:'2026-11-26'},
+ 'tour-3432213':{name:'논현문화마루도서관',kind:'indoor',label:'실내 도서관',sources:['https://library.gangnam.go.kr/nmmlib/index.do'],via:'search',checkedAt:'2026-11-26'},
+ 'tour-3429640':{name:'성동책마루도서관',kind:'indoor',label:'성동구청 1층 실내 도서관',sources:['https://www.sd.go.kr/main/contents.do?key=3955'],via:'search',checkedAt:'2026-11-26'},
+ 'tour-2692866':{name:'청운문학도서관',kind:'indoor',label:'한옥 실내 도서관',sources:['https://lib.jongno.go.kr/menu/subpage/subpage_01/sub032.php'],via:'search',checkedAt:'2026-11-26'},
+ 'tour-2649975':{name:'광명동굴',kind:'indoor',label:'동굴 내부 관람 시설',sources:['https://gm.go.kr/cv/gc/CVGC_14000.jsp'],via:'page',checkedAt:'2026-11-26'},
+ 'tour-125449':{name:'남한산성도립공원',kind:'outdoor',label:'야외 산성·탐방로',sources:['https://www.gg.go.kr/namhansansung-2/contents/contents.do?ciIdx=1280&menuId=3494'],via:'page',checkedAt:'2026-11-26'},
+ 'tour-750804':{name:'마장호수',kind:'outdoor',label:'야외 호수·둘레길',sources:['https://tour.paju.go.kr/user/tour/place/BD_tourPlaceInfoView.do?menuCode=4&cntntsSn=69'],via:'page',checkedAt:'2026-11-26'},
+ 'tour-3456435':{name:'부락산분수공원',kind:'outdoor',label:'야외 공원',sources:['https://korean.visitkorea.or.kr/detail/ms_detail.do?cotid=e6d0db32-bab4-4721-8b15-c618701b64ce'],via:'search',checkedAt:'2026-11-26'},
+ 'tour-3452786':{name:'시흥시청소년수련관',kind:'indoor',label:'실내 청소년 수련 시설',sources:['https://www.shyouth.or.kr/shcs/contents/view?contentsNo=110&menuLevel=2&menuNo=8'],via:'page',checkedAt:'2026-11-26'},
+ 'tour-3428221':{name:'시흥시 대야평생학습관',kind:'indoor',label:'실내 평생학습 시설',sources:['https://www.data.go.kr/data/15101578/openapi.do'],via:'tourapi',checkedAt:'2026-11-26'},
+ 'tour-3449158':{name:'시흥시립대야도서관',kind:'indoor',label:'실내 도서관',sources:['https://lib.siheung.go.kr/'],via:'search',checkedAt:'2026-11-26'},
+ 'tour-2736429':{name:'에코센터',kind:'indoor',label:'실내 생태 전시 시설',sources:['https://gimpo.go.kr/news/selectBbsNttList.do?bbsNo=501&key=2049&nttNo=82926'],via:'search',checkedAt:'2026-11-26'}
+});
 const HB_WEATHER_INDOOR_NAMES=[
  [/박물관|미술관|전시관|기념관|과학관|디자인플라자|갤러리/,'실내 전시 시설'],
  [/도서관|평생학습관/,'실내 도서관·학습 시설'],
@@ -1122,9 +1150,18 @@ const HB_WEATHER_OUTDOOR_NAMES=[
  [/궁궐|궁$|한옥마을|성곽|산성|유적지/,'야외 궁궐·역사 장소'],
  [/호수|저수지|습지|계곡|폭포|해수욕장|해변/,'야외 자연 장소']
 ];
-/** {kind:'indoor'|'outdoor'|null,label,basis}. Food is never weather-classified here. */
+/** 받침에 맞춘 '로/으로'. */
+function hbWeatherJosaRo(word){
+ const ch=String(word||'').trim().slice(-1),code=ch.charCodeAt(0)-0xAC00;
+ return code>=0&&code<11172&&code%28&&code%28!==8?'으로':'로';
+}
+/** {kind:'indoor'|'outdoor'|'mixed'|null,label,basis}. Verified list first; food is never weather-classified here. */
 function hbWeatherPlaceClass(p){
- if(!p||p.kind==='food'||typeof p.name!=='string'||!p.name.trim())return {kind:null,label:'',basis:null};
+ if(!p||p.kind==='food')return {kind:null,label:'',basis:null};
+ const id=typeof p.id==='string'&&p.id?p.id:typeof p.placeId==='string'?p.placeId:'';
+ const verified=id&&Object.prototype.hasOwnProperty.call(HB_WEATHER_PLACE_ENV,id)?HB_WEATHER_PLACE_ENV[id]:null;
+ if(verified)return verified.kind?{kind:verified.kind,label:verified.label,basis:'verified_list',sources:verified.sources,checkedAt:verified.checkedAt}:{kind:null,label:'',basis:'verified_list'};
+ if(typeof p.name!=='string'||!p.name.trim())return {kind:null,label:'',basis:null};
  const name=p.name.replace(/\[[^\]]*\]/g,'').replace(/\s+/g,'');
  const indoor=HB_WEATHER_INDOOR_NAMES.find(([re])=>re.test(name));
  const outdoor=HB_WEATHER_OUTDOOR_NAMES.find(([re])=>re.test(name));
@@ -1137,21 +1174,26 @@ function hbWeatherPlaceClass(p){
  return {kind:null,label:'',basis:null};
 }
 /** Higher first. Only adverse/pleasant signals change order; unclassified places are never promoted. */
+// 혼합 시설(mixed, "실내 시설 있음") 규칙: 비·눈·더위·추위·특보 때는 실내 시설 다음, 분류 없는 곳보다 앞;
+// 맑고 온화할 때는 야외 장소 다음. 일정 초안의 시간 칸 조정(HB_WEATHER_DRAFT)에서는 실내로도 야외로도 세지 않는다.
 function hbWeatherPlaceRank(p,signal){
  const kind=hbWeatherPlaceClass(p).kind;
- if(signal?.mode==='adverse')return kind==='indoor'?2:kind==='outdoor'?0:1;
- if(signal?.mode==='pleasant')return kind==='outdoor'?1:0;
+ if(signal?.mode==='adverse')return kind==='indoor'?3:kind==='mixed'?2:kind==='outdoor'?0:1;
+ if(signal?.mode==='pleasant')return kind==='outdoor'?2:kind==='mixed'?1:0;
  return 0;
 }
 function hbWeatherPlaceNote(p,signal){
  const c=hbWeatherPlaceClass(p);
  if(!c.kind||!signal?.label)return '';
+ const classified=c.label+hbWeatherJosaRo(c.label)+' 분류된 곳';
+ if(c.kind==='mixed'&&['adverse','pleasant'].includes(signal.mode))
+  return '<p class="hb-weather-fit" data-hb-weather-fit="mixed">'+safe(signal.label+' · '+classified)+'</p>'+(signal.source?'<p class="muted hb-weather-source">'+safe(signal.source)+'</p>':'');
  if(signal.mode==='adverse'&&c.kind==='indoor')
-  return '<p class="hb-weather-fit" data-hb-weather-fit="indoor">'+safe(signal.label+' · '+c.label+'로 분류된 곳')+'</p>'+(signal.source?'<p class="muted hb-weather-source">'+safe(signal.source)+'</p>':'');
+  return '<p class="hb-weather-fit" data-hb-weather-fit="indoor">'+safe(signal.label+' · '+classified)+'</p>'+(signal.source?'<p class="muted hb-weather-source">'+safe(signal.source)+'</p>':'');
  if(signal.mode==='adverse'&&c.kind==='outdoor')
   return '<p class="muted" data-hb-weather-fit="outdoor-later">'+safe(c.label+' · 날씨가 나은 시간대 방문을 제안해요')+'</p>';
  if(signal.mode==='pleasant'&&c.kind==='outdoor')
-  return '<p class="hb-weather-fit" data-hb-weather-fit="outdoor">'+safe(signal.label+' · '+c.label+'로 분류된 곳')+'</p>'+(signal.source?'<p class="muted hb-weather-source">'+safe(signal.source)+'</p>':'');
+  return '<p class="hb-weather-fit" data-hb-weather-fit="outdoor">'+safe(signal.label+' · '+classified)+'</p>'+(signal.source?'<p class="muted hb-weather-source">'+safe(signal.source)+'</p>':'');
  return '';
 }
 function hbWeatherSuggestBanner(signal){
@@ -1172,8 +1214,8 @@ function hbWeatherBrowseNeedsRefresh(){return hbWeatherBrowseSignal().fingerprin
 function hbWeatherCourseNote(stops,signal){
  if(!['adverse','pleasant'].includes(signal?.mode)||!Array.isArray(stops))return '';
  const count=kind=>stops.filter(x=>hbWeatherPlaceClass(x.p).kind===kind).length;
- const indoor=count('indoor'),outdoor=count('outdoor');
- const parts=[indoor?'실내 시설로 분류된 곳 '+indoor+'곳':'',outdoor?'야외 장소 '+outdoor+'곳':''].filter(Boolean);
+ const indoor=count('indoor'),mixed=count('mixed'),outdoor=count('outdoor');
+ const parts=[indoor?'실내 시설로 분류된 곳 '+indoor+'곳':'',mixed?'실내 시설이 있는 곳 '+mixed+'곳':'',outdoor?'야외 장소 '+outdoor+'곳':''].filter(Boolean);
  return parts.length?'<p class="muted" data-hb-weather-course>'+safe(signal.label+' · '+parts.join(' · '))+'</p>':'';
 }
 // END HB_WEATHER_SUGGEST
@@ -2228,26 +2270,62 @@ function hbDayClock(minute){
  const offset=Math.floor(minute/1440),clock=hbClock(((minute%1440)+1440)%1440);
  return {clock,dayOffset:offset,label:(offset===-1?'전날 ':offset===1?'다음날 ':offset?(offset>0?offset+'일 뒤 ':-offset+'일 전 '):'')+clock};
 }
-/** Home departure = first arrival − verified leg; return = schedule end + verified leg.
- * Without a verified leg the time is 'unknown' — the 25-minute buffer is never used here. */
+// Single home-leg rule (2026-11-26 사용자 결정 "같은 로직이어야 한다"): 집↔첫 방문지, 마지막 방문지↔집 이동시간은
+// hbHomeLeg 하나로 구한다. 1단계 미리보기(hbHomePreview)·일정 생성(hbScheduleWithHomeLegs/hbHomeWindow)·일정 페이지
+// (hbTripEndpointTimes, 패널 렌더는 HB_PLAN_PANEL_ENDPOINTS=false로 숨김)가 모두 이 함수를 쓴다.
+// 우선순위: s.hbTripEndpoints.result에 저장된 네이버 자동차 경로(같은 출발/귀가 좌표·같은 방문지일 때, 조회 시각 포함)
+// → 없으면 같은 기본 예상값 HB_HOME_PLACEHOLDER_MINUTES(25분, "예상").
+const HB_HOME_PLACEHOLDER_MINUTES=25;
+function hbHomeLegPoint(kind,state={}){
+ if(kind==='departure')return state?.origin||null;
+ return state?.returnMode==='none'?null:state?.returnMode==='other'?state.returnTo||null:state?.origin||null;
+}
+/** {kind,stopId,minutes,basis:'naver_directions'|'placeholder',checkedAt,reason?,diagnostic?}. */
+function hbHomeLeg(kind,stopId,state={}){
+ const fallback=reason=>({kind,stopId:stopId||null,minutes:HB_HOME_PLACEHOLDER_MINUTES,basis:'placeholder',checkedAt:null,reason});
+ const point=hbHomeLegPoint(kind,state),result=state&&typeof state==='object'?state.result:null;
+ if(!point)return fallback('no_point');
+ if(!hbTripPointRoutable(point))return fallback('invalid_coordinates');
+ if(!stopId)return fallback('no_anchor');
+ if(!result||typeof result!=='object'||!Array.isArray(result.legs))return fallback('unchecked');
+ let key=null;
+ try{key=JSON.parse(result.key)}catch{key=null}
+ const pair=Array.isArray(key)?key[kind==='departure'?0:1]:null,anchor=Array.isArray(key)?key[kind==='departure'?2:3]:null;
+ if(!Array.isArray(pair)||pair[0]!==point.lat||pair[1]!==point.lng||anchor!==stopId)return fallback('stale');
+ const leg=result.legs.find(l=>l&&l.kind===kind&&l.stopId===stopId);
+ if(!leg)return fallback('unchecked');
+ if(leg.status!=='estimated'||(leg.source!=null&&leg.source!=='naver_directions')||!Number.isSafeInteger(leg.minutes)||leg.minutes<1||leg.minutes>1440)
+  return {...fallback('unknown'),diagnostic:leg.diagnostic||null,providerReason:leg.reason||null};
+ return {kind,stopId,minutes:leg.minutes,basis:'naver_directions',checkedAt:typeof leg.checkedAt==='string'?leg.checkedAt:null};
+}
+/** Seoul clock label for a stored check time (e.g. "11월 26일 09:12"); '' when unusable. */
+function hbHomeLegCheckedLabel(iso){
+ const t=typeof iso==='string'?Date.parse(iso):NaN;
+ if(!Number.isFinite(t))return '';
+ const d=new Date(t+9*3600000);
+ return (d.getUTCMonth()+1)+'월 '+d.getUTCDate()+'일 '+String(d.getUTCHours()).padStart(2,'0')+':'+String(d.getUTCMinutes()).padStart(2,'0');
+}
+/** "약 N분, 예상" / "약 N분, 네이버 자동차 경로 · 조회 11월 26일 09:12". */
+function hbHomeLegText(leg){
+ if(leg?.basis!=='naver_directions')return '약 '+(Number(leg?.minutes)||HB_HOME_PLACEHOLDER_MINUTES)+'분, 예상';
+ const checked=hbHomeLegCheckedLabel(leg.checkedAt);
+ return '약 '+leg.minutes+'분, 네이버 자동차 경로'+(checked?' · 조회 '+checked:'');
+}
+/** Home departure = first arrival − home leg; return = schedule end + home leg (hbHomeLeg: NAVER first, else 25분 예상). */
 function hbTripEndpointTimes(items,state={}){
  const anchors=hbTripEndpointAnchors(items),origin=state.origin||null;
- const returnTo=state.returnMode==='none'?null:state.returnMode==='other'?state.returnTo||null:origin;
+ const returnTo=hbHomeLegPoint('return',state);
  const key=hbTripEndpointKey(origin,returnTo,anchors);
- const saved=state.result&&state.result.key===key&&Array.isArray(state.result.legs)?state.result.legs:[];
  const side=(kind,point,anchor)=>{
   if(state.returnMode==='none'&&kind==='return')return {status:'not_requested'};
   if(!point)return {status:'no_point'};
   if(!anchor)return {status:'no_anchor'};
-  if(!hbTripPointRoutable(point))return {status:'unknown',reason:'invalid_coordinates'};
   const base=kind==='departure'?anchor.arrival:anchor.scheduleEnd;
   if(base===null||base===undefined)return {status:'unknown',reason:'invalid_schedule'};
-  const leg=saved.find(l=>l.kind===kind&&l.stopId===anchor.placeId);
-  if(state.result&&state.result.key!==key)return {status:'stale'};
-  if(!leg)return {status:'unchecked'};
-  if(leg.status!=='estimated')return {status:'unknown',reason:leg.reason||null,diagnostic:leg.diagnostic||null};
+  const leg=hbHomeLeg(kind,anchor.placeId,state);
   const minute=kind==='departure'?base-leg.minutes:base+leg.minutes;
-  return {status:'estimated',minutes:leg.minutes,checkedAt:leg.checkedAt,...hbDayClock(minute)};
+  if(leg.basis==='naver_directions')return {status:'estimated',basis:leg.basis,minutes:leg.minutes,checkedAt:leg.checkedAt,...hbDayClock(minute)};
+  return {status:'default',basis:leg.basis,minutes:leg.minutes,reason:leg.reason,diagnostic:leg.diagnostic||null,providerReason:leg.providerReason||null,...hbDayClock(minute)};
  };
  return {key,anchors,departure:side('departure',origin,anchors.first),return:side('return',returnTo,anchors.last)};
 }
@@ -2290,9 +2368,10 @@ async function hbFetchTripEndpoints(items,context,state,request=hbTravelRequest)
 }
 function hbTripEndpointLine(kind,side,anchors){
  const what=kind==='departure'?'집 출발 예상':'귀가 도착 예상';
- if(side.status==='estimated'){
+ if(side.status==='estimated'||side.status==='default'){
   const basis=kind==='departure'?(anchors.first?.name||'첫 방문지')+' 도착 시각 기준':'일정 종료 후 '+(anchors.last?.name||'마지막 방문지')+'에서 출발 기준';
-  return what+': '+side.label+' ('+basis+' · 네이버 자동차 경로 약 '+side.minutes+'분'+(side.checkedAt?' · 조회 '+side.checkedAt:'')+')';
+  const failed=side.status==='default'&&side.reason==='unknown'?' · 네이버 경로를 계산하지 못해 예상값을 썼어요 (사유: '+(hbTravelIssueReason(side.diagnostic,side.providerReason)||'경로 서비스 오류')+')':'';
+  return what+': '+side.label+' ('+basis+' · 이동 '+hbHomeLegText(side)+')'+failed;
  }
  const why={
   not_requested:'귀가 시간은 계산하지 않도록 선택했어요',
@@ -2307,7 +2386,7 @@ function hbTripEndpointLine(kind,side,anchors){
 // §5 step-1 home times. depart/returnTime are home-based HH:MM ("집 출발 / 집 도착
 // 희망"). Legacy planStart/planEnd keep their saved first-visit meaning and win
 // when present, so an existing trip is never silently reinterpreted.
-const HB_HOME_PLACEHOLDER_MINUTES=25;
+// opt.departLeg / opt.returnLeg come from hbHomeLeg; without them the same 25분 예상 applies.
 function hbHomeWindow(opt={}){
  const text=v=>typeof v==='string'?v.trim():'';
  const planStart=text(opt.planStart),planEnd=text(opt.planEnd),depart=text(opt.depart),back=text(opt.returnTime);
@@ -2316,16 +2395,20 @@ function hbHomeWindow(opt={}){
   if(depart||back)warnings.push('일정표에서 정한 첫 방문지 시작·종료 희망 시각이 있어 집 출발·도착 희망 시각 대신 사용했어요.');
   return {start:planStart,end:planEnd,errors,warnings,source:'first_visit',homeDeparture:null,homeReturn:null};
  }
- const originNote=opt.originSet?'"집 출발·귀가 시간 확인"을 누르면 실제 자동차 이동시간으로 맞출 수 있어요.':'출발지를 입력하면 이동시간을 계산해요.';
+ const usable=leg=>leg&&Number.isSafeInteger(leg.minutes)&&leg.minutes>0&&leg.minutes<=1440;
+ const dLeg=usable(opt.departLeg)?opt.departLeg:hbHomeLeg('departure',null,{});
+ const rLeg=usable(opt.returnLeg)?opt.returnLeg:hbHomeLeg('return',null,{});
+ const originNote=dLeg.basis==='naver_directions'?'':opt.originSet?' "집 출발·귀가 시간 확인"을 누르면 실제 자동차 이동시간으로 맞출 수 있어요.':' 출발지를 입력하면 이동시간을 계산해요.';
+ const legInfo=leg=>({basis:leg.basis,bufferMinutes:leg.minutes,stopId:leg.stopId||null,checkedAt:leg.checkedAt||null});
  let start='',end='',homeDeparture=null,homeReturn=null;
  if(depart){
   const minute=hbDraftMinute(depart);
   if(minute===null)errors.push('집 출발 희망 시각을 다시 확인해 주세요.');
-  else if(minute+HB_HOME_PLACEHOLDER_MINUTES>=1440)errors.push('집 출발 희망 시각에 이동시간을 더하면 자정을 넘어요. 출발 시각을 앞당겨 주세요.');
+  else if(minute+dLeg.minutes>=1440)errors.push('집 출발 희망 시각에 이동시간을 더하면 자정을 넘어요. 출발 시각을 앞당겨 주세요.');
   else{
-   start=hbClock(minute+HB_HOME_PLACEHOLDER_MINUTES);
-   homeDeparture={time:hbClock(minute),basis:'placeholder',bufferMinutes:HB_HOME_PLACEHOLDER_MINUTES,originSet:!!opt.originSet};
-   warnings.push('집 출발 희망 '+hbClock(minute)+' 기준으로 첫 방문지 도착을 '+start+'로 잡았어요 (이동 약 '+HB_HOME_PLACEHOLDER_MINUTES+'분, 예상). '+originNote);
+   start=hbClock(minute+dLeg.minutes);
+   homeDeparture={time:hbClock(minute),...legInfo(dLeg),originSet:!!opt.originSet};
+   warnings.push('집 출발 희망 '+hbClock(minute)+' 기준으로 첫 방문지 도착을 '+start+'로 잡았어요 (이동 '+hbHomeLegText(dLeg)+').'+originNote);
   }
  }
  const returnDay=Number.isInteger(opt.returnDay)&&opt.returnDay>0?opt.returnDay:0;
@@ -2333,21 +2416,81 @@ function hbHomeWindow(opt={}){
   const minute=hbDraftMinute(back);
   if(minute===null)errors.push('집 도착 희망 시각을 다시 확인해 주세요.');
   else{
-   homeReturn={time:hbClock(minute),dayOffset:returnDay,basis:'placeholder',bufferMinutes:HB_HOME_PLACEHOLDER_MINUTES};
+   homeReturn={time:hbClock(minute),dayOffset:returnDay,...legInfo(rLeg)};
    warnings.push('집 도착 희망이 '+(returnDay===1?'다음 날':(returnDay+1)+'일차')+' '+hbClock(minute)+'이라 첫날 일정은 종료 제한 없이 구성했어요. 현재는 첫날 일정만 만들어요.');
   }
  }else if(back){
   const minute=hbDraftMinute(back);
   if(minute===null)errors.push('집 도착 희망 시각을 다시 확인해 주세요.');
-  else if(minute-HB_HOME_PLACEHOLDER_MINUTES<=0)errors.push('집 도착 희망 시각이 너무 일러 일정을 넣을 수 없어요. 자정을 넘겨 도착하려면 집 도착 날짜를 다음 날로 골라 주세요.');
+  else if(minute-rLeg.minutes<=0)errors.push('집 도착 희망 시각이 너무 일러 일정을 넣을 수 없어요. 자정을 넘겨 도착하려면 집 도착 날짜를 다음 날로 골라 주세요.');
   else{
-   end=hbClock(minute-HB_HOME_PLACEHOLDER_MINUTES);
-   homeReturn={time:hbClock(minute),dayOffset:0,basis:'placeholder',bufferMinutes:HB_HOME_PLACEHOLDER_MINUTES};
-   warnings.push('집 도착 희망 '+hbClock(minute)+'에 맞춰 일정이 '+end+'까지 끝나도록 했어요 (귀가 이동 약 '+HB_HOME_PLACEHOLDER_MINUTES+'분, 예상).');
+   end=hbClock(minute-rLeg.minutes);
+   homeReturn={time:hbClock(minute),dayOffset:0,...legInfo(rLeg)};
+   warnings.push('집 도착 희망 '+hbClock(minute)+'에 맞춰 일정이 '+end+'까지 끝나도록 했어요 (귀가 이동 '+hbHomeLegText(rLeg)+').');
   }
  }
  if(start&&end&&hbDraftMinute(start)>=hbDraftMinute(end))errors.push('집 출발과 집 도착 희망 시각 사이에 이동 여유를 빼면 일정을 넣을 시간이 없어요. 시간을 늘려 주세요.');
  return {start,end,errors,warnings,source:depart||back?'home':'automatic',homeDeparture,homeReturn};
+}
+/** Schedule creation with the unified home leg. Build once with the leg known before the
+ * schedule exists (25분 예상), then, when a saved NAVER leg matches the resulting first/last
+ * visit and the current origin/return point, rebuild with those minutes. The rebuilt draft
+ * is kept only if its first/last visits still match the legs used. create(home)->plan. */
+function hbScheduleWithHomeLegs(homeInput,state,create){
+ const home=hbHomeWindow(homeInput);
+ if(home.errors.length)return {home,plan:null};
+ const plan=create(home);
+ if(home.source!=='home'||!plan||plan.errors?.length)return {home,plan};
+ const anchors=hbTripEndpointAnchors(plan.stops);
+ const naver=leg=>leg&&leg.basis==='naver_directions'?leg:null;
+ const departLeg=homeInput.depart&&anchors.first?naver(hbHomeLeg('departure',anchors.first.placeId,state)):null;
+ const sameDayReturn=homeInput.returnTime&&!(Number.isInteger(homeInput.returnDay)&&homeInput.returnDay>0);
+ const returnLeg=sameDayReturn&&anchors.last?naver(hbHomeLeg('return',anchors.last.placeId,state)):null;
+ if(!departLeg&&!returnLeg)return {home,plan};
+ const next=hbHomeWindow({...homeInput,departLeg:departLeg||undefined,returnLeg:returnLeg||undefined});
+ if(next.errors.length)return {home:next,plan:null};
+ const nextPlan=create(next);
+ if(!nextPlan||nextPlan.errors?.length)return {home,plan};
+ const after=hbTripEndpointAnchors(nextPlan.stops);
+ if(departLeg&&after.first?.placeId!==departLeg.stopId||returnLeg&&after.last?.placeId!==returnLeg.stopId)return {home,plan};
+ return {home:next,plan:nextPlan};
+}
+/** Step-1 (여행 정보) preview from the same rule. Shown only with an origin and a home time;
+ * legacy first-visit times win (their own note is shown instead). savedStops: the stored draft,
+ * whose first/last visit lets a saved NAVER leg be reused. */
+function hbHomePreview(input={},state={},savedStops=[]){
+ const text=v=>typeof v==='string'?v.trim():'';
+ if(text(input.planStart)||text(input.planEnd))return null;
+ const depart=hbDraftMinute(text(input.depart)),back=hbDraftMinute(text(input.returnTime));
+ if(!state?.origin||depart===null&&back===null)return null;
+ const anchors=hbTripEndpointAnchors(Array.isArray(savedStops)?savedStops:[]);
+ const departLeg=hbHomeLeg('departure',anchors.first?.placeId||null,state);
+ const returnLeg=hbHomeLeg('return',anchors.last?.placeId||null,state);
+ const where=(leg,anchor)=>leg.basis==='naver_directions'&&anchor?.name?anchor.name+'까지 ':'';
+ const returnDay=Number.isInteger(input.returnDay)&&input.returnDay>0?input.returnDay:0;
+ const lines=[];
+ if(depart!==null){
+  const at=hbDayClock(depart+departLeg.minutes);
+  lines.push({kind:'arrival',basis:departLeg.basis,minutes:departLeg.minutes,label:at.label,dayOffset:at.dayOffset,
+   text:'예상 첫 방문지 도착 '+at.label+' (집 출발 '+hbClock(depart)+' · '+where(departLeg,anchors.first)+'이동 '+hbHomeLegText(departLeg)+')'+(at.dayOffset>0?' · 출발 시각을 앞당기면 같은 날 일정으로 만들 수 있어요':'')});
+ }
+ if(back!==null){
+  const dayWord=returnDay===1?'다음날 ':returnDay>1?(returnDay+1)+'일차 ':'';
+  const endAt=returnDay?null:hbDayClock(back-returnLeg.minutes);
+  lines.push({kind:'return',basis:returnLeg.basis,minutes:returnLeg.minutes,label:dayWord+hbClock(back),dayOffset:returnDay,
+   text:'예상 귀가 '+dayWord+hbClock(back)+' (집 도착 희망'+(endAt?' · 일정은 '+endAt.label+'까지':'')+' · '+where(returnLeg,anchors.last)+'귀가 이동 '+hbHomeLegText(returnLeg)+')'});
+ }else if(anchors.last&&anchors.last.scheduleEnd!==null&&anchors.last.scheduleEnd!==undefined&&hbHomeLegPoint('return',state)){
+  const at=hbDayClock(anchors.last.scheduleEnd+returnLeg.minutes);
+  lines.push({kind:'return',basis:returnLeg.basis,minutes:returnLeg.minutes,label:at.label,dayOffset:at.dayOffset,
+   text:'예상 귀가 '+at.label+' (저장된 일정 종료 '+hbDayClock(anchors.last.scheduleEnd).label+' 후 '+where(returnLeg,anchors.last)+'귀가 이동 '+hbHomeLegText(returnLeg)+')'});
+ }
+ return lines.length?{lines,departLeg,returnLeg}:null;
+}
+function hbHomePreviewMarkup(){
+ if(typeof s==='undefined'||!s)return '';
+ const preview=hbHomePreview({planStart:s.hbPlanStart,planEnd:s.hbPlanEnd,depart:s.hbDepartTime,returnTime:s.hbReturnTime,returnDay:Number(s.hbReturnDay)||0},hbTripEndpointState(),s.stops);
+ if(!preview)return '';
+ return '<ul class="hb-trip-home-preview-list">'+preview.lines.map(line=>'<li data-hb-preview="'+line.kind+'" data-hb-preview-basis="'+safe(line.basis)+'">'+safe(line.text)+'</li>').join('')+'</ul>';
 }
 /** Shift every stop by delta minutes (same day only); protected stops block it. */
 function hbShiftDraft(items,delta,window={}){
@@ -2516,7 +2659,7 @@ function hbWeatherDraftReason(signal,stops,classOf){
 }
 function hbWeatherStopClassifier(){
  const list=typeof places!=='undefined'&&Array.isArray(places)?places:[];
- return stop=>typeof hbWeatherPlaceClass==='function'?hbWeatherPlaceClass(list.find(p=>p&&p.id===stop?.placeId)||{name:stop?.name,kind:stop?.kind}).kind:null;
+ return stop=>typeof hbWeatherPlaceClass==='function'?hbWeatherPlaceClass(list.find(p=>p&&p.id===stop?.placeId)||{id:stop?.placeId,name:stop?.name,kind:stop?.kind}).kind:null;
 }
 /** Default draft for a new plan: weather-ordered when it removes outdoor exposure; the original is kept for 되돌리기. */
 function hbWeatherDraftForNewPlan(stops,state){
@@ -2622,8 +2765,9 @@ function hbApplyScheduleFromSelection(){
  if(dateError){alert(dateError);s.hbStep=1;go('/new');return false;}
  const timeIssues=[...hbTimeInputErrors(s.hbPlanStart??'',s.hbPlanEnd??''),...hbHomeTimeErrors(s.hbDepartTime??'',s.hbReturnTime??'',s.hbReturnDay??0,s.hbDuration||'day')];
  if(timeIssues.length){alert(timeIssues.join(' '));return false;}
- const home=hbHomeWindow({planStart:s.hbPlanStart,planEnd:s.hbPlanEnd,depart:s.hbDepartTime,returnTime:s.hbReturnTime,returnDay:Number(s.hbReturnDay)||0,originSet:!!hbTripEndpointState().origin});
- if(home.errors.length){alert(home.errors.join(' '));return false;}
+ const homeInput={planStart:s.hbPlanStart,planEnd:s.hbPlanEnd,depart:s.hbDepartTime,returnTime:s.hbReturnTime,returnDay:Number(s.hbReturnDay)||0,originSet:!!hbTripEndpointState().origin};
+ const firstHome=hbHomeWindow(homeInput);
+ if(firstHome.errors.length){alert(firstHome.errors.join(' '));return false;}
  const selected=Array.isArray(s.chosen)?s.chosen:[];
  const profile={
   walk:s.hbWalkConfirmed?s.walk:null,stairsMode:s.hbStairsChoice,needs:s.momNeeds,
@@ -2634,7 +2778,10 @@ function hbApplyScheduleFromSelection(){
   alert(blocked.name+'의 이동 조건이 현재 선택과 맞지 않아요. 장소 목록에서 선택을 취소한 뒤 다시 시도해 주세요.');
   return false;
  }
- const plan=hbCreateSchedule(selected,places,{start:home.start,end:home.end,tripType:s.hbDuration||'day',restIntervalMinutes:s.hbRestIntervalMinutes,slopePreference:s.hbSlopePreference,indoorPreference:s.hbIndoorPreference});
+ // Same home-leg rule as the step-1 preview: a saved NAVER leg for the resulting first/last visit wins, else 25분 예상.
+ const built=hbScheduleWithHomeLegs(homeInput,hbTripEndpointState(),range=>hbCreateSchedule(selected,places,{start:range.start,end:range.end,tripType:s.hbDuration||'day',restIntervalMinutes:s.hbRestIntervalMinutes,slopePreference:s.hbSlopePreference,indoorPreference:s.hbIndoorPreference}));
+ const home=built.home,plan=built.plan;
+ if(!plan){alert(home.errors.join(' '));return false;}
  if(plan.errors.length){alert(plan.errors.join('\n'));return false;}
  plan.warnings.unshift(...home.warnings);
  // A first-visit start derived from the home departure is not a user window.
@@ -3450,7 +3597,7 @@ function weatherScope() {
 const currentWeatherKey = () => JSON.stringify([weatherScope().region, weatherScope().date]);
 function hbWeatherTime(value) {
   return typeof value==='string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+09:00$/.test(value)
-    ? value.slice(0,16).replace('T',' ')+' KST' : '미확인';
+    ? value.slice(0,16).replace('T',' ')+' KST' : '';
 }
 function weatherText() {
   if (forecast.key !== currentWeatherKey() || forecast.state==='loading') return '여행일 예보를 확인하고 있어요…';
@@ -3460,17 +3607,17 @@ function weatherText() {
   else if(forecast.state==='stale') text='오래된 예보예요. 최신 정보를 다시 확인해 주세요.';
   else if(forecast.state==='no_forecast') text='선택한 날짜의 예보 제공 범위를 확인해 주세요.';
   else if(forecast.state==='available' && typeof f?.summary==='string' && f.summary.trim()){
-    text=f.summary+' (발표 '+hbWeatherTime(f.issuedAt)+' / 대표 '+hbWeatherTime(f.evidence?.representativeAt)+')';
-    if(['비','비 또는 눈','눈','소나기'].includes(f.precipitationType)) text+=' · 야외 동선을 줄이고 실내 대안을 확인해 주세요.';
+    // 2026-11-26 사용자 지시: 안내 문구(대표 예보·지역 기준점·특보 재확인·보장 안 함·미확인 등)는 숨기고
+    // 기온·강수확률·날씨 상태와 발표 시각만 남긴다. 발표 시각이 없으면 시각 표기 자체를 생략한다.
+    const issued=hbWeatherTime(f.issuedAt);
+    text=f.summary+(issued?' (발표 '+issued+')':'');
   }else text='선택한 날짜의 예보를 확인할 수 없어요.';
-  if(f?.location?.scope==='regional_reference')text+=' · 지역 기준점 예보';
+  // 실제로 발효 중인 특보는 정보이므로 종류·지역·발효 시각을 그대로 보여 준다(재검토·확인 필요 같은 안내만 뺀다).
   if(a?.status==='active' && Array.isArray(a.active) && a.active.length){
-    const hazards=a.active.map(x=>x.hazard+x.severity).join(', ');
-    text+=' · 기준 지역 특보: '+hazards+' / 발효 '+hbWeatherTime(a.effectiveAt)+' · 출발 전 일정 재검토 필요';
-  }else if(a?.status==='none' && a.area?.verified)text+=' · 확인한 기준 지역에 발효 특보 없음 (다른 지역·미래 안전 보장 아님)';
-  else if(a?.reason==='current_warning_only')text+=' · 특보는 여행일에 다시 확인해 주세요.';
-  else if(a?.status==='stale')text+=' · 특보 자료가 오래되었어요.';
-  else text+=' · 특보 상태 확인 필요';
+    const hazards=a.active.map(x=>String(x.hazard??'')+String(x.severity??'')+(x.areaName?'('+x.areaName+')':'')).join(', ');
+    const effective=hbWeatherTime(a.effectiveAt);
+    text+=' · 발효 중인 특보: '+hazards+(effective?' / 발효 '+effective:'');
+  }
   return text;
 }
 // Illustration state is derived only from the same scoped, available forecast DTO.
@@ -3499,9 +3646,10 @@ function hbWeatherRecommendation(snapshot,key){
     typeof v.precipitationProbabilityPercent==='number'&&v.precipitationProbabilityPercent>=R.wetProbabilityPercent&&v.precipitationProbabilityPercent<=100||
     typeof v.temperatureC==='number'&&(v.temperatureC>=R.hotTemperatureC||v.temperatureC<=R.coldTemperatureC));
   if(precipitation||probability||temperature!==null&&(temperature>=R.hotTemperatureC||temperature<=R.coldTemperatureC)||hourlyBurden){
-    return {kind:'adverse',message:'여행일 예보의 일부 시간대에 강수 또는 기온 부담 신호가 있어요. '+(HB_WEATHER_CATEGORY_COMPARE_ENABLED?'문화시설 후보, 휴식이 포함된 짧은 코스, 날짜 변경을 비교해 보세요. 시설의 실내 여부와 실제 운영은 별도 확인이 필요해요.':'휴식이 포함된 짧은 코스나 날짜 변경을 검토해 보세요. 실제 운영과 이동 여건은 별도 확인이 필요해요.')};
+    return {kind:'adverse',message:'여행일 예보의 일부 시간대에 강수 또는 기온 부담 신호가 있어요. '+(HB_WEATHER_CATEGORY_COMPARE_ENABLED?'문화시설 후보, 휴식이 포함된 짧은 코스, 날짜 변경을 비교해 보세요. 시설의 실내 여부와 실제 운영은 별도 확인이 필요해요.':'휴식이 포함된 짧은 코스나 날짜 변경을 검토해 보세요.')};
   }
-  return {kind:'regular',message:(HB_WEATHER_CATEGORY_COMPARE_ENABLED?'대표 예보를 참고해 일반 여행지와 문화시설 후보를 비교할 수 있어요. ':'대표 예보를 참고했어요. ')+'하루 전체 날씨나 특보 미발효를 보장하지 않아요.'};
+  // 2026-11-26 사용자 지시: '대표 예보를 참고했어요 · 보장하지 않아요' 안내는 숨긴다(비교 화면을 켤 때만 비교 안내).
+  return {kind:'regular',message:HB_WEATHER_CATEGORY_COMPARE_ENABLED?'일반 여행지와 문화시설 후보를 비교할 수 있어요.':''};
 }
 // 2026-11-26 사용자 결정: 의도(날씨 기반 일정·여행지 제안)와 다른 화면 진입을 끈다. 모듈·바인딩은 보존하며 true로 되돌릴 수 있다.
 const HB_WEATHER_CATEGORY_COMPARE_ENABLED=false; // '문화시설 후보 보기'·'전체 후보 비교'
@@ -3599,7 +3747,7 @@ function hbWeatherOptionsMarkup(){
   (rec.kind==='regular'?'':'<button type="button" class="light" id="hb-weather-short">짧은 코스 제안 보기</button><button type="button" class="light" id="hb-weather-date">날짜 다시 선택</button>')+'</div><div id="hb-weather-option-result" role="status"></div>':'';
  const timeOption=HB_WEATHER_TIME_COMPARE_ENABLED&&browsing&&rec.kind!=='caution'&&forecast.key===currentWeatherKey()&&forecast.state==='available'&&Array.isArray(forecast.data?.hourly)&&forecast.data.hourly.length?
     '<button type="button" class="light" id="hb-weather-times">시간대별 날씨와 일정 비교</button><div id="hb-weather-time-result" role="status"></div>':'';
- return '<p>'+safe(rec.message)+'</p>'+actions+timeOption;
+ return (rec.message?'<p>'+safe(rec.message)+'</p>':'')+actions+timeOption;
 }
 function hbBindWeatherOptions(){
  const node=document.querySelector?.('[data-hb-weather-options]');
@@ -3645,7 +3793,7 @@ function hbBindWeatherOptions(){
   const draft=hbCreateSchedule(candidate,places,{start:s.hbPlanStart,end:s.hbPlanEnd,restIntervalMinutes:s.hbRestIntervalMinutes});
   if(draft.errors.length){output.textContent=draft.errors.join(' ');return;}
   const list=draft.stops.map(stop=>'<li>'+safe(stop.time)+' · '+safe(stop.name)+'</li>').join('');
-  output.innerHTML='<p>선택한 장소 중 '+safe(keep.name)+' 중심의 짧은 초안이에요. 실제 운영·이동시간은 미확인입니다.</p><ol>'+list+'</ol><button type="button" class="light" id="hb-weather-apply-short">이 장소 선택으로 변경</button>';
+  output.innerHTML='<p>선택한 장소 중 '+safe(keep.name)+' 중심의 짧은 초안이에요.</p><ol>'+list+'</ol><button type="button" class="light" id="hb-weather-apply-short">이 장소 선택으로 변경</button>';
   document.getElementById('hb-weather-apply-short').onclick=()=>{
    if(JSON.stringify(hbUniquePlaceIds(s.chosen))!==JSON.stringify(ids)||hbUniquePlaceIds(s.hbMustVisitIds).some(id=>!candidate.includes(id))){output.textContent='선택 조건이 변경됐어요. 다시 비교해 주세요.';return;}
    const previous=s.chosen;s.chosen=candidate;
@@ -3660,7 +3808,7 @@ function weatherCard() {
   });
   queueMicrotask(()=>hbBindWeatherOptions());
   return '<section class="panel hb-weather-card"><h2>여행일 날씨 · 자동 조회</h2><p data-hb-weather role="status" data-hb-weather-art="'+hbWeatherArtKind()+'">'
-    + safe(weatherText()) + '</p><p class="muted">출처: 기상청 예보·특보. 지역 기준점의 대표 예보이며 실제 목적지·방문 시각과 다를 수 있어요.</p><div data-hb-weather-options>'+hbWeatherOptionsMarkup()+'</div></section>';
+    + safe(weatherText()) + '</p><p class="muted">출처: 기상청</p><div data-hb-weather-options>'+hbWeatherOptionsMarkup()+'</div></section>';
 }
 async function getWeather() {
   const key=currentWeatherKey(), id=++weatherRequest;

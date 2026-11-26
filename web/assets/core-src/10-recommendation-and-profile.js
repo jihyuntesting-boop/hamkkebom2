@@ -279,6 +279,9 @@ function hbUpdateTripDateLabels(){
     const offset=hbReturnDay(s.hbReturnDay,s.hbDuration||'day');
     end.textContent=offset===null?'집 도착 날짜를 다시 선택해 주세요.':hbClockSummary(s.date,s.hbReturnTime??'',offset,'도착')+(offset===0?' · 같은 날로 해석해요':'');
   }
+  // 출발지·출발/도착 희망 시각이 바뀌면 같은 이동시간 규칙(hbHomeLeg)으로 미리보기를 다시 그린다.
+  const preview=document.getElementById('hb-trip-home-preview');
+  if(preview&&typeof hbHomePreviewMarkup==='function'){const html=hbHomePreviewMarkup();if(preview.innerHTML!==html)preview.innerHTML=html;}
 }
 function hbBindClockFields(pairs){
   const refresh=()=>{const box=document.getElementById('hb-step-error');if(box)box.textContent=[...hbHomeTimeErrors(s.hbDepartTime??'',s.hbReturnTime??'',s.hbReturnDay??0,s.hbDuration||'day'),...hbTimeInputErrors(s.hbPlanStart??'',s.hbPlanEnd??'')].join(' ');hbUpdateTripDateLabels();};
@@ -326,7 +329,7 @@ function newPlan(){
   };
   const intro=hbDiscoveryPendingMarkup()+'<h1>부모님과 여행 만들기</h1><p class="muted">여행 지역과 이동 조건부터 확인해요. 방문 가능한 동선이 검증됐다는 뜻은 아니에요.</p><ol class="hb-progress" aria-label="여행 만들기 3단계 중 '+step+'단계">'+['여행 정보','이동 조건','선호사항'].map((name,i)=>'<li'+(i+1===step?' aria-current="step"':i+1<step?' class="hb-step-done"':'')+'>'+stepLink(name,i)+'</li>').join('')+'</ol><p id="hb-step-nav-notice" class="hb-step-nav-notice" role="status" aria-live="polite" hidden></p>';
   if(step===1){
-    el.innerHTML=intro+'<section class="panel"><h2 tabindex="-1">1. 여행 정보</h2>'+prefs()+(s.hbDateRefreshedFrom?'<p role="status">이전에 저장된 날짜를 오늘로 갱신했어요. 기존 일정의 날짜는 그대로 유지돼요.</p>':'')+'<div class="actions"><button class="light" type="button" id="hb-date-today">오늘</button><button class="light" type="button" id="hb-date-tomorrow">내일</button></div><div class="row hb-trip-time-row">'+hbClockField('hb-trip-start','여행 출발 희망 시각 (선택)',s.hbDepartTime,'집(출발지)에서 출발하는 시각')+hbClockField('hb-trip-end','집 도착 희망 시각 (선택)',s.hbReturnTime,'집(귀가 위치)에 도착하고 싶은 날짜와 시각',true)+'</div><p class="muted" id="hb-trip-time-help">시간을 비워 두면 선택한 장소에 맞춰 시간표 초안을 제안해요. 숫자로 7:30, 0730, 19:05처럼 직접 입력하거나 시계로 고를 수 있고, 새벽·저녁 시간도 가능해요. 출발 시각을 정하면 출발지에서 첫 방문지까지 이동시간을 더해 첫 방문지 도착 시각을 잡아요. 경로를 계산하기 전에는 이동 약 25분 (예상)으로 넣어요.</p>'+((s.hbPlanStart||s.hbPlanEnd)?'<p class="hb-legacy-time-note" role="note">이전에 저장한 첫 방문지 기준 시각('+safe(s.hbPlanStart||'제안')+' ~ '+safe(s.hbPlanEnd||'제안')+')은 그 의미 그대로 유지돼요. 값이 있으면 집 출발·도착 희망 시각보다 우선해요. <button type="button" class="light" id="hb-legacy-time-clear">이전 첫 방문지 시각 지우기</button></p>':'')+hbTripOriginStepMarkup()+'<div class="row"><div class="field"><label for="hb-duration">여행 형태</label><select id="hb-duration"><option value="day">당일 여행</option><option value="overnight">숙박 여행</option></select></div><div class="field"><label for="hb-transport">주요 이동 수단</label><select id="hb-transport"><option value="car">자동차</option><option value="transit">대중교통</option><option value="mixed">상황에 따라 선택</option></select></div><div class="field"><label for="hb-party">동행 인원</label><select id="hb-party"><option value="2">2명</option><option value="3">3명</option><option value="4">4명</option><option value="5">5명</option><option value="6">6명</option><option value="7">7명</option><option value="8">8명</option><option value="9">9명</option><option value="10">10명</option><option value="11">11명</option><option value="12">12명</option></select></div></div><div class="actions"><button type="button" id="hb-next">다음: 이동 조건 →</button></div><p class="muted" id="hb-step-error" role="alert"></p></section>'+(typeof weatherCard==='function'?weatherCard():'');
+    el.innerHTML=intro+'<section class="panel"><h2 tabindex="-1">1. 여행 정보</h2>'+prefs()+(s.hbDateRefreshedFrom?'<p role="status">이전에 저장된 날짜를 오늘로 갱신했어요. 기존 일정의 날짜는 그대로 유지돼요.</p>':'')+'<div class="actions"><button class="light" type="button" id="hb-date-today">오늘</button><button class="light" type="button" id="hb-date-tomorrow">내일</button></div><div class="row hb-trip-time-row">'+hbClockField('hb-trip-start','여행 출발 희망 시각 (선택)',s.hbDepartTime,'집(출발지)에서 출발하는 시각')+hbClockField('hb-trip-end','집 도착 희망 시각 (선택)',s.hbReturnTime,'집(귀가 위치)에 도착하고 싶은 날짜와 시각',true)+'</div><div id="hb-trip-home-preview" class="hb-trip-home-preview" aria-live="polite">'+(typeof hbHomePreviewMarkup==='function'?hbHomePreviewMarkup():'')+'</div><p class="muted" id="hb-trip-time-help">시간을 비워 두면 선택한 장소에 맞춰 시간표 초안을 제안해요. 숫자로 7:30, 0730, 19:05처럼 직접 입력하거나 시계로 고를 수 있고, 새벽·저녁 시간도 가능해요. 출발 시각을 정하면 출발지에서 첫 방문지까지 이동시간을 더해 첫 방문지 도착 시각을 잡아요. 네이버 자동차 경로로 계산한 이동시간이 있으면 그 값을, 없으면 이동 약 25분 (예상)으로 넣어요.</p>'+((s.hbPlanStart||s.hbPlanEnd)?'<p class="hb-legacy-time-note" role="note">이전에 저장한 첫 방문지 기준 시각('+safe(s.hbPlanStart||'제안')+' ~ '+safe(s.hbPlanEnd||'제안')+')은 그 의미 그대로 유지돼요. 값이 있으면 집 출발·도착 희망 시각보다 우선해요. <button type="button" class="light" id="hb-legacy-time-clear">이전 첫 방문지 시각 지우기</button></p>':'')+hbTripOriginStepMarkup()+'<div class="row"><div class="field"><label for="hb-duration">여행 형태</label><select id="hb-duration"><option value="day">당일 여행</option><option value="overnight">숙박 여행</option></select></div><div class="field"><label for="hb-transport">주요 이동 수단</label><select id="hb-transport"><option value="car">자동차</option><option value="transit">대중교통</option><option value="mixed">상황에 따라 선택</option></select></div><div class="field"><label for="hb-party">동행 인원</label><select id="hb-party"><option value="2">2명</option><option value="3">3명</option><option value="4">4명</option><option value="5">5명</option><option value="6">6명</option><option value="7">7명</option><option value="8">8명</option><option value="9">9명</option><option value="10">10명</option><option value="11">11명</option><option value="12">12명</option></select></div></div><div class="actions"><button type="button" id="hb-next">다음: 이동 조건 →</button></div><p class="muted" id="hb-step-error" role="alert"></p></section>'+(typeof weatherCard==='function'?weatherCard():'');
     hbDiscoveryBindPending(newPlan);bindPrefs();
     const dateField=document.getElementById('date');
     const chooseDate=value=>{dateField.value=value;dateField.onchange({target:dateField});document.getElementById('hb-step-error').textContent='';};
@@ -1008,8 +1011,33 @@ function hbVisibleGaps(gaps){
 
 // BEGIN HB_WEATHER_SUGGEST
 // 날씨 기반 여행지 제안 (사용자 원래 의도, DECISIONS 2026-11-26): 여행 날짜·지역 예보로 장소 순서·강조를 조정한다.
-// 실내/야외 분류는 앱에 이미 들어온 장소 자료(관광공사 콘텐츠 유형·분류 코드·장소 이름)만 쓴다.
+// 실내/야외 분류는 장소 ID별 확인 목록(HB_WEATHER_PLACE_ENV, 공식 근거)을 먼저 쓰고, 목록에 없는 장소만
+// 앱에 이미 들어온 자료(관광공사 콘텐츠 유형·분류 코드·장소 이름)로 보조 추정한다.
 // 분류는 "어떤 시설로 분류된 곳"이라는 사실만 말하며 이동 안전·현장 상태를 뜻하지 않는다. 근거가 없으면 null.
+// 장소 ID별 확인된 실내/야외 분류 (2026-11-26 사용자 지시 "제대로 분류해"): 시설 공식 홈페이지·운영기관 안내 또는
+// 관광공사 콘텐츠 유형으로 확인한 값만 둔다. 이 목록이 이름·분류 코드 추정보다 우선한다(목록에 있으면 추정 안 함).
+// kind: 'indoor'(실내 시설) | 'outdoor'(야외 장소) | 'mixed'(실내 시설과 야외 공간이 함께 있음 = "실내 시설 있음") | null(근거 없음, 문구 없음).
+// 분류는 시설 구성에 대한 사실일 뿐 이동 안전·현장 상태를 뜻하지 않는다. via: page(공식 페이지 직접 열람) | search(공식 페이지 검색 결과 요약) | tourapi(관광공사 콘텐츠 유형).
+const HB_WEATHER_PLACE_ENV=Object.freeze({
+ 'tour-126508':{name:'경복궁',kind:'outdoor',label:'야외 궁궐 관람지',sources:['https://royal.khs.go.kr/ROYAL/contents/menuInfo-gbg.do?grpCode=gbg'],via:'page',checkedAt:'2026-11-26'},
+ 'tour-126537':{name:'북촌한옥마을',kind:'outdoor',label:'야외 한옥 주거지 골목',sources:['https://bukchon.seoul.go.kr/front/kor/town/town01.do'],via:'search',checkedAt:'2026-11-26'},
+ 'tour-126535':{name:'남산서울타워',kind:'mixed',label:'실내 전망대(타워 4·5층)와 야외 루프테라스가 함께 있는 시설',sources:['https://www.nseoultower.co.kr/visit/floor.asp'],via:'page',checkedAt:'2026-11-26'},
+ 'tour-2470006':{name:'동대문디자인플라자(DDP)',kind:'mixed',label:'실내 전시관(DDP 뮤지엄)과 야외 광장이 함께 있는 시설',sources:['https://ddp.or.kr/?menuno=233','https://ddp.or.kr/?menuno=269'],via:'page',checkedAt:'2026-11-26'},
+ 'tour-129703':{name:'국립중앙박물관',kind:'mixed',label:'실내 상설전시관과 야외 전시·정원이 함께 있는 시설',sources:['https://www.museum.go.kr/MUSEUM/contents/M0103020000.do','https://www.museum.go.kr/MUSEUM/contents/M0103040000.do'],via:'page',checkedAt:'2026-11-26'},
+ 'tour-128611':{name:'서울숲',kind:'outdoor',label:'야외 공원',sources:['https://seoulforest.or.kr/info/park-info'],via:'page',checkedAt:'2026-11-26'},
+ 'tour-126532':{name:'올림픽공원',kind:'outdoor',label:'야외 공원',sources:['https://www.ksponco.or.kr/menu.es?mid=a10402000000'],via:'page',checkedAt:'2026-11-26'},
+ 'tour-3432213':{name:'논현문화마루도서관',kind:'indoor',label:'실내 도서관',sources:['https://library.gangnam.go.kr/nmmlib/index.do'],via:'search',checkedAt:'2026-11-26'},
+ 'tour-3429640':{name:'성동책마루도서관',kind:'indoor',label:'성동구청 1층 실내 도서관',sources:['https://www.sd.go.kr/main/contents.do?key=3955'],via:'search',checkedAt:'2026-11-26'},
+ 'tour-2692866':{name:'청운문학도서관',kind:'indoor',label:'한옥 실내 도서관',sources:['https://lib.jongno.go.kr/menu/subpage/subpage_01/sub032.php'],via:'search',checkedAt:'2026-11-26'},
+ 'tour-2649975':{name:'광명동굴',kind:'indoor',label:'동굴 내부 관람 시설',sources:['https://gm.go.kr/cv/gc/CVGC_14000.jsp'],via:'page',checkedAt:'2026-11-26'},
+ 'tour-125449':{name:'남한산성도립공원',kind:'outdoor',label:'야외 산성·탐방로',sources:['https://www.gg.go.kr/namhansansung-2/contents/contents.do?ciIdx=1280&menuId=3494'],via:'page',checkedAt:'2026-11-26'},
+ 'tour-750804':{name:'마장호수',kind:'outdoor',label:'야외 호수·둘레길',sources:['https://tour.paju.go.kr/user/tour/place/BD_tourPlaceInfoView.do?menuCode=4&cntntsSn=69'],via:'page',checkedAt:'2026-11-26'},
+ 'tour-3456435':{name:'부락산분수공원',kind:'outdoor',label:'야외 공원',sources:['https://korean.visitkorea.or.kr/detail/ms_detail.do?cotid=e6d0db32-bab4-4721-8b15-c618701b64ce'],via:'search',checkedAt:'2026-11-26'},
+ 'tour-3452786':{name:'시흥시청소년수련관',kind:'indoor',label:'실내 청소년 수련 시설',sources:['https://www.shyouth.or.kr/shcs/contents/view?contentsNo=110&menuLevel=2&menuNo=8'],via:'page',checkedAt:'2026-11-26'},
+ 'tour-3428221':{name:'시흥시 대야평생학습관',kind:'indoor',label:'실내 평생학습 시설',sources:['https://www.data.go.kr/data/15101578/openapi.do'],via:'tourapi',checkedAt:'2026-11-26'},
+ 'tour-3449158':{name:'시흥시립대야도서관',kind:'indoor',label:'실내 도서관',sources:['https://lib.siheung.go.kr/'],via:'search',checkedAt:'2026-11-26'},
+ 'tour-2736429':{name:'에코센터',kind:'indoor',label:'실내 생태 전시 시설',sources:['https://gimpo.go.kr/news/selectBbsNttList.do?bbsNo=501&key=2049&nttNo=82926'],via:'search',checkedAt:'2026-11-26'}
+});
 const HB_WEATHER_INDOOR_NAMES=[
  [/박물관|미술관|전시관|기념관|과학관|디자인플라자|갤러리/,'실내 전시 시설'],
  [/도서관|평생학습관/,'실내 도서관·학습 시설'],
@@ -1021,9 +1049,18 @@ const HB_WEATHER_OUTDOOR_NAMES=[
  [/궁궐|궁$|한옥마을|성곽|산성|유적지/,'야외 궁궐·역사 장소'],
  [/호수|저수지|습지|계곡|폭포|해수욕장|해변/,'야외 자연 장소']
 ];
-/** {kind:'indoor'|'outdoor'|null,label,basis}. Food is never weather-classified here. */
+/** 받침에 맞춘 '로/으로'. */
+function hbWeatherJosaRo(word){
+ const ch=String(word||'').trim().slice(-1),code=ch.charCodeAt(0)-0xAC00;
+ return code>=0&&code<11172&&code%28&&code%28!==8?'으로':'로';
+}
+/** {kind:'indoor'|'outdoor'|'mixed'|null,label,basis}. Verified list first; food is never weather-classified here. */
 function hbWeatherPlaceClass(p){
- if(!p||p.kind==='food'||typeof p.name!=='string'||!p.name.trim())return {kind:null,label:'',basis:null};
+ if(!p||p.kind==='food')return {kind:null,label:'',basis:null};
+ const id=typeof p.id==='string'&&p.id?p.id:typeof p.placeId==='string'?p.placeId:'';
+ const verified=id&&Object.prototype.hasOwnProperty.call(HB_WEATHER_PLACE_ENV,id)?HB_WEATHER_PLACE_ENV[id]:null;
+ if(verified)return verified.kind?{kind:verified.kind,label:verified.label,basis:'verified_list',sources:verified.sources,checkedAt:verified.checkedAt}:{kind:null,label:'',basis:'verified_list'};
+ if(typeof p.name!=='string'||!p.name.trim())return {kind:null,label:'',basis:null};
  const name=p.name.replace(/\[[^\]]*\]/g,'').replace(/\s+/g,'');
  const indoor=HB_WEATHER_INDOOR_NAMES.find(([re])=>re.test(name));
  const outdoor=HB_WEATHER_OUTDOOR_NAMES.find(([re])=>re.test(name));
@@ -1036,21 +1073,26 @@ function hbWeatherPlaceClass(p){
  return {kind:null,label:'',basis:null};
 }
 /** Higher first. Only adverse/pleasant signals change order; unclassified places are never promoted. */
+// 혼합 시설(mixed, "실내 시설 있음") 규칙: 비·눈·더위·추위·특보 때는 실내 시설 다음, 분류 없는 곳보다 앞;
+// 맑고 온화할 때는 야외 장소 다음. 일정 초안의 시간 칸 조정(HB_WEATHER_DRAFT)에서는 실내로도 야외로도 세지 않는다.
 function hbWeatherPlaceRank(p,signal){
  const kind=hbWeatherPlaceClass(p).kind;
- if(signal?.mode==='adverse')return kind==='indoor'?2:kind==='outdoor'?0:1;
- if(signal?.mode==='pleasant')return kind==='outdoor'?1:0;
+ if(signal?.mode==='adverse')return kind==='indoor'?3:kind==='mixed'?2:kind==='outdoor'?0:1;
+ if(signal?.mode==='pleasant')return kind==='outdoor'?2:kind==='mixed'?1:0;
  return 0;
 }
 function hbWeatherPlaceNote(p,signal){
  const c=hbWeatherPlaceClass(p);
  if(!c.kind||!signal?.label)return '';
+ const classified=c.label+hbWeatherJosaRo(c.label)+' 분류된 곳';
+ if(c.kind==='mixed'&&['adverse','pleasant'].includes(signal.mode))
+  return '<p class="hb-weather-fit" data-hb-weather-fit="mixed">'+safe(signal.label+' · '+classified)+'</p>'+(signal.source?'<p class="muted hb-weather-source">'+safe(signal.source)+'</p>':'');
  if(signal.mode==='adverse'&&c.kind==='indoor')
-  return '<p class="hb-weather-fit" data-hb-weather-fit="indoor">'+safe(signal.label+' · '+c.label+'로 분류된 곳')+'</p>'+(signal.source?'<p class="muted hb-weather-source">'+safe(signal.source)+'</p>':'');
+  return '<p class="hb-weather-fit" data-hb-weather-fit="indoor">'+safe(signal.label+' · '+classified)+'</p>'+(signal.source?'<p class="muted hb-weather-source">'+safe(signal.source)+'</p>':'');
  if(signal.mode==='adverse'&&c.kind==='outdoor')
   return '<p class="muted" data-hb-weather-fit="outdoor-later">'+safe(c.label+' · 날씨가 나은 시간대 방문을 제안해요')+'</p>';
  if(signal.mode==='pleasant'&&c.kind==='outdoor')
-  return '<p class="hb-weather-fit" data-hb-weather-fit="outdoor">'+safe(signal.label+' · '+c.label+'로 분류된 곳')+'</p>'+(signal.source?'<p class="muted hb-weather-source">'+safe(signal.source)+'</p>':'');
+  return '<p class="hb-weather-fit" data-hb-weather-fit="outdoor">'+safe(signal.label+' · '+classified)+'</p>'+(signal.source?'<p class="muted hb-weather-source">'+safe(signal.source)+'</p>':'');
  return '';
 }
 function hbWeatherSuggestBanner(signal){
@@ -1071,8 +1113,8 @@ function hbWeatherBrowseNeedsRefresh(){return hbWeatherBrowseSignal().fingerprin
 function hbWeatherCourseNote(stops,signal){
  if(!['adverse','pleasant'].includes(signal?.mode)||!Array.isArray(stops))return '';
  const count=kind=>stops.filter(x=>hbWeatherPlaceClass(x.p).kind===kind).length;
- const indoor=count('indoor'),outdoor=count('outdoor');
- const parts=[indoor?'실내 시설로 분류된 곳 '+indoor+'곳':'',outdoor?'야외 장소 '+outdoor+'곳':''].filter(Boolean);
+ const indoor=count('indoor'),mixed=count('mixed'),outdoor=count('outdoor');
+ const parts=[indoor?'실내 시설로 분류된 곳 '+indoor+'곳':'',mixed?'실내 시설이 있는 곳 '+mixed+'곳':'',outdoor?'야외 장소 '+outdoor+'곳':''].filter(Boolean);
  return parts.length?'<p class="muted" data-hb-weather-course>'+safe(signal.label+' · '+parts.join(' · '))+'</p>':'';
 }
 // END HB_WEATHER_SUGGEST
