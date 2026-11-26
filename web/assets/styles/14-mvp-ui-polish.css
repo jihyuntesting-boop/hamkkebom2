@@ -647,6 +647,7 @@ html[data-large-type="true"] #app :is(button, .actions > a) { min-height: 52px; 
 .hb-ai-box textarea { width: 100%; min-height: 96px; resize: vertical; line-height: 1.6; padding: 12px; }
 .hb-ai-box .hb-ai-preview { margin: 8px 0 12px; padding-left: 20px; }
 .hb-ai-box .hb-ai-preview li { margin: 4px 0; }
+.hb-ai-box .hb-ai-sources { margin: 8px 0 0; font-size: 15px; line-height: 1.6; } .hb-ai-box .hb-ai-sources ul { margin: 4px 0 0; padding-left: 20px; }
 /* AI 생성 표시와 개인정보 동의: 큰 글씨(16px 이상)·진한 글자·44px 이상 터치 영역. */
 .hb-ai-label { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0 12px; font-size: 17px; line-height: 1.6; font-weight: 650; color: var(--hb-ink, #191F28); }
 .hb-ai-badge { display: inline-block; padding: 4px 12px; border-radius: 99px; background: var(--hb-ink, #191F28); color: var(--hb-surface, #FFFFFF); font-size: 16px; font-weight: 800; letter-spacing: .02em; }

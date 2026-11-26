@@ -64,8 +64,8 @@ flowchart LR
   SRV --> K["기상청 예보·특보"]
   SRV --> N["네이버 자동차 경로"]
   SRV --> C[("저장소 카탈로그<br/>web/catalog/*.json")]
-  SRV --> AI["Claude API<br/>조건 정리·일정 설명"]
-  SRV -.->|"구현 중"| AG["AI Agent 여행 초안<br/>RAG 장소 Q&A"]
+  SRV --> AI["Claude API<br/>조건 정리·일정 설명(RAG)"]
+  SRV -.->|"설계만"| AG["AI Agent 여행 초안"]
   AG -.-> C
   AG -.-> AI
   UI -.->|"읽기 전용 링크"| F["가족 브라우저"]
@@ -80,7 +80,7 @@ flowchart LR
 | 자연어 조건 정리 | "엄마 무릎이 안 좋아 계단 적은 곳" 같은 문장을 기존 입력 계약의 허용 값으로 바꿔 미리보기 → 사용자가 적용 | 구현(#119)·모킹 테스트. 운영 활성(2026-11-26 `ANTHROPIC_API_KEY` 등록 후 `/api/ai-assist` 응답 `{"enabled":true}`, 실제 호출 1건 정상 확인) |
 | 일정 설명 | 이미 만든 일정 자료만으로 가족에게 보낼 3~6문장 설명. 자료에 없는 숫자·안전 보장 표현은 서버가 제거 | 구현(#119)·모킹 테스트, 운영 활성(실제 호출 품질 확인 안 됨) |
 | AI Agent | Claude 도구 호출(`search_places`, `get_place_facts`, `get_weather`, `estimate_travel`)로 여행 초안 작성 | 설계만 함, 운영 미적용([AI_DESIGN.md](AI_DESIGN.md) §9) |
-| RAG | 장소 카탈로그·공식 근거를 검색해 Claude 답변과 출처를 함께 제시하는 장소 Q&A | 설계만 함, 운영 미적용([AI_DESIGN.md](AI_DESIGN.md) §9) |
+| RAG | 일정 설명 전에 서버가 공식 자료 카탈로그(`place-details`·`daechi-area-details`)를 placeId·이름 일치로 검색해 "검색된 공식 자료" 블록으로 넣고, 출처 링크를 설명 아래에 표시 | 적용(일정 설명). 모킹 테스트로 확인, 운영 실제 응답 확인 안 됨([AI_DESIGN.md](AI_DESIGN.md) §9.3) |
 | Long-term Memory | 사용자가 동의한 선호만 기기에 저장해 다음 요청 프롬프트에 사용 | 설계만 함, 운영 미적용([AI_DESIGN.md](AI_DESIGN.md) §9) |
 | 프롬프트 설계 | 사용자 문장은 데이터 블록에만 넣고 지시로 취급하지 않음, JSON Schema 구조화 출력, 서버 재검증, 실패 시 AI 영역 숨김 | #119 기준 구현 |
 
@@ -153,7 +153,7 @@ node scripts/stability_probe.mjs --minutes 35 --interval 10 --out stability-resu
 | 문제 정의 | §2, [REQUIREMENTS.md](docs/REQUIREMENTS.md) §1 |
 | 요구사항서·서비스 아키텍처 | [REQUIREMENTS.md](docs/REQUIREMENTS.md), [ARCHITECTURE.md](docs/ARCHITECTURE.md) |
 | AI 활용 방식(프롬프트·Agent·RAG·Memory) | §6, [AI_INTEGRATION.md](docs/AI_INTEGRATION.md), [AI_DESIGN.md](docs/AI_DESIGN.md) |
-| 필수 기술 요소 2개 이상 | 자동화 워크플로우(§7, 운영 중), AI Agent·RAG·Long-term Memory(§6, 구현 중) |
+| 필수 기술 요소 2개 이상 | 자동화 워크플로우(§7, 운영 중) + RAG(§6, 일정 설명에 적용) = 2개. AI Agent·Long-term Memory는 설계만 |
 | 기술 스택 선정 이유 | [TECH_STACK.md](docs/TECH_STACK.md) |
 | 진행 과정 | [PROCESS.md](docs/PROCESS.md) |
 | 배포 URL | https://hamkkebom-omega.vercel.app/ |

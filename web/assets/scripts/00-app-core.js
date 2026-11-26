@@ -3388,7 +3388,7 @@ function hbAiItineraryFacts(stops,state,list){
   const facilities=place?hbAccessFacts(place).filter(f=>!['conflicting','stale'].includes(f.status))
    .map(f=>String(f.label||'').trim()).filter(Boolean).slice(0,5):[];
   const time=stop.plannedArrival||stop.time;
-  out.push({name:stop.name.trim().slice(0,60),kind:['spot','culture','food','rest'].includes(stop.kind)?stop.kind:'spot',
+  out.push({name:stop.name.trim().slice(0,60),placeId:typeof stop.placeId==='string'&&/^tour-\d{1,12}$/.test(stop.placeId)?stop.placeId:null,kind:['spot','culture','food','rest'].includes(stop.kind)?stop.kind:'spot',
    time:typeof time==='string'&&/^([01]\d|2[0-3]):[0-5]\d$/.test(time)?time:null,
    stayMinutes:Number.isInteger(Number(stop.stayMinutes))&&Number(stop.stayMinutes)>0?Number(stop.stayMinutes):null,
    travelMinutes:basis.kind==='verified'||basis.kind==='placeholder'?basis.minutes:null,
@@ -3396,9 +3396,15 @@ function hbAiItineraryFacts(stops,state,list){
  });
  return {region:st.hbPlanInfo?.region||st.region||null,date:st.hbPlanInfo?.date||st.date||null,stops:out};
 }
-function hbAiSummaryResultMarkup(text){
+// RAG 출처: 서버가 검색해 설명에 쓴 공식 자료 링크(https 만).
+function hbAiSourcesMarkup(sources){
+ const list=(Array.isArray(sources)?sources:[]).filter(x=>x&&typeof x.url==='string'&&x.url.startsWith('https://')).slice(0,8);
+ if(!list.length)return '';
+ return '<div class="hb-ai-sources"><p class="muted">참고한 공식 자료</p><ul>'+list.map(x=>'<li><a href="'+safe(x.url)+'" target="_blank" rel="noopener noreferrer">'+safe(String(x.title||x.url).slice(0,80))+'</a></li>').join('')+'</ul></div>';
+}
+function hbAiSummaryResultMarkup(text,sources){
  return hbAiLabelMarkup('AI가 일정 자료를 바탕으로 작성한 설명이에요')+'<div class="field"><label for="hb-ai-summary-text">설명 글 (복사해서 가족에게 보낼 수 있어요)</label><textarea id="hb-ai-summary-text" rows="7" readonly>'+safe(text)+'</textarea></div>'+
-  '<div class="actions"><button type="button" id="hb-ai-summary-copy">설명 복사</button></div><p id="hb-ai-summary-copied" role="status" aria-live="polite"></p>';
+  '<div class="actions"><button type="button" id="hb-ai-summary-copy">설명 복사</button></div><p id="hb-ai-summary-copied" role="status" aria-live="polite"></p>'+hbAiSourcesMarkup(sources);
 }
 function hbAiBindSummaryCopy(root){
  const button=root.querySelector('#hb-ai-summary-copy'),area=root.querySelector('#hb-ai-summary-text'),note=root.querySelector('#hb-ai-summary-copied');
@@ -3421,7 +3427,7 @@ function hbAiMountSummary(root,stops){
    '<div class="actions"><button type="button" class="light" id="hb-ai-summary-make">설명 만들기</button></div><div id="hb-ai-summary-out" aria-live="polite"></div>';
   root.append(box);
   const out=box.querySelector('#hb-ai-summary-out'),make=box.querySelector('#hb-ai-summary-make');
-  if(hbAiSummaryCache&&hbAiSummaryCache.key===key){out.innerHTML=hbAiSummaryResultMarkup(hbAiSummaryCache.text);hbAiBindSummaryCopy(box);}
+  if(hbAiSummaryCache&&hbAiSummaryCache.key===key){out.innerHTML=hbAiSummaryResultMarkup(hbAiSummaryCache.text,hbAiSummaryCache.sources);hbAiBindSummaryCopy(box);}
   make.onclick=async()=>{
    make.disabled=true;make.setAttribute('aria-busy','true');out.textContent='설명을 만드는 중이에요.';
    let data=null;
@@ -3430,8 +3436,8 @@ function hbAiMountSummary(root,stops){
    make.disabled=false;make.removeAttribute('aria-busy');
    if(!data||data.status!=='ok'||!Array.isArray(data.lines)||!data.lines.length){hbAiDisable();return}
    const text=hbAiShareText(data.lines.filter(x=>typeof x==='string').join('\n'));
-   hbAiSummaryCache={key,text};
-   out.innerHTML=hbAiSummaryResultMarkup(text);hbAiBindSummaryCopy(box);
+   hbAiSummaryCache={key,text,sources:data.sources};
+   out.innerHTML=hbAiSummaryResultMarkup(text,data.sources);hbAiBindSummaryCopy(box);
    box.querySelector('#hb-ai-summary-text')?.focus();
   };
   return true;
