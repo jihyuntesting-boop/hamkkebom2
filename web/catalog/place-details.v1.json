@@ -1,0 +1,768 @@
+{
+  "schemaVersion": 1,
+  "catalogVersion": "2026-11-26.places-1",
+  "checkedAt": "2026-11-26",
+  "purpose": "Curated facts copied from official public pages (local government, operating agency, national heritage/museum sites) for places shown with a photo. Served by /api/rich-tour?action=detail when the live TourAPI detail adapter is disabled or has no key (production). Not field verification, not a walking-route or step-free guarantee.",
+  "rules": [
+    "Every field and accessibility note has its own official https sourceUrl, sourceName and checkedAt.",
+    "Unconfirmed items are omitted, never guessed; the UI renders only present values.",
+    "No image URLs; photos are handled by the photo pipeline.",
+    "Identity (id/name/address/coordinates) comes from TourAPI responses observed on the production API, not from the official pages.",
+    "No safety guarantees (\"안전\", \"누구나 편하게\" etc.)."
+  ],
+  "records": [
+    {
+      "id": "tour-126508",
+      "contentTypeId": "12",
+      "name": "경복궁",
+      "address": "서울특별시 종로구 사직로 161 (세종로)",
+      "lat": 37.5760307,
+      "lng": 126.9767218661,
+      "region": "서울",
+      "identitySource": "운영 /api/featured TourAPI detailCommon2 응답(2026-11-26 관찰)",
+      "fields": {
+        "overview": {
+          "value": "조선의 법궁(으뜸 궁궐)이다.",
+          "sourceUrl": "https://royal.khs.go.kr/ROYAL/contents/menuInfo-gbg.do?grpCode=gbg",
+          "sourceName": "국가유산청 궁능유적본부 경복궁",
+          "checkedAt": "2026-11-26"
+        },
+        "hours": {
+          "value": "1~2월·11~12월 09:00~17:00(입장마감 16:00) / 3~5월·9~10월 09:00~18:00(입장마감 17:00) / 6~8월 09:00~18:30(입장마감 17:30)",
+          "sourceUrl": "https://royal.khs.go.kr/ROYAL/contents/R702000000.do?schGroupCode=gbg",
+          "sourceName": "국가유산청 궁능유적본부 관람시간",
+          "checkedAt": "2026-11-26"
+        },
+        "closed": {
+          "value": "매주 화요일 (정기휴일이 공휴일·대체공휴일과 겹치면 개방하고 그다음 첫 비공휴일에 휴궁)",
+          "sourceUrl": "https://royal.khs.go.kr/ROYAL/contents/R702000000.do?schGroupCode=gbg",
+          "sourceName": "국가유산청 궁능유적본부 관람시간",
+          "checkedAt": "2026-11-26"
+        },
+        "admission": {
+          "value": "대인 3,000원 (10인 이상 단체 2,400원)",
+          "sourceUrl": "https://royal.khs.go.kr/ROYAL/contents/R703000000.do?schGroupCode=gbg",
+          "sourceName": "국가유산청 궁능유적본부 관람요금",
+          "checkedAt": "2026-11-26"
+        },
+        "seniorDiscount": {
+          "value": "만 65세 이상 내국인 무료관람 (신분증 지참)",
+          "sourceUrl": "https://royal.khs.go.kr/ROYAL/contents/R703000000.do?schGroupCode=gbg",
+          "sourceName": "국가유산청 궁능유적본부 관람요금",
+          "checkedAt": "2026-11-26"
+        },
+        "parking": {
+          "value": "경복궁 부설주차장 06:00~23:00 운영. 버스 50대(지상), 승용차 240대(지하). 문의 02-736-9536",
+          "sourceUrl": "https://royal.khs.go.kr/ROYAL/contents/R707000000.do?schGroupCode=gbg",
+          "sourceName": "국가유산청 궁능유적본부 오시는 길",
+          "checkedAt": "2026-11-26"
+        },
+        "phone": {
+          "value": "02-3700-3900",
+          "sourceUrl": "https://royal.khs.go.kr/ROYAL/contents/R707000000.do?schGroupCode=gbg",
+          "sourceName": "국가유산청 궁능유적본부 오시는 길",
+          "checkedAt": "2026-11-26"
+        },
+        "website": {
+          "value": "https://royal.khs.go.kr/ROYAL/contents/menuInfo-gbg.do?grpCode=gbg",
+          "sourceUrl": "https://royal.khs.go.kr/ROYAL/contents/menuInfo-gbg.do?grpCode=gbg",
+          "sourceName": "국가유산청 궁능유적본부 경복궁",
+          "checkedAt": "2026-11-26"
+        }
+      },
+      "accessibility": {
+        "accessibleParking": {
+          "value": "지상주차장에 장애인주차장 9면. 휠체어를 이용하는 분은 지상주차장 이용 안내",
+          "sourceUrl": "https://royal.khs.go.kr/ROYAL/contents/R707000000.do?schGroupCode=gbg",
+          "sourceName": "국가유산청 궁능유적본부 오시는 길",
+          "checkedAt": "2026-11-26"
+        }
+      }
+    },
+    {
+      "id": "tour-129703",
+      "contentTypeId": "14",
+      "name": "국립중앙박물관",
+      "region": "서울",
+      "identitySource": "운영 /api/featured TourAPI detailCommon2 응답(2026-11-26 관찰, 주소 서빙고로 137)",
+      "fields": {
+        "hours": {
+          "value": "월·화·목·금·일 09:30~17:30(입장마감 17:00), 수·토 09:30~21:00(입장마감 20:30). 옥외 전시장(정원) 07:00~22:00",
+          "sourceUrl": "https://www.museum.go.kr/MUSEUM/contents/M0101000000.do",
+          "sourceName": "국립중앙박물관 관람 안내",
+          "checkedAt": "2026-11-26"
+        },
+        "closed": {
+          "value": "1월 1일, 설날·추석 당일. 상설전시관 정기휴실: 매년 3·6·9·12월 첫째 월요일(야외전시장은 정상 개관)",
+          "sourceUrl": "https://www.museum.go.kr/MUSEUM/contents/M0101000000.do",
+          "sourceName": "국립중앙박물관 관람 안내",
+          "checkedAt": "2026-11-26"
+        },
+        "admission": {
+          "value": "상설전시관·어린이박물관·무료 특별전시 무료 (유료 특별전시 제외)",
+          "sourceUrl": "https://www.museum.go.kr/MUSEUM/contents/M0101000000.do",
+          "sourceName": "국립중앙박물관 관람 안내",
+          "checkedAt": "2026-11-26"
+        },
+        "parking": {
+          "value": "옥내주차장 754대(지하 1층 관람객용 522대), 옥외주차장 149대. 주차공간이 부족해 대중교통 이용 권장",
+          "sourceUrl": "https://www.museum.go.kr/MUSEUM/contents/M0106040000.do?menuId=parking-map",
+          "sourceName": "국립중앙박물관 주차 안내",
+          "checkedAt": "2026-11-26"
+        },
+        "parkingFee": {
+          "value": "승용차 기본 60분 1,000원, 초과 10분당 500원, 1일 최대 30,000원",
+          "sourceUrl": "https://www.museum.go.kr/MUSEUM/contents/M0106040000.do?menuId=parking-map",
+          "sourceName": "국립중앙박물관 주차 안내",
+          "checkedAt": "2026-11-26"
+        },
+        "phone": {
+          "value": "02-2077-9000",
+          "sourceUrl": "https://www.museum.go.kr/MUSEUM/contents/M0101000000.do",
+          "sourceName": "국립중앙박물관 관람 안내",
+          "checkedAt": "2026-11-26"
+        },
+        "website": {
+          "value": "https://www.museum.go.kr",
+          "sourceUrl": "https://www.museum.go.kr/MUSEUM/contents/M0101000000.do",
+          "sourceName": "국립중앙박물관 관람 안내",
+          "checkedAt": "2026-11-26"
+        }
+      },
+      "accessibility": {
+        "accessibleParking": {
+          "value": "지하 1층 관람객용 주차장에 장애인용 24대. 장애인 자가운전·동승 차량은 장애인등록증 제시 시 주차요금 면제",
+          "sourceUrl": "https://www.museum.go.kr/MUSEUM/contents/M0106040000.do?menuId=parking-map",
+          "sourceName": "국립중앙박물관 주차 안내",
+          "checkedAt": "2026-11-26"
+        }
+      }
+    },
+    {
+      "id": "tour-2470006",
+      "contentTypeId": "12",
+      "name": "동대문디자인플라자(DDP)",
+      "region": "서울",
+      "identitySource": "운영 /api/featured TourAPI detailCommon2 응답(2026-11-26 관찰, 주소 을지로 281)",
+      "fields": {
+        "overview": {
+          "value": "동대문역사문화공원역과 바로 연결된 복합문화공간으로, 건축가 자하 하디드가 설계했다.",
+          "sourceUrl": "https://ddp.or.kr/?menuno=233",
+          "sourceName": "DDP 공식 홈페이지(서울디자인재단) DDP 안내",
+          "checkedAt": "2026-11-26"
+        },
+        "hours": {
+          "value": "10:00~20:00 (프로그램에 따라 일부 공간 탄력 운영)",
+          "sourceUrl": "https://ddp.or.kr/?menuno=233",
+          "sourceName": "DDP 공식 홈페이지(서울디자인재단) DDP 안내",
+          "checkedAt": "2026-11-26"
+        },
+        "closed": {
+          "value": "1월 1일, 설날·추석 당일",
+          "sourceUrl": "https://ddp.or.kr/?menuno=233",
+          "sourceName": "DDP 공식 홈페이지(서울디자인재단) DDP 안내",
+          "checkedAt": "2026-11-26"
+        },
+        "website": {
+          "value": "https://ddp.or.kr",
+          "sourceUrl": "https://ddp.or.kr/?menuno=233",
+          "sourceName": "DDP 공식 홈페이지(서울디자인재단) DDP 안내",
+          "checkedAt": "2026-11-26"
+        }
+      }
+    },
+    {
+      "id": "tour-2649975",
+      "contentTypeId": "12",
+      "name": "광명동굴",
+      "region": "경기",
+      "identitySource": "운영 /api/featured TourAPI detailCommon2 응답(2026-11-26 관찰, 주소 가학로85번길 142)",
+      "fields": {
+        "hours": {
+          "value": "09:00~18:00 (입장마감 17:00). 7~8월 성수기에는 운영시간이 변동될 수 있음",
+          "sourceUrl": "https://www.gm.go.kr/cv/gc/CVGC_14000.jsp",
+          "sourceName": "광명동굴 공식 홈페이지(광명시) 관람안내",
+          "checkedAt": "2026-11-26"
+        },
+        "closed": {
+          "value": "매주 월요일",
+          "sourceUrl": "https://www.gm.go.kr/cv/gc/CVGC_14000.jsp",
+          "sourceName": "광명동굴 공식 홈페이지(광명시) 관람안내",
+          "checkedAt": "2026-11-26"
+        },
+        "admission": {
+          "value": "어른 10,000원, 청소년 5,000원, 어린이 3,000원 (광명시민 할인 별도)",
+          "sourceUrl": "https://www.gm.go.kr/cv/gc/CVGC_14000.jsp",
+          "sourceName": "광명동굴 공식 홈페이지(광명시) 관람안내",
+          "checkedAt": "2026-11-26"
+        },
+        "seniorDiscount": {
+          "value": "만 65세 이상 3,000원",
+          "sourceUrl": "https://www.gm.go.kr/cv/gc/CVGC_14000.jsp",
+          "sourceName": "광명동굴 공식 홈페이지(광명시) 관람안내",
+          "checkedAt": "2026-11-26"
+        },
+        "stay": {
+          "value": "30~90분 (방문객 수·개인에 따라 다름)",
+          "sourceUrl": "https://www.gm.go.kr/cv/gc/CVGC_14000.jsp",
+          "sourceName": "광명동굴 공식 홈페이지(광명시) 관람안내",
+          "checkedAt": "2026-11-26"
+        },
+        "parking": {
+          "value": "제1·2주차장(서문, 가학로85번길 142), 제3공영주차장(동문, 소하동 1069-1). 주말·공휴일에는 주차공간이 부족할 수 있어 대중교통 이용 권장",
+          "sourceUrl": "https://www.gm.go.kr/cv/gc/CVGC_16000.jsp",
+          "sourceName": "광명동굴 공식 홈페이지(광명시) 찾아오시는길·주차안내",
+          "checkedAt": "2026-11-26"
+        },
+        "parkingFee": {
+          "value": "제1·2주차장 중·소형 3,000원, 대형 4,000원, 경차 1,500원 / 제3공영주차장 최초 30분 800원, 이후 10분마다 300원",
+          "sourceUrl": "https://www.gm.go.kr/cv/gc/CVGC_16000.jsp",
+          "sourceName": "광명동굴 공식 홈페이지(광명시) 찾아오시는길·주차안내",
+          "checkedAt": "2026-11-26"
+        },
+        "amenities": {
+          "value": "유모차는 동굴 안으로 가져갈 수 없어 동굴 입구 앞에 맡긴 뒤 입장",
+          "sourceUrl": "https://www.gm.go.kr/cv/gc/CVGC_14000.jsp",
+          "sourceName": "광명동굴 공식 홈페이지(광명시) 관람안내",
+          "checkedAt": "2026-11-26"
+        },
+        "website": {
+          "value": "https://www.gm.go.kr/cv/index.do",
+          "sourceUrl": "https://www.gm.go.kr/cv/gc/CVGC_14000.jsp",
+          "sourceName": "광명동굴 공식 홈페이지(광명시) 관람안내",
+          "checkedAt": "2026-11-26"
+        }
+      },
+      "accessibility": {
+        "accessibleParking": {
+          "value": "장애인 차량 주차요금 100% 할인",
+          "sourceUrl": "https://www.gm.go.kr/cv/gc/CVGC_16000.jsp",
+          "sourceName": "광명동굴 공식 홈페이지(광명시) 찾아오시는길·주차안내",
+          "checkedAt": "2026-11-26"
+        }
+      }
+    },
+    {
+      "id": "tour-126537",
+      "contentTypeId": "12",
+      "name": "북촌한옥마을",
+      "address": "서울특별시 종로구 계동길 37 (계동)",
+      "lat": 37.5789989927,
+      "lng": 126.9866898118,
+      "region": "서울",
+      "identitySource": "운영 /api/featured TourAPI detailCommon2 응답(2026-11-26 관찰)",
+      "fields": {
+        "overview": {
+          "value": "주민이 실제로 거주하는 한옥 주거지역으로, 마을 보존과 주민 생활 보호를 위해 방문 예절이 필요하다.",
+          "sourceUrl": "https://tour.jongno.go.kr/tour/attractionGallery/buchon/intro.do?menuNo=400125",
+          "sourceName": "종로구 문화관광 누리집 북촌소개",
+          "checkedAt": "2026-11-26"
+        },
+        "hours": {
+          "value": "마을방문시간 지정구역(북촌로11길 일부, 한옥 밀집 주거지역 약 100m 구간): 월~토 10:00~17:00",
+          "sourceUrl": "https://tour.jongno.go.kr/tour/attractionGallery/buchon/intro.do?menuNo=400125",
+          "sourceName": "종로구 문화관광 누리집 북촌소개",
+          "checkedAt": "2026-11-26"
+        },
+        "closed": {
+          "value": "일요일은 마을방문시간 지정구역 골목길 쉬는 날",
+          "sourceUrl": "https://tour.jongno.go.kr/tour/attractionGallery/buchon/intro.do?menuNo=400125",
+          "sourceName": "종로구 문화관광 누리집 북촌소개",
+          "checkedAt": "2026-11-26"
+        },
+        "website": {
+          "value": "https://tour.jongno.go.kr/tour/attractionGallery/buchon/intro.do?menuNo=400125",
+          "sourceUrl": "https://tour.jongno.go.kr/tour/attractionGallery/buchon/intro.do?menuNo=400125",
+          "sourceName": "종로구 문화관광 누리집 북촌소개",
+          "checkedAt": "2026-11-26"
+        }
+      }
+    },
+    {
+      "id": "tour-750804",
+      "contentTypeId": "12",
+      "name": "마장호수",
+      "address": "경기도 파주시 광탄면 기산리",
+      "lat": 37.7752540883,
+      "lng": 126.930113948,
+      "region": "경기",
+      "identitySource": "운영 /api/data?type=places TourAPI areaBasedList2 응답(2026-11-26 관찰)",
+      "fields": {
+        "overview": {
+          "value": "호수 전체를 볼 수 있는 전망대와 총 4.5km 둘레길, 길이 220m 출렁다리가 있는 호수 공원이다.",
+          "sourceUrl": "https://tour.paju.go.kr/user/tour/place/BD_tourPlaceInfoView.do?menuCode=4&cntntsSn=69",
+          "sourceName": "파주시 문화관광포털 마장호수",
+          "checkedAt": "2026-11-26"
+        },
+        "hours": {
+          "value": "출렁다리 등 시설물 이용시간 3~4월 09:00~18:00, 5~10월 09:00~20:00, 11~2월 09:00~17:00",
+          "sourceUrl": "https://tour.paju.go.kr/user/tour/place/BD_tourPlaceInfoView.do?menuCode=4&cntntsSn=69",
+          "sourceName": "파주시 문화관광포털 마장호수",
+          "checkedAt": "2026-11-26"
+        },
+        "closed": {
+          "value": "연중무휴",
+          "sourceUrl": "https://tour.paju.go.kr/user/tour/place/BD_tourPlaceInfoView.do?menuCode=4&cntntsSn=69",
+          "sourceName": "파주시 문화관광포털 마장호수",
+          "checkedAt": "2026-11-26"
+        },
+        "admission": {
+          "value": "무료",
+          "sourceUrl": "https://tour.paju.go.kr/user/tour/place/BD_tourPlaceInfoView.do?menuCode=4&cntntsSn=69",
+          "sourceName": "파주시 문화관광포털 마장호수",
+          "checkedAt": "2026-11-26"
+        },
+        "parking": {
+          "value": "주차장 570여 대 규모(제1~6주차장)",
+          "sourceUrl": "https://tour.paju.go.kr/user/tour/place/BD_tourPlaceInfoView.do?menuCode=4&cntntsSn=69",
+          "sourceName": "파주시 문화관광포털 마장호수",
+          "checkedAt": "2026-11-26"
+        },
+        "parkingFee": {
+          "value": "20분 이전 출차 무료, 20분 후 고정요금 소형 2,000원, 대형 4,000원 (친환경차량 50% 감면)",
+          "sourceUrl": "https://tour.paju.go.kr/user/tour/place/BD_tourPlaceInfoView.do?menuCode=4&cntntsSn=69",
+          "sourceName": "파주시 문화관광포털 마장호수",
+          "checkedAt": "2026-11-26"
+        },
+        "rest": {
+          "value": "공원 곳곳에 쉬어 갈 수 있는 벤치",
+          "sourceUrl": "https://tour.paju.go.kr/user/tour/place/BD_tourPlaceInfoView.do?menuCode=4&cntntsSn=69",
+          "sourceName": "파주시 문화관광포털 마장호수",
+          "checkedAt": "2026-11-26"
+        },
+        "phone": {
+          "value": "031-950-1941",
+          "sourceUrl": "https://tour.paju.go.kr/user/tour/place/BD_tourPlaceInfoView.do?menuCode=4&cntntsSn=69",
+          "sourceName": "파주시 문화관광포털 마장호수",
+          "checkedAt": "2026-11-26"
+        },
+        "website": {
+          "value": "https://tour.paju.go.kr/user/tour/place/BD_tourPlaceInfoView.do?menuCode=4&cntntsSn=69",
+          "sourceUrl": "https://tour.paju.go.kr/user/tour/place/BD_tourPlaceInfoView.do?menuCode=4&cntntsSn=69",
+          "sourceName": "파주시 문화관광포털 마장호수",
+          "checkedAt": "2026-11-26"
+        }
+      },
+      "accessibility": {
+        "wheelchairAccess": {
+          "value": "출렁다리는 안전사고 위험으로 휠체어 이용 관광객의 통행이 제한될 수 있음",
+          "sourceUrl": "https://tour.paju.go.kr/user/tour/place/BD_tourPlaceInfoView.do?menuCode=4&cntntsSn=69",
+          "sourceName": "파주시 문화관광포털 마장호수",
+          "checkedAt": "2026-11-26"
+        }
+      }
+    },
+    {
+      "id": "tour-2692866",
+      "contentTypeId": "14",
+      "name": "청운문학도서관",
+      "address": "서울특별시 종로구 자하문로36길 40 (청운동)",
+      "lat": 37.5904317988,
+      "lng": 126.965932601,
+      "region": "서울",
+      "identitySource": "운영 /api/data?type=places TourAPI areaBasedList2 응답(2026-11-26 관찰)",
+      "fields": {
+        "overview": {
+          "value": "종로구 최초의 한옥 공공도서관으로, 문학 도서를 중심으로 소장한 문학 특성화 도서관이다.",
+          "sourceUrl": "https://www.jfac.or.kr/site/main/content/chungwoon01/",
+          "sourceName": "종로문화재단 청운문학도서관",
+          "checkedAt": "2026-11-26"
+        },
+        "hours": {
+          "value": "화~금 09:00~21:00, 주말·공휴일 09:00~19:00 (한옥열람실·누정 화~일 10:00~18:00)",
+          "sourceUrl": "https://www.jfac.or.kr/site/main/content/chungwoon01/",
+          "sourceName": "종로문화재단 청운문학도서관",
+          "checkedAt": "2026-11-26"
+        },
+        "closed": {
+          "value": "월요일, 1월 1일, 설·추석 연휴",
+          "sourceUrl": "https://www.jfac.or.kr/site/main/content/chungwoon01/",
+          "sourceName": "종로문화재단 청운문학도서관",
+          "checkedAt": "2026-11-26"
+        },
+        "phone": {
+          "value": "070-4680-4032~3",
+          "sourceUrl": "https://www.jfac.or.kr/site/main/content/chungwoon01/",
+          "sourceName": "종로문화재단 청운문학도서관",
+          "checkedAt": "2026-11-26"
+        },
+        "website": {
+          "value": "https://www.jfac.or.kr/site/main/content/chungwoon01/",
+          "sourceUrl": "https://www.jfac.or.kr/site/main/content/chungwoon01/",
+          "sourceName": "종로문화재단 청운문학도서관",
+          "checkedAt": "2026-11-26"
+        }
+      }
+    },
+    {
+      "id": "tour-2733412",
+      "contentTypeId": "12",
+      "name": "안터생태공원",
+      "address": "경기도 광명시 안재로1번길 27 (하안동)",
+      "lat": 37.4593841958,
+      "lng": 126.8698367175,
+      "region": "경기",
+      "identitySource": "운영 /api/data?type=places TourAPI areaBasedList2 응답(2026-11-26 관찰)",
+      "fields": {
+        "overview": {
+          "value": "생태계가 복원된 도심 속 내륙습지로, 금개구리 등 여러 동식물이 서식한다.",
+          "sourceUrl": "https://www.gm.go.kr/tour/gmNine/nine08.jsp",
+          "sourceName": "광명시 문화관광 광명 9경 안터생태공원",
+          "checkedAt": "2026-11-26"
+        },
+        "closed": {
+          "value": "연중무휴",
+          "sourceUrl": "https://www.gm.go.kr/tour/gmNine/nine08.jsp",
+          "sourceName": "광명시 문화관광 광명 9경 안터생태공원",
+          "checkedAt": "2026-11-26"
+        },
+        "admission": {
+          "value": "무료",
+          "sourceUrl": "https://www.gm.go.kr/tour/gmNine/nine08.jsp",
+          "sourceName": "광명시 문화관광 광명 9경 안터생태공원",
+          "checkedAt": "2026-11-26"
+        },
+        "parking": {
+          "value": "광명시민체육관 공영주차장(유료) 이용 권장",
+          "sourceUrl": "https://www.gm.go.kr/tour/gmNine/nine08.jsp",
+          "sourceName": "광명시 문화관광 광명 9경 안터생태공원",
+          "checkedAt": "2026-11-26"
+        },
+        "phone": {
+          "value": "02-897-8577 (광명시환경교육센터, 생태교육 프로그램 문의)",
+          "sourceUrl": "https://www.gm.go.kr/tour/gmNine/nine08.jsp",
+          "sourceName": "광명시 문화관광 광명 9경 안터생태공원",
+          "checkedAt": "2026-11-26"
+        },
+        "website": {
+          "value": "https://www.gm.go.kr/tour/gmNine/nine08.jsp",
+          "sourceUrl": "https://www.gm.go.kr/tour/gmNine/nine08.jsp",
+          "sourceName": "광명시 문화관광 광명 9경 안터생태공원",
+          "checkedAt": "2026-11-26"
+        }
+      }
+    },
+    {
+      "id": "tour-130417",
+      "contentTypeId": "14",
+      "name": "두루뫼박물관",
+      "address": "경기도 파주시 법원읍 초리골길 278",
+      "lat": 37.8567856366,
+      "lng": 126.8960036269,
+      "region": "경기",
+      "identitySource": "운영 /api/data?type=places TourAPI areaBasedList2 응답(2026-11-26 관찰)",
+      "fields": {
+        "overview": {
+          "value": "옹기류·목물 등 민속생활용구 약 1,500점을 전시하는 민속생활사 박물관이다.",
+          "sourceUrl": "https://tour.paju.go.kr/user/tour/place/BD_tourPlaceInfoView.do?menuCode=8&cntntsSn=30",
+          "sourceName": "파주시 문화관광포털 두루뫼 박물관",
+          "checkedAt": "2026-11-26"
+        },
+        "hours": {
+          "value": "10:30~17:00 (예약으로 조정 가능, 하절기·동절기 동일)",
+          "sourceUrl": "https://tour.paju.go.kr/user/tour/place/BD_tourPlaceInfoView.do?menuCode=8&cntntsSn=30",
+          "sourceName": "파주시 문화관광포털 두루뫼 박물관",
+          "checkedAt": "2026-11-26"
+        },
+        "closed": {
+          "value": "연중무휴",
+          "sourceUrl": "https://tour.paju.go.kr/user/tour/place/BD_tourPlaceInfoView.do?menuCode=8&cntntsSn=30",
+          "sourceName": "파주시 문화관광포털 두루뫼 박물관",
+          "checkedAt": "2026-11-26"
+        },
+        "admission": {
+          "value": "대인 5,000원, 중·고생 4,000원, 어린이 3,000원 (단체 관람은 사전 예약)",
+          "sourceUrl": "https://tour.paju.go.kr/user/tour/place/BD_tourPlaceInfoView.do?menuCode=8&cntntsSn=30",
+          "sourceName": "파주시 문화관광포털 두루뫼 박물관",
+          "checkedAt": "2026-11-26"
+        },
+        "seniorDiscount": {
+          "value": "경로·장애인·군경·유공자 4,000원",
+          "sourceUrl": "https://tour.paju.go.kr/user/tour/place/BD_tourPlaceInfoView.do?menuCode=8&cntntsSn=30",
+          "sourceName": "파주시 문화관광포털 두루뫼 박물관",
+          "checkedAt": "2026-11-26"
+        },
+        "parking": {
+          "value": "주차 가능",
+          "sourceUrl": "https://tour.paju.go.kr/user/tour/place/BD_tourPlaceInfoView.do?menuCode=8&cntntsSn=30",
+          "sourceName": "파주시 문화관광포털 두루뫼 박물관",
+          "checkedAt": "2026-11-26"
+        },
+        "rest": {
+          "value": "찻집, 초가사랑방, 원두막, 야외 휴식공간",
+          "sourceUrl": "https://tour.paju.go.kr/user/tour/place/BD_tourPlaceInfoView.do?menuCode=8&cntntsSn=30",
+          "sourceName": "파주시 문화관광포털 두루뫼 박물관",
+          "checkedAt": "2026-11-26"
+        },
+        "phone": {
+          "value": "031-958-6101~2",
+          "sourceUrl": "https://tour.paju.go.kr/user/tour/place/BD_tourPlaceInfoView.do?menuCode=8&cntntsSn=30",
+          "sourceName": "파주시 문화관광포털 두루뫼 박물관",
+          "checkedAt": "2026-11-26"
+        },
+        "website": {
+          "value": "https://tour.paju.go.kr/user/tour/place/BD_tourPlaceInfoView.do?menuCode=8&cntntsSn=30",
+          "sourceUrl": "https://tour.paju.go.kr/user/tour/place/BD_tourPlaceInfoView.do?menuCode=8&cntntsSn=30",
+          "sourceName": "파주시 문화관광포털 두루뫼 박물관",
+          "checkedAt": "2026-11-26"
+        }
+      }
+    },
+    {
+      "id": "tour-130565",
+      "contentTypeId": "14",
+      "name": "조병화문학관",
+      "address": "경기도 안성시 양성면 난실길 14-1",
+      "lat": 37.1120668213,
+      "lng": 127.2215950764,
+      "region": "경기",
+      "identitySource": "운영 /api/data?type=places TourAPI areaBasedList2 응답(2026-11-26 관찰)",
+      "fields": {
+        "overview": {
+          "value": "편운 조병화 시인의 창작 저작물과 그림·유품을 상설 전시하는 문학기념관이다.",
+          "sourceUrl": "https://www.anseong.go.kr/tour/themeTourist/view.do?mId=0104000000&idx=154",
+          "sourceName": "안성시 문화관광 조병화문학관",
+          "checkedAt": "2026-11-26"
+        },
+        "hours": {
+          "value": "4~10월 10:30~17:00, 11~3월 10:30~16:00",
+          "sourceUrl": "https://www.anseong.go.kr/tour/themeTourist/view.do?mId=0104000000&idx=154",
+          "sourceName": "안성시 문화관광 조병화문학관",
+          "checkedAt": "2026-11-26"
+        },
+        "admission": {
+          "value": "어른 2,000원, 학생 1,000원 (20인 이상 20% 할인, 홈페이지 사전예약 필수)",
+          "sourceUrl": "https://www.anseong.go.kr/tour/themeTourist/view.do?mId=0104000000&idx=154",
+          "sourceName": "안성시 문화관광 조병화문학관",
+          "checkedAt": "2026-11-26"
+        },
+        "seniorDiscount": {
+          "value": "만 65세 이상 무료 (만 6세 이하도 무료)",
+          "sourceUrl": "https://www.anseong.go.kr/tour/themeTourist/view.do?mId=0104000000&idx=154",
+          "sourceName": "안성시 문화관광 조병화문학관",
+          "checkedAt": "2026-11-26"
+        },
+        "phone": {
+          "value": "031-674-0307",
+          "sourceUrl": "https://www.anseong.go.kr/tour/themeTourist/view.do?mId=0104000000&idx=154",
+          "sourceName": "안성시 문화관광 조병화문학관",
+          "checkedAt": "2026-11-26"
+        },
+        "website": {
+          "value": "https://www.anseong.go.kr/tour/themeTourist/view.do?mId=0104000000&idx=154",
+          "sourceUrl": "https://www.anseong.go.kr/tour/themeTourist/view.do?mId=0104000000&idx=154",
+          "sourceName": "안성시 문화관광 조병화문학관",
+          "checkedAt": "2026-11-26"
+        }
+      }
+    },
+    {
+      "id": "tour-128580",
+      "contentTypeId": "12",
+      "name": "과천향교",
+      "address": "경기도 과천시 자하동길 18 (중앙동)",
+      "lat": 37.4334643048,
+      "lng": 126.9874350747,
+      "region": "경기",
+      "identitySource": "운영 /api/data?type=places TourAPI areaBasedList2 응답(2026-11-26 관찰)",
+      "fields": {
+        "overview": {
+          "value": "조선시대 지방 공립 교육기관이던 향교로, 강론하던 명륜당과 제사를 지내는 대성전이 있다.",
+          "sourceUrl": "https://www.gccity.go.kr/dept/contents.do?mId=0805020200",
+          "sourceName": "과천시 분야별 포털 경기도지정유산",
+          "checkedAt": "2026-11-26"
+        },
+        "phone": {
+          "value": "02-502-2944",
+          "sourceUrl": "https://www.gccity.go.kr/dept/contents.do?mId=0804010300",
+          "sourceName": "과천시 분야별 포털 관악산주변명소",
+          "checkedAt": "2026-11-26"
+        },
+        "website": {
+          "value": "https://www.gccity.go.kr/dept/contents.do?mId=0804010300",
+          "sourceUrl": "https://www.gccity.go.kr/dept/contents.do?mId=0804010300",
+          "sourceName": "과천시 분야별 포털 관악산주변명소",
+          "checkedAt": "2026-11-26"
+        }
+      }
+    },
+    {
+      "id": "tour-2612873",
+      "contentTypeId": "12",
+      "name": "은이성지(청년 김대건길)",
+      "address": "경기도 용인시 처인구 양지면 은이로 182",
+      "lat": 37.215953048,
+      "lng": 127.2777870758,
+      "region": "경기",
+      "identitySource": "운영 /api/data?type=places TourAPI areaBasedList2 응답(2026-11-26 관찰)",
+      "fields": {
+        "overview": {
+          "value": "천주교 박해 시기 신자들이 숨어 살며 이룬 교우촌으로, 김대건 신부 조각상·기념관·김가항 성당이 있다.",
+          "sourceUrl": "https://www.yongin.go.kr/home/yitour/ytour01/yttour09_01.jsp",
+          "sourceName": "용인시 문화관광포털 은이성지",
+          "checkedAt": "2026-11-26"
+        },
+        "parking": {
+          "value": "주차장 약 20여 대, 화~일 09:00~17:00 개방 (협소하며 운영시간 외에는 폐쇄)",
+          "sourceUrl": "https://www.yongin.go.kr/home/yitour/ytour01/yttour09_01.jsp",
+          "sourceName": "용인시 문화관광포털 은이성지",
+          "checkedAt": "2026-11-26"
+        },
+        "website": {
+          "value": "https://www.yongin.go.kr/home/yitour/ytour01/yttour09_01.jsp",
+          "sourceUrl": "https://www.yongin.go.kr/home/yitour/ytour01/yttour09_01.jsp",
+          "sourceName": "용인시 문화관광포털 은이성지",
+          "checkedAt": "2026-11-26"
+        }
+      }
+    },
+    {
+      "id": "tour-128927",
+      "contentTypeId": "12",
+      "name": "이천 도립리 반룡송",
+      "address": "경기도 이천시 백사면 원적로 910",
+      "lat": 37.3406005477,
+      "lng": 127.4754823063,
+      "region": "경기",
+      "identitySource": "운영 /api/data?type=places TourAPI areaBasedList2 응답(2026-11-26 관찰)",
+      "fields": {
+        "overview": {
+          "value": "하늘에 오르기 전 땅에 서린 용의 모습을 닮았다는 소나무로, 천연기념물로 지정되어 있다.",
+          "sourceUrl": "https://www.icheon.go.kr/tour/cultureTour/manage/view.do?idx=90&mid=0101020000",
+          "sourceName": "이천시 문화관광 반룡송",
+          "checkedAt": "2026-11-26"
+        },
+        "website": {
+          "value": "https://www.icheon.go.kr/tour/cultureTour/manage/view.do?idx=90&mid=0101020000",
+          "sourceUrl": "https://www.icheon.go.kr/tour/cultureTour/manage/view.do?idx=90&mid=0101020000",
+          "sourceName": "이천시 문화관광 반룡송",
+          "checkedAt": "2026-11-26"
+        }
+      }
+    },
+    {
+      "id": "tour-2613659",
+      "contentTypeId": "12",
+      "name": "봉돈",
+      "address": "경기도 수원시 팔달구 남수동",
+      "lat": 37.281551964,
+      "lng": 127.021214045,
+      "region": "경기",
+      "identitySource": "운영 /api/data?type=places TourAPI areaBasedList2 응답(2026-11-26 관찰)",
+      "fields": {
+        "hours": {
+          "value": "수원화성 상시 관람 (개방형, 야간 관람 가능)",
+          "sourceUrl": "https://www.swcf.or.kr/?p=65",
+          "sourceName": "수원문화재단 수원화성관광 관람안내",
+          "checkedAt": "2026-11-26",
+          "scope": "수원화성 전체 안내"
+        },
+        "closed": {
+          "value": "연중무휴",
+          "sourceUrl": "https://www.swcf.or.kr/?p=65",
+          "sourceName": "수원문화재단 수원화성관광 관람안내",
+          "checkedAt": "2026-11-26",
+          "scope": "수원화성 전체 안내"
+        },
+        "admission": {
+          "value": "수원화성 무료",
+          "sourceUrl": "https://www.swcf.or.kr/?p=65",
+          "sourceName": "수원문화재단 수원화성관광 관람안내",
+          "checkedAt": "2026-11-26",
+          "scope": "수원화성 전체 안내"
+        },
+        "phone": {
+          "value": "031-241-2703 (화성행궁 광장 관광안내소, 09:00~18:00)",
+          "sourceUrl": "https://www.swcf.or.kr/?p=65",
+          "sourceName": "수원문화재단 수원화성관광 관람안내",
+          "checkedAt": "2026-11-26"
+        },
+        "website": {
+          "value": "https://www.swcf.or.kr/?p=65",
+          "sourceUrl": "https://www.swcf.or.kr/?p=65",
+          "sourceName": "수원문화재단 수원화성관광 관람안내",
+          "checkedAt": "2026-11-26"
+        }
+      },
+      "accessibility": {
+        "wheelchairRental": {
+          "value": "유아·노약자·장애인은 유모차와 휠체어를 무료로 이용 (화성행궁 휠체어 3대, 유모차 2대)",
+          "sourceUrl": "https://www.swcf.or.kr/?p=65",
+          "sourceName": "수원문화재단 수원화성관광 관람안내",
+          "checkedAt": "2026-11-26",
+          "scope": "수원화성 전체 안내"
+        },
+        "accessibleParking": {
+          "value": "장애인 주차장 화성행궁 3면, 연무대 6면",
+          "sourceUrl": "https://www.swcf.or.kr/?p=65",
+          "sourceName": "수원문화재단 수원화성관광 관람안내",
+          "checkedAt": "2026-11-26",
+          "scope": "수원화성 전체 안내"
+        }
+      }
+    },
+    {
+      "id": "tour-125449",
+      "contentTypeId": "12",
+      "name": "남한산성도립공원",
+      "region": "경기",
+      "identitySource": "운영 /api/featured TourAPI detailCommon2 응답(2026-11-26 관찰, 주소 남한산성로 731)",
+      "fields": {
+        "overview": {
+          "value": "유네스코 세계유산 남한산성이 있는 도립공원으로, 성곽을 따라 여러 탐방로가 있다.",
+          "sourceUrl": "https://www.gg.go.kr/namhansansung-2/contents/contents.do?ciIdx=1280&menuId=3494",
+          "sourceName": "경기도남한산성세계유산센터 남한산성 탐방로",
+          "checkedAt": "2026-11-26"
+        },
+        "admission": {
+          "value": "남한산성 입장료 없음(2007년 폐지). 남한산성행궁 관람료 어른 2,000원, 청소년 1,000원",
+          "sourceUrl": "https://www.gg.go.kr/namhansansung-2/contents/contents.do?ciIdx=1274&menuId=3486",
+          "sourceName": "경기도남한산성세계유산센터 관람 및 주차 안내",
+          "checkedAt": "2026-11-26"
+        },
+        "seniorDiscount": {
+          "value": "만 65세 이상 남한산성행궁 무료 (경기도민도 무료)",
+          "sourceUrl": "https://www.gg.go.kr/namhansansung-2/contents/contents.do?ciIdx=1274&menuId=3486",
+          "sourceName": "경기도남한산성세계유산센터 관람 및 주차 안내",
+          "checkedAt": "2026-11-26"
+        },
+        "hours": {
+          "value": "남한산성행궁 4~10월 10:00~18:00, 11~3월 10:00~17:00 (관람 종료 30분 전까지 매표)",
+          "sourceUrl": "https://www.gg.go.kr/namhansansung-2/contents/contents.do?ciIdx=1274&menuId=3486",
+          "sourceName": "경기도남한산성세계유산센터 관람 및 주차 안내",
+          "checkedAt": "2026-11-26"
+        },
+        "closed": {
+          "value": "남한산성행궁 매주 월요일 휴궁 (공휴일 제외)",
+          "sourceUrl": "https://www.gg.go.kr/namhansansung-2/contents/contents.do?ciIdx=1274&menuId=3486",
+          "sourceName": "경기도남한산성세계유산센터 관람 및 주차 안내",
+          "checkedAt": "2026-11-26"
+        },
+        "stay": {
+          "value": "탐방로 코스별 약 1시간~3시간 20분 (예: 산성로터리 출발 1코스 1시간 20분)",
+          "sourceUrl": "https://www.gg.go.kr/namhansansung-2/contents/contents.do?ciIdx=1280&menuId=3494",
+          "sourceName": "경기도남한산성세계유산센터 남한산성 탐방로",
+          "checkedAt": "2026-11-26"
+        },
+        "parkingFee": {
+          "value": "1000cc 이상 승용차 평일 3,000원, 공휴일 5,000원 (후불, 30분 이내 출차 무료, 20:00~09:00 무료)",
+          "sourceUrl": "https://www.gg.go.kr/namhansansung-2/contents/contents.do?ciIdx=1274&menuId=3486",
+          "sourceName": "경기도남한산성세계유산센터 관람 및 주차 안내",
+          "checkedAt": "2026-11-26"
+        },
+        "phone": {
+          "value": "031-8008-5155 (남한산성세계유산센터)",
+          "sourceUrl": "https://www.gg.go.kr/namhansansung-2/contents/contents.do?ciIdx=1280&menuId=3494",
+          "sourceName": "경기도남한산성세계유산센터 남한산성 탐방로",
+          "checkedAt": "2026-11-26"
+        },
+        "website": {
+          "value": "https://www.gg.go.kr/namhansansung-2/contents/contents.do?ciIdx=1274&menuId=3486",
+          "sourceUrl": "https://www.gg.go.kr/namhansansung-2/contents/contents.do?ciIdx=1274&menuId=3486",
+          "sourceName": "경기도남한산성세계유산센터 관람 및 주차 안내",
+          "checkedAt": "2026-11-26"
+        }
+      }
+    }
+  ]
+}

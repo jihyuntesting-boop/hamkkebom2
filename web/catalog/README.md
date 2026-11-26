@@ -65,3 +65,11 @@
 - 추천 후보('/api/recommend' → 'getCatalog')에는 아직 넣지 않았다. 'getCatalog'에 보강 레코드를 합치면 일정 경로 좌표 확인(travel-times)까지 바뀌므로 일정·추천 담당과 조율 후 진행한다.
 - 사진 URL·이미지 권리는 기록하지 않는다(운영 응답에 이미지 URL이 없었고, 사진은 사진 파이프라인 소관).
 - 검증: 'node --test tests/daechi_places_catalog.test.cjs'.
+
+## 사진 있는 장소 세부 정보 (2026-11-26, MVP)
+
+- 'place-details.v1.json': 사진이 보이는 장소 15곳(대표 명소 경복궁·국립중앙박물관·DDP·광명동굴·북촌한옥마을·남한산성도립공원, 목록 장소 마장호수·청운문학도서관·안터생태공원·두루뫼박물관·조병화문학관·과천향교·은이성지·반룡송·봉돈)의 운영시간·휴무·입장료·경로우대·소요시간·주차·주차요금·휴식 공간·문의·공식 홈페이지와 시설 메모(장애인 주차·휠체어/유모차 대여·휠체어 이동 제한)를 **기관·지자체 공식 누리집에서 확인한 값만** 기록한다. 값마다 'sourceUrl'·'sourceName'·'checkedAt'.
+- 계단·경사·보행거리·무단차 입구는 받지 않는다(검증기 거부). 확인 못 한 항목은 넣지 않고 화면에서도 행이 생기지 않는다.
+- 식별: 운영 '/api/featured.js'(detailCommon2)·'/api/data?type=places'(areaBasedList2) 응답의 ID·이름·주소·좌표. 대표 명소 일부는 주소·좌표 없이 ID·이름만 둔다(선택 항목).
+- 서빙: 'curated-place-details.cjs'가 대치 카탈로그와 함께 읽고, '/api/rich-tour?action=detail'이 실시간 상세가 꺼져 있거나 키가 없을 때(운영) 'sourceMode:curated_snapshot'으로 돌려준다. 세부페이지는 자동으로 조회해 값 있는 항목만 표시한다.
+- 검증: 'node --test tests/place_details_catalog.test.cjs'.

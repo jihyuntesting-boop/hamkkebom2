@@ -172,19 +172,17 @@ function hbRichMapAdapter({container,points,onSelect}){
  }).catch(()=>{clear();if(!disposed&&container.isConnected)container.textContent='지도를 불러오지 못했어요. 아래 목록을 이용해 주세요.';});
  return ()=>{disposed=true;clear();};
 }
-function hbRichDetailAttach(place,auto){
+function hbRichDetailAttach(place){
+ // Official detail facts load with the page; nothing is drawn unless a value exists (MVP 2026-11-26).
  const identity=hbRichIdentity(place),component=window.HBRichPlaceDetail;
  if(!identity||!component||typeof component.mount!=='function')return;
- const host=document.createElement('section');host.className='panel';host.setAttribute('aria-label','관광공사 추가 상세정보');
- const trigger=document.createElement('button');trigger.type='button';trigger.className='light';trigger.textContent='운영시간·요금·시설 더 보기';
- const status=document.createElement('p');status.setAttribute('role','status');
- const body=document.createElement('div');host.append(trigger,status,body);
+ const host=document.createElement('section');host.className='panel hb-detail-info';host.setAttribute('aria-label','장소 이용 정보');host.setAttribute('aria-busy','true');
+ const status=document.createElement('p');status.className='muted';status.setAttribute('role','status');status.textContent='장소 정보를 불러오는 중이에요.';
+ const body=document.createElement('div');host.append(status,body);
  const arrival=el.querySelector('.hb-detail-access');if(arrival)arrival.insertAdjacentElement('beforebegin',host);else el.append(host);
- let disposed=false,controller=null,unmount=null,loaded=false;
- hbRichDispose=()=>{disposed=true;controller?.abort();if(typeof unmount==='function')unmount();};
- trigger.onclick=async()=>{
-  if(loaded||controller)return;
-  trigger.disabled=true;status.textContent='공식 관광정보를 확인 중이에요.';controller=new AbortController();
+ let disposed=false,unmount=null;const controller=new AbortController();
+ hbRichDispose=()=>{disposed=true;controller.abort();if(typeof unmount==='function')unmount();};
+ (async()=>{
   try{
    const q=new URLSearchParams({action:'detail',...identity});
    const response=await fetch('/api/rich-tour?'+q,{signal:controller.signal,credentials:'same-origin'});
@@ -192,12 +190,14 @@ function hbRichDetailAttach(place,auto){
    const data=await response.json();
    if(disposed||!host.isConnected)return;
    if(data.id!==place.id||data.contentTypeId!==identity.contentTypeId)throw Error('identity');
-   unmount=component.mount(body,{data,photoAlreadyShown:true,mapAdapter:hbRichMapAdapter});
-   loaded=true;trigger.hidden=true;status.textContent='공식 자료 기준 추가 정보예요. 기존 접근성 주의사항도 함께 확인해 주세요.';
-  }catch(e){if(!disposed&&host.isConnected)status.textContent='추가 정보를 지금 조회할 수 없어요. 기존 장소 안내는 계속 이용할 수 있어요.';}
-  finally{controller=null;if(!disposed&&!loaded)trigger.disabled=false;}
- };
- if(auto)trigger.click();
+   if(typeof component.buildDetailModel==='function'&&component.buildDetailModel(data).isEmpty)throw Error('empty');
+   unmount=component.mount(body,{data,photoAlreadyShown:true,showIdentity:false,mapAdapter:hbRichMapAdapter});
+   status.remove();host.removeAttribute('aria-busy');
+  }catch(e){
+   // No data or no service: remove the box entirely instead of showing an empty or failure panel.
+   if(!disposed&&host.isConnected)host.remove();
+  }
+ })();
 }
 function hbRichDiscoveryAttach(){
  if(!window.HBRichPlaceDetail||!document.getElementById('nearby-map'))return;
@@ -259,14 +259,45 @@ function hbRichDiscoveryAttach(){
  at('search').onclick=()=>run(true);next.onclick=()=>run(false);
 }
 
+// MVP P0 (2026-11-26): a place in the official detail catalog can still be drawn when the list or
+// featured response that normally supplies it is missing (e.g. TourAPI 429). Identity comes only from
+// the same-ID /api/rich-tour detail response; nothing is guessed. Failure falls back to "not found".
+const hbCuratedFallback=new Map();
+function hbCuratedFallbackPending(id){const entry=hbCuratedFallback.get(id);return !!entry&&!entry.done;}
+function hbCuratedFallbackPlace(id){
+ if(!/^tour-\d{1,12}$/.test(String(id||''))||typeof fetch!=='function')return null;
+ const known=hbCuratedFallback.get(id);
+ if(known)return known.place;
+ const entry={place:null,done:false};hbCuratedFallback.set(id,entry);
+ (async()=>{
+  for(const type of ['12','14']){
+   try{
+    const res=await fetch('/api/rich-tour?'+new URLSearchParams({action:'detail',contentId:id.slice(5),contentTypeId:type}),{credentials:'same-origin'});
+    if(!res.ok)continue;
+    const d=await res.json();
+    if(d?.id!==id||d.contentTypeId!==type||typeof d.name!=='string'||!d.name.trim()||!['1','31'].includes(String(d.areaCode)))continue;
+    entry.place={id,contentId:id.slice(5),contentTypeId:type,kind:d.kind,name:d.name.trim(),address:typeof d.address==='string'?d.address:'',
+     lat:Number.isFinite(d.lat)?d.lat:null,lng:Number.isFinite(d.lng)?d.lng:null,areaCode:String(d.areaCode),region:String(d.areaCode)==='31'?'경기':'서울',
+     matched:true,accessFacts:[],accessStatus:'unverified',discoverySource:'curated_detail'};
+    break;
+   }catch{}
+  }
+  entry.done=true;
+  const current=typeof path==='function'?path():'';
+  if(current.startsWith('/place/')&&hbDecodePlaceId(current.slice(7))===id)detail(id);
+ })();
+ return null;
+}
+
 function detail(id){
  if(typeof hbRichDispose==='function')hbRichDispose();hbRichDispose=null;
  const fromDiscovery=hbDiscoveryDetailId===id;
  const back='<p><a id="hb-detail-back" class="hb-back-link" href="#/'+(fromDiscovery?'discover':'places')+'"><span aria-hidden="true">←</span> '+(fromDiscovery?'추천 장소':'장소 목록')+'</a></p>';
- const selectedRich=hbRichSelected?.id===id?hbRichSelected:(typeof nearbyItems!=='undefined'?nearbyItems.find(p=>p.id===id&&['nationwide_catalog','nationwide_live','keyword_snapshot'].includes(p.discoverySource))||null:null);
+ let selectedRich=hbRichSelected?.id===id?hbRichSelected:(typeof nearbyItems!=='undefined'?nearbyItems.find(p=>p.id===id&&['nationwide_catalog','nationwide_live','keyword_snapshot'].includes(p.discoverySource))||null:null);
+ if(!selectedRich&&id&&!places.some(value=>value.id===id))selectedRich=hbCuratedFallbackPlace(id);
  const place=id?(places.find(value=>value.id===id)||selectedRich):null;
  if(!place||!selectedRich&&(loading||issue)){
-  if(loading||hbPlacesLoadedRegion===null&&!issue&&id){
+  if(loading||hbPlacesLoadedRegion===null&&!issue&&id||!place&&hbCuratedFallbackPending(id)){
    el.innerHTML=back+'<h1>장소 상세 정보</h1><p role="status">장소 정보를 불러오는 중이에요.</p>';
   }else if(issue){
    el.innerHTML=back+'<h1>장소 정보를 가져오지 못했어요</h1><p role="alert">'+safe(issue)+'</p>'+button('hb-detail-retry','다시 조회');
@@ -304,6 +335,9 @@ function detail(id){
  const regionAllowed=!selectedRich||hbRichMatchesRegion(selectedRich,s.region);
  const canPick=!fromDiscovery&&(picked||regionAllowed&&assessment.status!=='excluded');
  const other=facts.filter(fact=>!hbDetailTopics(fact).some(topic=>specs.some(([,topics])=>topics.includes(topic))));
+ // Empty source panel is not drawn (MVP 2026-11-26: no empty boxes or no-data wording).
+ const sourceBody=(place.matched?'<p>장소와 편의시설 정보는 공공 관광 자료를 바탕으로 제공돼요.</p>':'')+
+  (other.length?other.map(renderFact).join(''):facts.length?'<p>자료별 출처와 확인 범위는 각 항목에서 확인할 수 있어요.</p>':'');
  el.innerHTML=back+'<span class="chip">'+hbPlaceCategory(place)+'</span><h1>'+safe(place.name)+'</h1>'+
   (place.address?'<p>'+safe(place.address)+'</p>':'')+
   '<div class="actions">'+
@@ -320,10 +354,9 @@ function detail(id){
     related.map(renderFact).join('')+
     '<p class="muted">방문 전 확인: '+check+'</p></details>';
   }).join('')+
-  panel('정보 출처',(place.matched?'<p>장소와 편의시설 정보는 공공 관광 자료를 바탕으로 제공돼요.</p>':'')+
-   (other.length?other.map(renderFact).join(''):facts.length?'<p>자료별 출처와 확인 범위는 각 항목에서 확인할 수 있어요.</p>':'<p>현재 제공된 편의시설 상세 자료가 없어요.</p>'));
+  (sourceBody?panel('정보 출처',sourceBody):'');
  hbBindAccessMap(guide);
- if(typeof window!=='undefined'&&window.HBRichPlaceDetail)hbRichDetailAttach(place,Boolean(selectedRich));
+ if(typeof window!=='undefined'&&window.HBRichPlaceDetail)hbRichDetailAttach(place);
  const pick=document.getElementById('pick');
  if(pick)pick.onclick=()=>{
   if(!picked&&selectedRich&&regionAllowed)hbRememberNearbyPlace(selectedRich);
