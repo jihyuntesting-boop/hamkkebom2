@@ -67,9 +67,9 @@
 
 | 영역 | 담당(팀 신고) | 산출물 |
 | --- | --- | --- |
-| 기획·요구사항·UX | 이윤희 | 사용자 시나리오, 접근성 정보 표시 기준, 화면 흐름 → [REQUIREMENTS.md](REQUIREMENTS.md) |
-| 데이터·검증·QA·발표 | 백수현 | 장소·화장실·사진 자료 조사와 검수 기준, 테스트 시나리오, 발표 자료 → [VERIFICATION.md](VERIFICATION.md), `web/catalog/README.md` |
-| 개발·통합 | 남지현 | 코드·배포·CI·공개 동기화, 에이전트 작업 지시와 병합 |
+| 백엔드 | 이윤희 | 서버 API와 외부 데이터 연동, 추천·일정 계산 로직 → [ARCHITECTURE.md](ARCHITECTURE.md) |
+| 프론트엔드 | 백수현 | 화면 UI, 스타일·반응형·접근성 → [ARCHITECTURE.md](ARCHITECTURE.md) |
+| 팀장·백엔드 | 남지현 | 서버 API, 배포·CI·공개 동기화, AI 연동, 코드 통합·병합 |
 
 팀 신고에 따르면 기획·데이터·검증 결과는 팀 협의를 거쳐 팀장이 문서와 코드에 반영했습니다.
 
