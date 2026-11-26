@@ -649,7 +649,11 @@ function browse(){
   const serverState=ready&&!travel.errors.length&&hbRecommendationState?.key===requestKey?hbRecommendationState:null;
   // 여행 장소 찾기 shows only places meeting HB_TRIP_DATA_RULE; saved/selected places stay visible.
   if(ready)hbSeasonalEnsureFeatured(s.region);
-  const curation=hbTripCuration(ready?hbTripCandidatePool(s.region):[],s.region,hbTripKeepIds(chosen,s.stops));
+  const tripKeep=hbTripKeepIds(chosen,s.stops);
+  const curated=hbTripCuration(ready?hbTripCandidatePool(s.region):[],s.region,tripKeep);
+  // HB_PHOTO_LIST_GATE: list (and seasonal pool) only places with a photo; kept places stay.
+  const photoGate=hbPhotoGate(curated.visible,tripKeep,ready?'places':'');
+  const curation={...curated,visible:photoGate.visible};
   const filtered=ready?hbSearchPlaces(curation.visible,filter,query):[];
   // Weather suggestion (HB_WEATHER_SUGGEST): reorders within each accessibility group only.
   const weatherSignal=hbWeatherBrowseSignal();
@@ -680,12 +684,13 @@ function browse(){
   const section=(title,arr,empty='')=>'<section class="hb-result-section"><h2>'+title+' <span class="hb-result-count">'+arr.length+'곳</span></h2>'+
     (arr.length?'<div class="grid">'+arr.slice(0,limited).map(x=>card(x)).join('')+'</div>':'<p class="muted">'+empty+'</p>')+'</section>';
   const noResults=ready&&!ranked.length;
-  const results=!ready?'':noResults?
-    panel('검색 결과 0건',curation.enabled&&!curation.visible.length&&curation.hidden?'<p>정보가 충분한 장소가 없어 목록을 표시하지 않았어요. 정보가 부족한 장소 '+curation.hidden+'곳은 숨겼어요. 조건을 자동으로 완화하지 않았어요. 다른 지역을 선택해 보세요.</p>':places.length?'<p>현재 검색어·분류에 맞는 장소가 없어요. 조건을 자동으로 완화하지 않았어요.</p>'+(curation.hidden?'<p class="muted">정보가 부족해 숨긴 장소 '+curation.hidden+'곳은 검색에 포함하지 않았어요.</p>':''):'<p>이 지역에서 조회된 장소가 없어요. 다른 지역을 직접 선택해 보세요.</p>'):
+  const results=!ready?'':noResults&&photoGate.pending?'<p class="muted">장소를 불러오고 있어요…</p>':noResults?
+    panel('검색 결과 0건',curated.enabled&&!curated.visible.length&&curated.hidden?'<p>정보가 충분한 장소가 없어 목록을 표시하지 않았어요. 정보가 부족한 장소 '+curation.hidden+'곳은 숨겼어요. 조건을 자동으로 완화하지 않았어요. 다른 지역을 선택해 보세요.</p>':photoGate.hidden&&!photoGate.visible.length?'<p>이 지역에서 지금 보여 드릴 장소를 찾지 못했어요. 다른 지역을 선택해 보세요.</p>':places.length?'<p>현재 검색어·분류에 맞는 장소가 없어요. 조건을 자동으로 완화하지 않았어요.</p>'+(curation.hidden?'<p class="muted">정보가 부족해 숨긴 장소 '+curation.hidden+'곳은 검색에 포함하지 않았어요.</p>':''):'<p>이 지역에서 조회된 장소가 없어요. 다른 지역을 직접 선택해 보세요.</p>'):
     (good.length?section('서버 자료 기준 조건 일치',good):'')+
     (review.length?section('방문 전 확인할 장소',review):'')+
     (excluded.length?'<details class="hb-conflict"><summary>확인된 이동 조건 충돌 '+excluded.length+'곳</summary><div class="grid">'+excluded.slice(0,limited).map(x=>card(x)).join('')+'</div></details>':'')+
-    (Math.max(good.length,review.length,excluded.length)>limited?'<button type="button" class="light" id="hb-more">장소 더 보기</button>':'');
+    (Math.max(good.length,review.length,excluded.length)>limited?'<button type="button" class="light" id="hb-more">장소 더 보기</button>':'')+
+    (photoGate.pending?'<p class="muted hb-photo-gate-more">장소를 더 불러오고 있어요…</p>':'');
   const extraPrefs=[
     s.hbMobilityAid&&s.hbMobilityAid!=='none'?hbMobilityAidLabels[s.hbMobilityAid]:null,
     s.hbSlopePreference==='avoid_steep'?'가파른 경사 피하기 (실제 경사 미검증)':null,
@@ -733,7 +738,7 @@ function browse(){
     '<div class="hb-filter-bar" role="group" aria-label="장소 필터">'+[['all','전체'],['spot','관광지'],['culture','문화시설'],['food','식당'],['access','편의시설 안내 있음']].map(([id,label])=>
     '<button type="button" data-hb-filter="'+id+'" class="light '+(filter===id?'hb-filter-active':'')+'" aria-pressed="'+String(filter===id)+'">'+label+'</button>').join('')+'</div>'+
     foodNote+
-    '<p role="status">'+(ready?ranked.length+'곳이 현재 검색·분류에 표시돼요.':'')+'</p><div id="hb-place-results" aria-busy="'+loading+'">'+results+'</div>';
+    '<p role="status">'+(ready?ranked.length+'곳이 현재 검색·분류에 표시돼요.':'')+'</p><div id="hb-place-results" aria-busy="'+String(loading||photoGate.pending>0)+'">'+results+'</div>';
   hbDiscoveryBindPending(browse);bindPrefs();
   const trayList=el.querySelector('.hb-selection-list');
   if(trayList)trayList.ontoggle=()=>{hbSelectionListOpen=trayList.open};
@@ -1144,6 +1149,70 @@ function hbVisibleGaps(gaps){
   return (Array.isArray(gaps)?gaps:[]).filter(x=>typeof x==='string'&&!/미확인|미지원|미선택|자료\s*없음|확인되지\s*않|확인\s*안\s*됨|확인\s*필요/.test(x));
 }
 // END HB_TRIP_DATA_CURATION
+
+// BEGIN HB_PHOTO_LIST_GATE
+// 사용자 요청 2026-11-26: 홈 「내 주변 여행지 · 식당」 목록과 여행 장소 찾기(#/places, 계절 추천 포함)는
+// 사진이 보이는 장소만 보여 준다. 사진 = 권리 확인 사진(photo-catalog.json) 또는 같은 TourAPI ID의
+// 한국관광공사 공식 이미지 — 02-place-thumbnails.js(window.HBPlacePhotos)가 실제로 그리는 것과 같은 판정.
+// 목록 API 행의 hasPhoto(true/false)를 먼저 쓴다(#124 ARCH-01 계약) — 장소별 /api/photo 조회 없음.
+// hasPhoto:null 만 사진 클라이언트가 조회한다(동시 4개·페이지당 총량 제한).
+// 판정 전 장소는 목록 밖에서 기다렸다가 확인되면 추가된다(보인 카드가 빠지는 건 이미지 로드 실패뿐).
+// 담은 장소·저장된 일정의 장소는 항상 남긴다. 사진 클라이언트가 없거나 localStorage[offStorageKey]='off'면
+// 거르지 않는다. 지도 핀·장소 상세·저장된 일정은 바꾸지 않는다. 화면에 '사진 없음' 같은 문구는 쓰지 않는다.
+const HB_PHOTO_LIST_RULE={enabled:true,offStorageKey:'hamkkebom-photo-gate'};
+const hbPhotoGateWatch=Object.create(null);
+let hbPhotoGateBound=false;
+function hbPhotoGateApi(rule=HB_PHOTO_LIST_RULE){
+  if(!rule.enabled||typeof window==='undefined'||!window)return null;
+  const api=window.HBPlacePhotos;
+  if(!api||typeof api.status!=='function'||typeof api.request!=='function')return null;
+  try{if(typeof localStorage!=='undefined'&&localStorage.getItem(rule.offStorageKey)==='off')return null;}catch{}
+  return api;
+}
+/** view: 'home' | 'places'. Returns the listable places in the given order plus undecided/hidden counts. */
+function hbPhotoGate(list,keepIds=new Set(),view=''){
+  const items=(Array.isArray(list)?list:[]).filter(p=>p&&typeof p.id==='string');
+  const api=hbPhotoGateApi();
+  if(!api)return {enabled:false,visible:items,pending:0,hidden:0};
+  // seed() applies the row hints inside the photo client (an image that failed to load stays 'no').
+  const seeded=typeof api.seed==='function';
+  if(seeded)api.seed(items);
+  const visible=[],ask=[],watch=new Set();
+  let hidden=0;
+  for(const p of items){
+    if(keepIds.has(p.id)){visible.push(p);continue;}
+    const state=api.status(p.id);
+    const known=seeded?state:p.hasPhoto===true?'yes':p.hasPhoto===false?'no':state;
+    if(known==='yes'){visible.push(p);watch.add(p.id);}
+    else if(known==='no')hidden++;
+    else{ask.push(p.id);watch.add(p.id);}
+  }
+  if(ask.length)api.request(ask);
+  if(view){hbPhotoGateWatch[view]=watch;hbPhotoGateBind(api);}
+  return {enabled:true,visible,pending:ask.length,hidden};
+}
+function hbPhotoGateBind(api){
+  if(hbPhotoGateBound||typeof api.subscribe!=='function')return;
+  hbPhotoGateBound=true;
+  api.subscribe(ids=>{
+    const changed=list=>list&&Array.isArray(ids)&&ids.some(id=>list.has(id));
+    if(path()==='/places'){if(changed(hbPhotoGateWatch.places))hbPhotoGateRedraw(browse);}
+    else if(document.getElementById('nearby-list')&&changed(hbPhotoGateWatch.home))hbPhotoGateRedraw(drawNearbyList);
+  });
+}
+/** Redraw while keeping focus and unsent typing in a field (e.g. the place search box). */
+function hbPhotoGateRedraw(draw){
+  const active=document.activeElement;
+  const id=active&&active.id&&el.contains?.(active)?active.id:'';
+  const value=id&&typeof active.value==='string'?active.value:null;
+  draw();
+  if(!id)return;
+  const next=document.getElementById(id);
+  if(!next||next===active)return;
+  if(value!==null&&typeof next.value==='string')next.value=value;
+  next.focus?.({preventScroll:true});
+}
+// END HB_PHOTO_LIST_GATE
 
 // BEGIN HB_WEATHER_SUGGEST
 // 날씨 기반 여행지 제안 (사용자 원래 의도, DECISIONS 2026-11-26): 여행 날짜·지역 예보로 장소 순서·강조를 조정한다.

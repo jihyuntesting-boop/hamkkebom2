@@ -101,7 +101,8 @@
   }
 
   // One request per place ID, at most four in flight, bounded wait, never throws.
-  function officialPhoto(id) {
+  // Resolves to an entry, false (no official image for this ID) or null (lookup failed).
+  function officialLookup(id) {
     if (officialRequests[id]) return officialRequests[id];
     officialRequests[id] = new Promise(function (resolve) {
       officialQueue.push(function () {
@@ -128,8 +129,116 @@
         } catch (_) { finish(null); }
       });
       pumpOfficial();
-    }).then(function (value) { return value || null; });
+    });
     return officialRequests[id];
+  }
+
+  function officialPhoto(id) {
+    return officialLookup(id).then(function (value) { return value || null; });
+  }
+
+  // List gate (core: home nearby list, 여행 장소 찾기). A place is listed only when it will
+  // show a photo here: a rights-approved local photo or the same-ID TourAPI official image.
+  // States: 'yes' | 'no' | 'pending'. List rows carry hasPhoto/officialImage (ARCH-01 API
+  // contract, #124): seed() takes those first, so known places need no /api/photo call and an
+  // officialImage is drawn as given. Only hasPhoto:null asks /api/photo — at most
+  // AVAILABILITY_LOOKUP_LIMIT per page, through the shared 4-request queue; over the limit the
+  // place stays out. A failed lookup counts as 'no' and may be asked again after
+  // AVAILABILITY_RETRY_MS; an image that fails to load stays 'no'. Listeners receive the
+  // changed place IDs in one batch.
+  var AVAILABILITY_RETRY_MS = 60000;
+  var AVAILABILITY_LOOKUP_LIMIT = 40;
+  var availabilityLookups = 0;
+  var availability = Object.create(null);
+  var brokenImages = Object.create(null);
+  var availabilityRetryAt = Object.create(null);
+  var availabilityListeners = [];
+  var availabilityChanged = [];
+  var availabilityTimer = null;
+
+  function flushAvailability() {
+    availabilityTimer = null;
+    var ids = availabilityChanged;
+    availabilityChanged = [];
+    availabilityListeners.slice().forEach(function (listener) {
+      try { listener(ids.slice()); } catch (_) {}
+    });
+  }
+
+  function settleAvailability(id, value, retryable) {
+    if (!placeIdPattern.test(id || '')) return;
+    if (retryable) availabilityRetryAt[id] = Date.now() + AVAILABILITY_RETRY_MS;
+    else delete availabilityRetryAt[id];
+    if (availability[id] === value) return;
+    availability[id] = value;
+    availabilityChanged.push(id);
+    if (availabilityTimer !== null) return;
+    if (typeof setTimeout === 'function') availabilityTimer = setTimeout(flushAvailability, 250);
+    else flushAvailability();
+  }
+
+  function catalogEntry(images, id) {
+    return published(Object.prototype.hasOwnProperty.call(images, id) ? images[id] : null, id);
+  }
+
+  function requestAvailability(id) {
+    if (!placeIdPattern.test(id || '')) return;
+    var state = availability[id];
+    if (state === 'yes' || state === 'pending') return;
+    if (state === 'no' && !(availabilityRetryAt[id] && availabilityRetryAt[id] <= Date.now())) return;
+    availability[id] = 'pending';
+    delete availabilityRetryAt[id];
+    catalog().then(function (images) {
+      if (catalogEntry(images, id)) return settleAvailability(id, 'yes', false);
+      if (!officialRequests[id]) {
+        if (availabilityLookups >= AVAILABILITY_LOOKUP_LIMIT) return settleAvailability(id, 'no', false);
+        availabilityLookups++;
+      }
+      return officialLookup(id).then(function (value) {
+        settleAvailability(id, value ? 'yes' : 'no', value === null);
+      });
+    });
+  }
+
+  // List-row hints (hasPhoto/officialImage). Set silently: the caller is rendering with them.
+  function seedAvailability(place) {
+    var id = place && place.id;
+    if (!placeIdPattern.test(id || '') || brokenImages[id]) return;
+    if (place.hasPhoto === true) {
+      var entry = place.officialImage && typeof place.officialImage === 'object' ?
+        officialEntry(Object.assign({}, place.officialImage, { placeId: id }), id) : null;
+      if (entry && !officialRequests[id]) officialRequests[id] = Promise.resolve(entry);
+      availability[id] = 'yes';
+      delete availabilityRetryAt[id];
+    } else if (place.hasPhoto === false && availability[id] !== 'yes') {
+      // Checked by the server: neither an approved photo nor an official image.
+      if (!officialRequests[id]) officialRequests[id] = Promise.resolve(false);
+      availability[id] = 'no';
+      delete availabilityRetryAt[id];
+    }
+  }
+
+  // An image that does not load (or has the wrong size) is a "no photo" place from now on.
+  function imageFailed(photo) {
+    if (placeIdPattern.test(photo.dataset.placeId || '')) brokenImages[photo.dataset.placeId] = true;
+    settleAvailability(photo.dataset.placeId, 'no', false);
+    if (photo.isConnected) omit(photo);
+  }
+
+  if (typeof window !== 'undefined' && window) {
+    window.HBPlacePhotos = {
+      status: function (id) { return availability[id] || null; },
+      request: function (ids) { (Array.isArray(ids) ? ids : []).forEach(requestAvailability); },
+      seed: function (places) { (Array.isArray(places) ? places : []).forEach(seedAvailability); },
+      subscribe: function (listener) {
+        if (typeof listener !== 'function') return function () {};
+        availabilityListeners.push(listener);
+        return function () {
+          var at = availabilityListeners.indexOf(listener);
+          if (at !== -1) availabilityListeners.splice(at, 1);
+        };
+      }
+    };
   }
 
   function insertOfficial(photo, entry, name) {
@@ -145,11 +254,9 @@
     credit.className = 'hb-photo-credit';
     credit.textContent = '사진: 한국관광공사(TourAPI)' + (entry.licenseLabel ? ' · ' + entry.licenseLabel : '');
     credit.setAttribute('aria-label', credit.textContent + ' · 이용조건 보기');
-    image.onerror = function () {
-      if (photo.isConnected) omit(photo);
-    };
+    image.onerror = function () { imageFailed(photo); };
     image.onload = function () {
-      if (!(image.naturalWidth > 0 && image.naturalHeight > 0)) omit(photo);
+      if (!(image.naturalWidth > 0 && image.naturalHeight > 0)) imageFailed(photo);
       else photo.dataset.photoState = 'loaded';
     };
     photo.dataset.photoState = 'loading';
@@ -206,11 +313,9 @@
     credit.textContent = '사진: ' + entry.credit + ' · ' + entry.license + ' · ' + entry.changeNotice;
     credit.title = entry.changeNotice + ' · 라이선스 ' + entry.licenseUrl;
     credit.setAttribute('aria-label', credit.textContent + ' · 원본과 이용허락 정보 보기');
-    image.onerror = function () {
-      if (photo.isConnected) omit(photo);
-    };
+    image.onerror = function () { imageFailed(photo); };
     image.onload = function () {
-      if (image.naturalWidth !== entry.width || image.naturalHeight !== entry.height) omit(photo);
+      if (image.naturalWidth !== entry.width || image.naturalHeight !== entry.height) imageFailed(photo);
       else photo.dataset.photoState = 'loaded';
     };
     photo.dataset.photoState = 'loading';
@@ -232,10 +337,12 @@
     }
     catalog().then(function (images) {
       if (!photo.isConnected) return;
-      var entry = published(Object.prototype.hasOwnProperty.call(images, id) ? images[id] : null, id);
+      var entry = catalogEntry(images, id);
       if (entry) return insertPublished(photo, entry, name);
       // No rights-approved local photo: ask for the same-ID official TourAPI image.
       officialPhoto(id).then(function (official) {
+        // Share a found image with the list gate (an image that failed to load stays 'no').
+        if (official && availability[id] !== 'no') settleAvailability(id, 'yes', false);
         if (!photo.isConnected) return;
         if (official) insertOfficial(photo, official, name);
         else omit(photo);

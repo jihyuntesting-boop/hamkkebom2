@@ -393,6 +393,10 @@ async function load(){
    if(hbAccessFacts(place).length>hbAccessFacts(previous).length){
     combined={...combined,accessFacts:place.accessFacts,accessStatus:place.accessStatus,reason:place.reason||previous.reason};
    }
+   // Keep a known photo flag (hasPhoto true/false) over an unknown one (HB_PHOTO_LIST_GATE).
+   if(combined.hasPhoto==null&&place.hasPhoto!=null){
+    combined={...combined,hasPhoto:place.hasPhoto,photoSource:place.photoSource??null,officialImage:place.officialImage??null};
+   }
    if(!combined.imageUrl&&place.imageUrl){
     combined={...combined,imageUrl:place.imageUrl,imageLicense:place.imageLicense,imageSource:place.imageSource};
    }

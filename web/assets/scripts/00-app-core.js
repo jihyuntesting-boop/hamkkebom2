@@ -750,7 +750,11 @@ function browse(){
   const serverState=ready&&!travel.errors.length&&hbRecommendationState?.key===requestKey?hbRecommendationState:null;
   // 여행 장소 찾기 shows only places meeting HB_TRIP_DATA_RULE; saved/selected places stay visible.
   if(ready)hbSeasonalEnsureFeatured(s.region);
-  const curation=hbTripCuration(ready?hbTripCandidatePool(s.region):[],s.region,hbTripKeepIds(chosen,s.stops));
+  const tripKeep=hbTripKeepIds(chosen,s.stops);
+  const curated=hbTripCuration(ready?hbTripCandidatePool(s.region):[],s.region,tripKeep);
+  // HB_PHOTO_LIST_GATE: list (and seasonal pool) only places with a photo; kept places stay.
+  const photoGate=hbPhotoGate(curated.visible,tripKeep,ready?'places':'');
+  const curation={...curated,visible:photoGate.visible};
   const filtered=ready?hbSearchPlaces(curation.visible,filter,query):[];
   // Weather suggestion (HB_WEATHER_SUGGEST): reorders within each accessibility group only.
   const weatherSignal=hbWeatherBrowseSignal();
@@ -781,12 +785,13 @@ function browse(){
   const section=(title,arr,empty='')=>'<section class="hb-result-section"><h2>'+title+' <span class="hb-result-count">'+arr.length+'곳</span></h2>'+
     (arr.length?'<div class="grid">'+arr.slice(0,limited).map(x=>card(x)).join('')+'</div>':'<p class="muted">'+empty+'</p>')+'</section>';
   const noResults=ready&&!ranked.length;
-  const results=!ready?'':noResults?
-    panel('검색 결과 0건',curation.enabled&&!curation.visible.length&&curation.hidden?'<p>정보가 충분한 장소가 없어 목록을 표시하지 않았어요. 정보가 부족한 장소 '+curation.hidden+'곳은 숨겼어요. 조건을 자동으로 완화하지 않았어요. 다른 지역을 선택해 보세요.</p>':places.length?'<p>현재 검색어·분류에 맞는 장소가 없어요. 조건을 자동으로 완화하지 않았어요.</p>'+(curation.hidden?'<p class="muted">정보가 부족해 숨긴 장소 '+curation.hidden+'곳은 검색에 포함하지 않았어요.</p>':''):'<p>이 지역에서 조회된 장소가 없어요. 다른 지역을 직접 선택해 보세요.</p>'):
+  const results=!ready?'':noResults&&photoGate.pending?'<p class="muted">장소를 불러오고 있어요…</p>':noResults?
+    panel('검색 결과 0건',curated.enabled&&!curated.visible.length&&curated.hidden?'<p>정보가 충분한 장소가 없어 목록을 표시하지 않았어요. 정보가 부족한 장소 '+curation.hidden+'곳은 숨겼어요. 조건을 자동으로 완화하지 않았어요. 다른 지역을 선택해 보세요.</p>':photoGate.hidden&&!photoGate.visible.length?'<p>이 지역에서 지금 보여 드릴 장소를 찾지 못했어요. 다른 지역을 선택해 보세요.</p>':places.length?'<p>현재 검색어·분류에 맞는 장소가 없어요. 조건을 자동으로 완화하지 않았어요.</p>'+(curation.hidden?'<p class="muted">정보가 부족해 숨긴 장소 '+curation.hidden+'곳은 검색에 포함하지 않았어요.</p>':''):'<p>이 지역에서 조회된 장소가 없어요. 다른 지역을 직접 선택해 보세요.</p>'):
     (good.length?section('서버 자료 기준 조건 일치',good):'')+
     (review.length?section('방문 전 확인할 장소',review):'')+
     (excluded.length?'<details class="hb-conflict"><summary>확인된 이동 조건 충돌 '+excluded.length+'곳</summary><div class="grid">'+excluded.slice(0,limited).map(x=>card(x)).join('')+'</div></details>':'')+
-    (Math.max(good.length,review.length,excluded.length)>limited?'<button type="button" class="light" id="hb-more">장소 더 보기</button>':'');
+    (Math.max(good.length,review.length,excluded.length)>limited?'<button type="button" class="light" id="hb-more">장소 더 보기</button>':'')+
+    (photoGate.pending?'<p class="muted hb-photo-gate-more">장소를 더 불러오고 있어요…</p>':'');
   const extraPrefs=[
     s.hbMobilityAid&&s.hbMobilityAid!=='none'?hbMobilityAidLabels[s.hbMobilityAid]:null,
     s.hbSlopePreference==='avoid_steep'?'가파른 경사 피하기 (실제 경사 미검증)':null,
@@ -834,7 +839,7 @@ function browse(){
     '<div class="hb-filter-bar" role="group" aria-label="장소 필터">'+[['all','전체'],['spot','관광지'],['culture','문화시설'],['food','식당'],['access','편의시설 안내 있음']].map(([id,label])=>
     '<button type="button" data-hb-filter="'+id+'" class="light '+(filter===id?'hb-filter-active':'')+'" aria-pressed="'+String(filter===id)+'">'+label+'</button>').join('')+'</div>'+
     foodNote+
-    '<p role="status">'+(ready?ranked.length+'곳이 현재 검색·분류에 표시돼요.':'')+'</p><div id="hb-place-results" aria-busy="'+loading+'">'+results+'</div>';
+    '<p role="status">'+(ready?ranked.length+'곳이 현재 검색·분류에 표시돼요.':'')+'</p><div id="hb-place-results" aria-busy="'+String(loading||photoGate.pending>0)+'">'+results+'</div>';
   hbDiscoveryBindPending(browse);bindPrefs();
   const trayList=el.querySelector('.hb-selection-list');
   if(trayList)trayList.ontoggle=()=>{hbSelectionListOpen=trayList.open};
@@ -1245,6 +1250,70 @@ function hbVisibleGaps(gaps){
   return (Array.isArray(gaps)?gaps:[]).filter(x=>typeof x==='string'&&!/미확인|미지원|미선택|자료\s*없음|확인되지\s*않|확인\s*안\s*됨|확인\s*필요/.test(x));
 }
 // END HB_TRIP_DATA_CURATION
+
+// BEGIN HB_PHOTO_LIST_GATE
+// 사용자 요청 2026-11-26: 홈 「내 주변 여행지 · 식당」 목록과 여행 장소 찾기(#/places, 계절 추천 포함)는
+// 사진이 보이는 장소만 보여 준다. 사진 = 권리 확인 사진(photo-catalog.json) 또는 같은 TourAPI ID의
+// 한국관광공사 공식 이미지 — 02-place-thumbnails.js(window.HBPlacePhotos)가 실제로 그리는 것과 같은 판정.
+// 목록 API 행의 hasPhoto(true/false)를 먼저 쓴다(#124 ARCH-01 계약) — 장소별 /api/photo 조회 없음.
+// hasPhoto:null 만 사진 클라이언트가 조회한다(동시 4개·페이지당 총량 제한).
+// 판정 전 장소는 목록 밖에서 기다렸다가 확인되면 추가된다(보인 카드가 빠지는 건 이미지 로드 실패뿐).
+// 담은 장소·저장된 일정의 장소는 항상 남긴다. 사진 클라이언트가 없거나 localStorage[offStorageKey]='off'면
+// 거르지 않는다. 지도 핀·장소 상세·저장된 일정은 바꾸지 않는다. 화면에 '사진 없음' 같은 문구는 쓰지 않는다.
+const HB_PHOTO_LIST_RULE={enabled:true,offStorageKey:'hamkkebom-photo-gate'};
+const hbPhotoGateWatch=Object.create(null);
+let hbPhotoGateBound=false;
+function hbPhotoGateApi(rule=HB_PHOTO_LIST_RULE){
+  if(!rule.enabled||typeof window==='undefined'||!window)return null;
+  const api=window.HBPlacePhotos;
+  if(!api||typeof api.status!=='function'||typeof api.request!=='function')return null;
+  try{if(typeof localStorage!=='undefined'&&localStorage.getItem(rule.offStorageKey)==='off')return null;}catch{}
+  return api;
+}
+/** view: 'home' | 'places'. Returns the listable places in the given order plus undecided/hidden counts. */
+function hbPhotoGate(list,keepIds=new Set(),view=''){
+  const items=(Array.isArray(list)?list:[]).filter(p=>p&&typeof p.id==='string');
+  const api=hbPhotoGateApi();
+  if(!api)return {enabled:false,visible:items,pending:0,hidden:0};
+  // seed() applies the row hints inside the photo client (an image that failed to load stays 'no').
+  const seeded=typeof api.seed==='function';
+  if(seeded)api.seed(items);
+  const visible=[],ask=[],watch=new Set();
+  let hidden=0;
+  for(const p of items){
+    if(keepIds.has(p.id)){visible.push(p);continue;}
+    const state=api.status(p.id);
+    const known=seeded?state:p.hasPhoto===true?'yes':p.hasPhoto===false?'no':state;
+    if(known==='yes'){visible.push(p);watch.add(p.id);}
+    else if(known==='no')hidden++;
+    else{ask.push(p.id);watch.add(p.id);}
+  }
+  if(ask.length)api.request(ask);
+  if(view){hbPhotoGateWatch[view]=watch;hbPhotoGateBind(api);}
+  return {enabled:true,visible,pending:ask.length,hidden};
+}
+function hbPhotoGateBind(api){
+  if(hbPhotoGateBound||typeof api.subscribe!=='function')return;
+  hbPhotoGateBound=true;
+  api.subscribe(ids=>{
+    const changed=list=>list&&Array.isArray(ids)&&ids.some(id=>list.has(id));
+    if(path()==='/places'){if(changed(hbPhotoGateWatch.places))hbPhotoGateRedraw(browse);}
+    else if(document.getElementById('nearby-list')&&changed(hbPhotoGateWatch.home))hbPhotoGateRedraw(drawNearbyList);
+  });
+}
+/** Redraw while keeping focus and unsent typing in a field (e.g. the place search box). */
+function hbPhotoGateRedraw(draw){
+  const active=document.activeElement;
+  const id=active&&active.id&&el.contains?.(active)?active.id:'';
+  const value=id&&typeof active.value==='string'?active.value:null;
+  draw();
+  if(!id)return;
+  const next=document.getElementById(id);
+  if(!next||next===active)return;
+  if(value!==null&&typeof next.value==='string')next.value=value;
+  next.focus?.({preventScroll:true});
+}
+// END HB_PHOTO_LIST_GATE
 
 // BEGIN HB_WEATHER_SUGGEST
 // 날씨 기반 여행지 제안 (사용자 원래 의도, DECISIONS 2026-11-26): 여행 날짜·지역 예보로 장소 순서·강조를 조정한다.
@@ -3774,6 +3843,10 @@ async function load(){
    if(hbAccessFacts(place).length>hbAccessFacts(previous).length){
     combined={...combined,accessFacts:place.accessFacts,accessStatus:place.accessStatus,reason:place.reason||previous.reason};
    }
+   // Keep a known photo flag (hasPhoto true/false) over an unknown one (HB_PHOTO_LIST_GATE).
+   if(combined.hasPhoto==null&&place.hasPhoto!=null){
+    combined={...combined,hasPhoto:place.hasPhoto,photoSource:place.photoSource??null,officialImage:place.officialImage??null};
+   }
    if(!combined.imageUrl&&place.imageUrl){
     combined={...combined,imageUrl:place.imageUrl,imageLicense:place.imageLicense,imageSource:place.imageSource};
    }
@@ -4694,7 +4767,8 @@ async function fetchNearby(lat,lng,isUser,centerLabel,refreshFeatured=true){
   }
 }
 async function loadFeatured(lat,lng,id){try{let r=await get('/api/featured.js?lat='+encodeURIComponent(lat.toFixed(4))+'&lng='+encodeURIComponent(lng.toFixed(4)));if(id!==featuredRequestId)return;featuredPlaces=r.places||[];featuredError=featuredPlaces.length?'':'근처에서 검증된 유명 명소를 찾지 못했어요'}catch(e){if(id!==featuredRequestId)return;featuredError='대표 관광지 자료를 불러오지 못했어요.'}finally{if(id===featuredRequestId){featuredLoading=false;setNearbyStatus();updateNearbyPins();drawNearbyList()}}}
-function drawNearbyList(){['all','spot','food'].forEach(f=>document.getElementById('near-'+f)?.setAttribute('aria-pressed',String(nearFilter===f)));updateNearbyPins(false);let box=document.getElementById('nearby-list');if(!box)return;let sum=document.getElementById('featured-summary');if(sum)sum.textContent=featuredLoading?'📍 주변 대표 관광지를 불러오는 중이에요…':featuredPlaces.length?'📍 대표 관광지 '+featuredPlaces.length+'곳 · 관광지 편집 선정 (공식 인기순위 아님)':featuredError;let quick=document.getElementById('featured-quicklinks');if(quick){quick.innerHTML=featuredPlaces.map((p,i)=>'<button type="button" class="light hb-famous-chip" data-featured-jump="'+i+'">'+safe(p.name)+'</button>').join('');quick.querySelectorAll('[data-featured-jump]').forEach(b=>b.onclick=()=>{let p=featuredPlaces[Number(b.dataset.featuredJump)];if(!p)return;if(nearbyMap&&window.naver?.maps){nearbyMap.setCenter(new window.naver.maps.LatLng(p.lat,p.lng));nearbyMap.setZoom(15)}document.getElementById('nearby-map')?.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'})})};const filtered=nearFilter==='famous'?featuredPlaces:nearbyItems.filter(p=>nearFilter==='all'||nearFilter==='food'&&p.kind==='food'||nearFilter==='spot'&&['spot','culture'].includes(p.kind));if(nearFilter==='famous'&&featuredLoading){box.innerHTML='<p class="muted">유명 관광지를 검색하고 있어요…</p>';return}if(nearFilter!=='famous'&&nearbyLoading&&!filtered.length){box.innerHTML='<p class="muted">주변 관광지와 식당을 찾고 있어요…</p>';return}if(!filtered.length){box.innerHTML='<p class="muted">'+(nearFilter==='famous'?safe(featuredError||'근처 검증된 유명 관광지를 찾지 못했어요.'):safe(nearbyError||'이 조건에서 검색된 장소가 없어요.'))+'</p>';return}box.innerHTML='<div class="grid">'+filtered.slice(0,50).map(p=>'<div class="card"'+(nearbySelectedId===p.id?' style="outline:2px solid #285C50"':'')+'><span class="chip">'+(p.featured?'⭐ 주요 관광명소':p.kind==='food'?'🍚 음식점':safe(String(p.subtype||'').replace(' · 세부 유형 미확인','')||(p.kind==='culture'?'문화시설':'관광지')))+'</span><h3>'+safe(p.name)+'</h3>'+(p.address?'<p class="muted">'+safe(p.address)+'</p>':'')+(p.discoverySource==='keyword_snapshot'?'<p class="muted">공식 키워드 조회 보강'+(p.collectedAt?' · '+safe(p.collectedAt):'')+' · 현재 정보 확인 필요</p>':'')+'<p class="muted">'+safe(p.featured?nearbyCenterLabel:nearbyResultCenterLabel)+'에서 직선거리 '+safe(p.distanceKm)+'km · 보행 거리 및 접근성은 방문 전 확인</p><div class="actions">'+(p.featured?'<button class="light" data-zoom-featured="'+safe(p.id)+'">지도에서 보기</button>':'')+'<a href="'+safe(hbNearbyDetailLink(p))+'">장소 상세 보기</a><a target="_blank" rel="noopener noreferrer" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(p.lat+','+p.lng)+'">장소 보기 ↗</a><button class="light" data-near-map="'+safe(p.id)+'" aria-pressed="'+String(nearbySelectedId===p.id)+'">지도에서 선택</button>'+(hbNearbyPlanAllowed(p)?'<button type="button" class="light" data-near-pick="'+safe(p.id)+'">'+(s.chosen.includes(p.id)?'선택됨':'일정에 담기')+'</button>':'<span class="muted">현재 일정 지원 지역 외</span>')+'</div></div>').join('')+'</div>';box.querySelectorAll('[data-near-map]').forEach(b=>b.onclick=()=>hbSelectNearbyPlace(b.dataset.nearMap,true));box.querySelectorAll('[data-near-pick]').forEach(b=>b.onclick=()=>{let p=[...featuredPlaces,...nearbyItems].find(v=>v.id===b.dataset.nearPick);if(!p||!hbNearbyPlanAllowed(p))return;if(!s.chosen.includes(p.id))s.chosen.push(p.id);if(!places.some(v=>v.id===p.id))places.push({...p,hbPickedRegion:s.region,accessFacts:[],accessStatus:'unknown'});save();drawNearbyList()});box.querySelectorAll('[data-zoom-featured]').forEach(b=>b.onclick=()=>{let p=featuredPlaces.find(v=>v.id===b.dataset.zoomFeatured);if(p&&nearbyMap&&window.naver?.maps){nearbyMap.setCenter(new window.naver.maps.LatLng(p.lat,p.lng));nearbyMap.setZoom(16);document.getElementById('nearby-map')?.scrollIntoView({behavior:'smooth',block:'center'})}})}
+function drawNearbyList(){['all','spot','food'].forEach(f=>document.getElementById('near-'+f)?.setAttribute('aria-pressed',String(nearFilter===f)));updateNearbyPins(false);let box=document.getElementById('nearby-list');if(!box)return;let sum=document.getElementById('featured-summary');if(sum)sum.textContent=featuredLoading?'📍 주변 대표 관광지를 불러오는 중이에요…':featuredPlaces.length?'📍 대표 관광지 '+featuredPlaces.length+'곳 · 관광지 편집 선정 (공식 인기순위 아님)':featuredError;let quick=document.getElementById('featured-quicklinks');if(quick){quick.innerHTML=featuredPlaces.map((p,i)=>'<button type="button" class="light hb-famous-chip" data-featured-jump="'+i+'">'+safe(p.name)+'</button>').join('');quick.querySelectorAll('[data-featured-jump]').forEach(b=>b.onclick=()=>{let p=featuredPlaces[Number(b.dataset.featuredJump)];if(!p)return;if(nearbyMap&&window.naver?.maps){nearbyMap.setCenter(new window.naver.maps.LatLng(p.lat,p.lng));nearbyMap.setZoom(15)}document.getElementById('nearby-map')?.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'})})};const filtered=nearFilter==='famous'?featuredPlaces:nearbyItems.filter(p=>nearFilter==='all'||nearFilter==='food'&&p.kind==='food'||nearFilter==='spot'&&['spot','culture'].includes(p.kind));// HB_PHOTO_LIST_GATE: the list shows only places with a photo (map pins stay as they are); chosen places stay.
+const gate=hbPhotoGate(filtered,hbTripKeepIds(s.chosen,s.stops),'home'),shown=gate.visible;if(nearFilter==='famous'&&featuredLoading){box.innerHTML='<p class="muted">유명 관광지를 검색하고 있어요…</p>';return}if(nearFilter!=='famous'&&(nearbyLoading||gate.pending)&&!shown.length){box.innerHTML='<p class="muted">주변 관광지와 식당을 찾고 있어요…</p>';return}if(filtered.length&&!shown.length){box.innerHTML='<p class="muted">이 주변에서 지금 보여 드릴 장소를 찾지 못했어요. 지도를 옮겨 다시 검색해 보세요.</p>';return}if(!filtered.length){box.innerHTML='<p class="muted">'+(nearFilter==='famous'?safe(featuredError||'근처 검증된 유명 관광지를 찾지 못했어요.'):safe(nearbyError||'이 조건에서 검색된 장소가 없어요.'))+'</p>';return}box.innerHTML='<div class="grid">'+shown.slice(0,50).map(p=>'<div class="card"'+(nearbySelectedId===p.id?' style="outline:2px solid #285C50"':'')+'><span class="chip">'+(p.featured?'⭐ 주요 관광명소':p.kind==='food'?'🍚 음식점':safe(String(p.subtype||'').replace(' · 세부 유형 미확인','')||(p.kind==='culture'?'문화시설':'관광지')))+'</span><h3>'+safe(p.name)+'</h3>'+(p.address?'<p class="muted">'+safe(p.address)+'</p>':'')+(p.discoverySource==='keyword_snapshot'?'<p class="muted">공식 키워드 조회 보강'+(p.collectedAt?' · '+safe(p.collectedAt):'')+' · 현재 정보 확인 필요</p>':'')+'<p class="muted">'+safe(p.featured?nearbyCenterLabel:nearbyResultCenterLabel)+'에서 직선거리 '+safe(p.distanceKm)+'km · 보행 거리 및 접근성은 방문 전 확인</p><div class="actions">'+(p.featured?'<button class="light" data-zoom-featured="'+safe(p.id)+'">지도에서 보기</button>':'')+'<a href="'+safe(hbNearbyDetailLink(p))+'">장소 상세 보기</a><a target="_blank" rel="noopener noreferrer" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(p.lat+','+p.lng)+'">장소 보기 ↗</a><button class="light" data-near-map="'+safe(p.id)+'" aria-pressed="'+String(nearbySelectedId===p.id)+'">지도에서 선택</button>'+(hbNearbyPlanAllowed(p)?'<button type="button" class="light" data-near-pick="'+safe(p.id)+'">'+(s.chosen.includes(p.id)?'선택됨':'일정에 담기')+'</button>':'<span class="muted">현재 일정 지원 지역 외</span>')+'</div></div>').join('')+'</div>'+(gate.pending?'<p class="muted hb-photo-gate-more">장소를 더 불러오고 있어요…</p>':'');box.querySelectorAll('[data-near-map]').forEach(b=>b.onclick=()=>hbSelectNearbyPlace(b.dataset.nearMap,true));box.querySelectorAll('[data-near-pick]').forEach(b=>b.onclick=()=>{let p=[...featuredPlaces,...nearbyItems].find(v=>v.id===b.dataset.nearPick);if(!p||!hbNearbyPlanAllowed(p))return;if(!s.chosen.includes(p.id))s.chosen.push(p.id);if(!places.some(v=>v.id===p.id))places.push({...p,hbPickedRegion:s.region,accessFacts:[],accessStatus:'unknown'});save();drawNearbyList()});box.querySelectorAll('[data-zoom-featured]').forEach(b=>b.onclick=()=>{let p=featuredPlaces.find(v=>v.id===b.dataset.zoomFeatured);if(p&&nearbyMap&&window.naver?.maps){nearbyMap.setCenter(new window.naver.maps.LatLng(p.lat,p.lng));nearbyMap.setZoom(16);document.getElementById('nearby-map')?.scrollIntoView({behavior:'smooth',block:'center'})}})}
 
 
 function hbBindNewTripNav(){
