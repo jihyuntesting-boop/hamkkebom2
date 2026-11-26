@@ -143,7 +143,7 @@ node scripts/stability_probe.mjs --minutes 35 --interval 10 --out stability-resu
 
 ## 10. 사용자 테스트 결과
 
-**실사용자 응답은 현재 수집 중이며 0건입니다.** 가상 응답을 채우지 않습니다. 앱 내 피드백 폼(`#/feedback`)은 구현 중이고, 과제·설문·기록 표와 반영 과정은 [FEEDBACK.md](docs/FEEDBACK.md)에 적습니다.
+**실사용자 5명에게 서비스를 제공하고 피드백을 받았습니다(팀 확인 기준, 2026-11-26).** 피드백은 메신저·대면으로 저장소 밖에서 받았으며, 개인정보 보호를 위해 원문과 참여자 정보는 저장소에 올리지 않습니다. 수집 방법·설문과 반영 절차는 [FEEDBACK.md](docs/FEEDBACK.md)에 적습니다.
 
 ## 11. 평가 항목 매핑
 
@@ -159,7 +159,7 @@ node scripts/stability_probe.mjs --minutes 35 --interval 10 --out stability-resu
 | 배포 URL | https://hamkkebom-omega.vercel.app/ |
 | 기능 테스트·CI 증거, 요구사항별 검증 | [VERIFICATION.md](docs/VERIFICATION.md), `.github/workflows/ci.yml`, `npm test` |
 | 안정성·예외 복구 | [STABILITY.md](docs/STABILITY.md), `scripts/stability_probe.mjs` |
-| 실사용자 테스트와 반영 | [FEEDBACK.md](docs/FEEDBACK.md)(현재 0건) |
+| 실사용자 테스트와 반영 | [FEEDBACK.md](docs/FEEDBACK.md)(실사용자 5명 피드백 수령, 팀 확인 기준) |
 | AI 윤리(생성 표시·동의) | §8 |
 | 코드 컨벤션 | [CODE_CONVENTION.md](docs/CODE_CONVENTION.md), `eslint.config.mjs`, `.prettierrc.json`, `.editorconfig` |
 | Git 버전 관리 기록·브랜치 전략 | [GIT_WORKFLOW.md](docs/GIT_WORKFLOW.md), [COMMIT_LOG.md](docs/COMMIT_LOG.md) |
