@@ -450,7 +450,7 @@ function newPlan(){
     return;
   }
   if(step===2){
-    el.innerHTML=intro+'<section class="panel"><h2 tabindex="-1">2. 이동 조건</h2><p class="muted">필수 항목이에요. 실제 보행 거리와 계단 여부는 장소별 확인이 필요해요.</p><h3>한 번에 얼마나 걸을 수 있나요?</h3><div class="hb-choice-grid">'+card(walkChoices,'walk',s.hbWalkConfirmed?s.walk:null)+'</div><h3>계단 이용은 어떤가요?</h3><div class="hb-choice-grid">'+card(stairChoices,'stairs',s.hbStairsChoice)+'</div><div class="actions">'+prev+'<button type="button" id="hb-next">다음: 선호사항 →</button></div><p id="hb-step-error" class="warn" role="alert" hidden></p></section>';
+    el.innerHTML=intro+'<section class="panel"><h2 tabindex="-1">2. 이동 조건</h2><p class="muted">필수 항목이에요.</p><h3>한 번에 얼마나 걸을 수 있나요?</h3><div class="hb-choice-grid">'+card(walkChoices,'walk',s.hbWalkConfirmed?s.walk:null)+'</div><h3>계단 이용은 어떤가요?</h3><div class="hb-choice-grid">'+card(stairChoices,'stairs',s.hbStairsChoice)+'</div><div class="actions">'+prev+'<button type="button" id="hb-next">다음: 선호사항 →</button></div><p id="hb-step-error" class="warn" role="alert" hidden></p></section>';
     hbDiscoveryBindPending(newPlan);document.querySelectorAll('[data-hb-walk]').forEach(b=>b.onclick=()=>{s.walk=b.dataset.hbWalk;s.hbWalkConfirmed=true;save();refreshChoice('[data-hb-walk="'+b.dataset.hbWalk+'"]')});
     document.querySelectorAll('[data-hb-stairs]').forEach(b=>b.onclick=()=>{s.hbStairsChoice=b.dataset.hbStairs;s.stairs=s.hbStairsChoice==='possible'?'possible':'avoid';save();refreshChoice('[data-hb-stairs="'+b.dataset.hbStairs+'"]')});
     document.getElementById('hb-prev').onclick=()=>{changeStep(1)};
@@ -659,7 +659,8 @@ const hbRecommendationReasons={
   stale_evidence:'접근성 자료가 오래되어 현재 동선을 다시 확인해야 해요.',
   mobility_aid_unverified:'선택한 보조기구로 이동할 동선은 방문 전에 직접 확인해 주세요.',
   insufficient_evidence:'계단·연속 보행시간·이동 동선은 방문 전에 직접 확인해 주세요.',
-  server_not_assessed:'이 장소는 서버 추천 판정 대상에 없어요. 접근성을 별도로 확인해 주세요.',
+  // 2026-11-26 사용자 결정: 서버 판정 대상이 아닌 장소의 확인 안내 문장은 보여 주지 않는다(판정 배지는 유지).
+  server_not_assessed:'',
   local_unverified:'서버 판정 전 임시 목록이에요. 접근성 판정 결과가 아니에요.',
   missing_reason:'서버 판정 근거가 오지 않아 방문 전 확인으로 표시했어요.',
   classification_mismatch:'서버 판정과 장소 자료의 접근성 정보가 일치하지 않아 확인이 필요해요.'
@@ -767,10 +768,10 @@ function browse(){
   const card=({p,e},extra='')=>{
     const picked=chosen.includes(p.id);
     const status=hbRecommendationStatusText(e);
-    const description=hbRecommendationReasons[e.reason]||hbRecommendationReasons.missing_reason;
+    const description=Object.prototype.hasOwnProperty.call(hbRecommendationReasons,e.reason)?hbRecommendationReasons[e.reason]:hbRecommendationReasons.missing_reason;
     return '<article class="card hb-recommend-card"><div class="hb-card-top"><span class="chip">'+hbPlaceCategory(p)+'</span><span class="hb-recommend-state">'+status+'</span></div>'+
       '<h3>'+safe(p.name)+'</h3>'+(p.address?'<p class="muted">'+safe(p.address)+'</p>':'')+
-      '<p class="muted">'+safe(description)+'</p>'+hbWeatherPlaceNote(p,weatherSignal)+extra+
+      (description?'<p class="muted">'+safe(description)+'</p>':'')+hbWeatherPlaceNote(p,weatherSignal)+extra+
       (e.scope?'<p>확인 범위: '+safe(e.scope)+'</p>':'')+
       (e.found.length?'<p>관련 편의시설 안내 (동선 검증과 별개): '+safe(e.found.join(', '))+'</p>':'')+
       (hbVisibleGaps(e.gaps).length?'<p class="muted">'+safe(hbVisibleGaps(e.gaps).slice(0,3).join(' · '))+'</p>':'')+
