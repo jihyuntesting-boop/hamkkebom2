@@ -3180,11 +3180,18 @@ function hbApplyScheduleFromSelection(){
  go('/plan');return true;
 }
 // §5 origin / return UI. Device-local only; not part of the share DTO.
-// An origin is only what the user explicitly chose: an actual device position
-// after a button press, a place picked from the loaded list, or a typed name
-// (no coordinates). The home map's default centre (서울 시청) or any other map
-// state is never reused as an origin.
+// 2026-11-26 사용자 결정: 1단계 출발지는 "현재 위치를 출발지로" 버튼 하나만 둔다
+// (목록에서 고르기·주소/이름만 적기 입력 삭제). An origin is only an actual device
+// position after a button press. The home map's default centre or any other map state
+// is never reused as an origin.
+// Legacy saved values: a point with coordinates (e.g. an old list-picked 'place') is used
+// as is; a text-only 'label_only' value is read as "no origin" but stays in storage.
 function hbTripEndpointState(){
+ const stored=hbTripEndpointStoredState();
+ const usable=point=>hbTripPointRoutable(point)?point:null;
+ return {...stored,origin:usable(stored.origin),returnTo:usable(stored.returnTo)};
+}
+function hbTripEndpointStoredState(){
  const raw=s.hbTripEndpoints&&typeof s.hbTripEndpoints==='object'?s.hbTripEndpoints:{};
  const clean=point=>point&&typeof point==='object'?hbTripPoint(point,point.source,point.label):null;
  return {origin:clean(raw.origin),returnTo:clean(raw.returnTo),
@@ -3193,7 +3200,8 @@ function hbTripEndpointState(){
 }
 function hbSaveTripEndpointState(patch){
  const previous=s.hbTripEndpoints;
- s.hbTripEndpoints={...hbTripEndpointState(),...patch};
+ // Built from the stored (not the effective) state so a legacy text-only value is not erased by an unrelated save.
+ s.hbTripEndpoints={...hbTripEndpointStoredState(),...patch};
  try{save();return true}catch{s.hbTripEndpoints=previous;return false}
 }
 function hbLocateTripPoint(done,geo=typeof navigator!=='undefined'?navigator.geolocation:null){
@@ -3212,16 +3220,17 @@ function hbTripPointPlaces(){
 }
 function hbTripPointDescribe(point,empty){
  if(!point)return '<span class="hb-trip-point-missing">'+empty+'</span>';
- const note={label_only:'주소·이름만 저장 · 현재 위치나 목록의 장소로 정하면 이동시간을 계산해요',current_location:'현재 위치 · 약 100m 단위',place:'목록에서 고른 장소 · 약 100m 단위'}[point.source];
- return safe(point.label)+' <small>('+note+')</small>';
+ const note={current_location:'현재 위치 · 약 100m 단위',place:'목록에서 고른 장소 · 약 100m 단위'}[point.source];
+ return safe(point.label)+(note?' <small>('+note+')</small>':'');
 }
-function hbTripPointControls(prefix,label){
+// Step 1 shows only the current-location button. The plan-page panel (hidden by
+// HB_PLAN_PANEL_ENDPOINTS=false) may still offer the loaded-place list via withPlaces.
+function hbTripPointControls(prefix,label,withPlaces=false){
+ const gps='<div class="actions hb-trip-point-actions"><button type="button" class="light" data-hb-trip-gps="'+prefix+'">현재 위치를 '+label+'로</button></div>';
+ if(!withPlaces)return gps;
  const list=hbTripPointPlaces();
- return '<div class="actions hb-trip-point-actions"><button type="button" class="light" data-hb-trip-gps="'+prefix+'">현재 위치를 '+label+'로</button></div>'+
-  (list.length?'<div class="field hb-trip-point-field"><label for="hb-trip-'+prefix+'-place">불러온 장소 목록에서 '+label+' 고르기</label><select id="hb-trip-'+prefix+'-place"><option value="">장소 선택</option>'+
-   list.map(place=>'<option value="'+safe(place.id)+'">'+safe(place.name)+'</option>').join('')+'</select> <button type="button" class="light" data-hb-trip-place="'+prefix+'">선택한 장소를 '+label+'로</button></div>':
-   '<p class="muted">장소 목록을 불러오면 목록의 장소를 '+label+'로 고를 수 있어요.</p>')+
-  '<div class="field hb-trip-point-field"><label for="hb-trip-'+prefix+'-label">'+label+' 주소나 이름만 적어 두기 (선택)</label><input id="hb-trip-'+prefix+'-label" maxlength="40" autocomplete="off" placeholder="예: 우리 집"> <button type="button" class="light" data-hb-trip-label="'+prefix+'">이름 저장</button></div>';
+ return gps+(list.length?'<div class="field hb-trip-point-field"><label for="hb-trip-'+prefix+'-place">불러온 장소 목록에서 '+label+' 고르기</label><select id="hb-trip-'+prefix+'-place"><option value="">장소 선택</option>'+
+   list.map(place=>'<option value="'+safe(place.id)+'">'+safe(place.name)+'</option>').join('')+'</select> <button type="button" class="light" data-hb-trip-place="'+prefix+'">선택한 장소를 '+label+'로</button></div>':'');
 }
 function hbBindTripPointControls(root,status,rerender){
  const field=prefix=>prefix==='return'?'returnTo':'origin';
@@ -3230,7 +3239,7 @@ function hbBindTripPointControls(root,status,rerender){
   if(!hbSaveTripEndpointState({[field(prefix)]:point})){status.textContent='위치를 저장하지 못했어요. 저장 공간을 확인해 주세요.';return}
   rerender();
   const next=document.getElementById(status.id);
-  if(next)next.textContent=(prefix==='return'?'귀가 위치':'출발지')+'를 이 기기에 저장했어요.'+(point.source==='label_only'?' 현재 위치나 목록의 장소로 정하면 이동시간을 계산해요.':'');
+  if(next)next.textContent=(prefix==='return'?'귀가 위치':'출발지')+'를 이 기기에 저장했어요.';
  };
  root.querySelectorAll('[data-hb-trip-gps]').forEach(button=>button.onclick=()=>{
   status.textContent='현재 위치를 확인하는 중이에요.';
@@ -3241,17 +3250,12 @@ function hbBindTripPointControls(root,status,rerender){
   const place=hbTripPointPlaces().find(item=>item.id===select?.value);
   store(prefix,place?hbTripPoint(hbMapCoordinates(place),'place',place.name):null,'목록에서 장소를 먼저 골라 주세요.');
  });
- root.querySelectorAll('[data-hb-trip-label]').forEach(button=>button.onclick=()=>{
-  const prefix=button.dataset.hbTripLabel,input=document.getElementById('hb-trip-'+prefix+'-label');
-  store(prefix,hbTripPoint(null,'label_only',input?.value),'저장할 주소나 이름을 적어 주세요.');
- });
 }
 // Step 1 (여행 정보): origin only; the return point defaults to the origin.
 function hbTripOriginStepMarkup(){
  const state=hbTripEndpointState();
  return '<section class="hb-trip-origin-step" aria-labelledby="hb-trip-origin-title"><h3 id="hb-trip-origin-title">출발지 (선택)</h3>'+
   '<p>출발지: '+hbTripPointDescribe(state.origin,'출발지를 입력하면 이동시간을 계산해요')+'</p>'+hbTripPointControls('origin','출발지')+
-  '<p class="muted">출발지는 이 기기에만 저장되고 가족 공유 링크에 포함되지 않아요. 귀가 위치는 출발지와 같게 보고, 일정표에서 바꿀 수 있어요. 지도 기본 중심(서울 시청)은 출발지로 쓰지 않아요.</p>'+
   (state.origin?'<div class="actions"><button type="button" class="light" id="hb-trip-origin-clear">출발지 지우기</button></div>':'')+
   '<p id="hb-trip-endpoint-status" role="status" aria-live="polite"></p></section>';
 }
@@ -3271,10 +3275,10 @@ function hbRenderTripEndpoints(generator,now){
  const returnPoint=state.returnMode==='other'?state.returnTo:state.returnMode==='none'?null:state.origin;
  const desired=hbDesiredDepartureCheck(now,state,s.hbPlanInfo?.homeDeparture);
  const html='<section class="hb-plan-endpoints" aria-labelledby="hb-trip-endpoints-title"><h3 id="hb-trip-endpoints-title">출발지·귀가 위치와 예상 시간</h3>'+
-  '<p>출발지: '+hbTripPointDescribe(state.origin,'출발지를 입력하면 이동시간을 계산해요')+'</p>'+hbTripPointControls('origin','출발지')+
+  '<p>출발지: '+hbTripPointDescribe(state.origin,'출발지를 입력하면 이동시간을 계산해요')+'</p>'+hbTripPointControls('origin','출발지',true)+
   '<div class="field"><label for="hb-trip-return-mode">귀가 위치</label><select id="hb-trip-return-mode">'+
   [['same','출발지로 돌아가기'],['other','다른 곳으로 귀가'],['none','귀가 시간 계산 안 함']].map(([v,l])=>'<option value="'+v+'"'+(state.returnMode===v?' selected':'')+'>'+l+'</option>').join('')+'</select></div>'+
-  (state.returnMode==='other'?'<p>귀가 위치: '+hbTripPointDescribe(state.returnTo,'귀가 위치를 입력하면 귀가 시간을 계산해요')+'</p>'+hbTripPointControls('return','귀가 위치'):'')+
+  (state.returnMode==='other'?'<p>귀가 위치: '+hbTripPointDescribe(state.returnTo,'귀가 위치를 입력하면 귀가 시간을 계산해요')+'</p>'+hbTripPointControls('return','귀가 위치',true):'')+
   '<ul class="hb-trip-endpoint-times"><li data-hb-endpoint="departure" data-hb-endpoint-status="'+safe(times.departure.status)+'">'+safe(hbTripEndpointLine('departure',times.departure,times.anchors))+'</li>'+
   '<li data-hb-endpoint="return" data-hb-endpoint-status="'+safe(times.return.status)+'">'+safe(hbTripEndpointLine('return',times.return,times.anchors))+'</li></ul>'+
   (desired?'<p class="hb-trip-desired" data-hb-desired="'+safe(desired.status)+'">'+safe(desired.message)+'</p>'+(desired.canApply?'<button type="button" class="light" id="hb-trip-desired-apply">일정 시각을 희망 출발에 맞추기</button>':''):'')+
