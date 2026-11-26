@@ -693,6 +693,8 @@ ol.hb-progress li.hb-step-done { color: var(--hb-ink); }
 .hb-plan-regen select, .hb-plan-regen button { margin: 0 !important; }
 .hb-plan-local-notice { margin: var(--hb-space-3) 0 0 !important; font-size: var(--hb-text-sm) !important; color: var(--hb-muted) !important; }
 .hb-plan-edit-feedback:empty { display: none; }
+/* Step 3 finish error: the warn box exists only while it carries an actual error message. */
+#hb-finish-error:empty { display: none; }
 details.hb-plan-warnings {
   margin: 0 0 var(--hb-space-4) !important; padding: 0 var(--hb-space-4) !important;
   background: var(--hb-warning-bg); color: var(--hb-warning-ink) !important;
