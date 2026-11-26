@@ -278,6 +278,22 @@ async function hbFetchPlanTravelTimes(items,context,request=hbTravelRequest){
  return {status:result.every(leg=>leg.status==='estimated')?'estimated':'incomplete',
   segments:result,limited:edges.some((leg,i)=>leg.from!==leg.to&&!requested.has(i))};
 }
+// P1-10: configuration gaps (no keys / feature off) mean the car-route button can never succeed here.
+// Quota, network or provider errors are temporary and keep the button.
+const HB_ROUTE_SETUP_GAPS=['env_missing','missing_credentials','env_not_injected','feature_disabled','provider_disabled'];
+let hbRouteProviderState=null; // null unknown · 'checking' · 'ready' · 'unavailable' (per page load)
+function hbRouteProviderUnavailable(travel){
+ return travel?.status==='provider_disabled'&&(HB_ROUTE_SETUP_GAPS.includes(travel.diagnostic)||HB_ROUTE_SETUP_GAPS.includes(travel.reason));
+}
+/** One /api/travel-times call for the first leg. Without setup the server answers provider_disabled
+ * before any upstream call. Returns 'unavailable' | 'ready' | null (could not tell). */
+async function hbProbeRouteProvider(items,context,request=hbTravelRequest){
+ const {batches}=hbPlanTravelBatches(items);
+ if(!batches.length||context?.transport!=='car'||!['서울','경기'].includes(context?.region))return null;
+ let data;
+ try{data=await request('/api/travel-times',{region:context.region,transport:'car',stopIds:batches[0].stopIds.slice(0,2)})}catch{return null}
+ return hbRouteProviderUnavailable({status:data?.status,reason:hbIssueCode(data?.reason),diagnostic:hbIssueCode(data?.diagnostic)})?'unavailable':'ready';
+}
 function hbPreviewPlanTravel(items,travel,window={}){
  const before=Array.isArray(items)?items:[];
  const candidate=before.map(stop=>({...stop})),warnings=[],edges=hbPlanTravelEdges(before);
@@ -797,7 +813,7 @@ function hbWeatherReorderStops(stops,{classOf,signal,isLocked=hbWeatherStopLocke
  return {stops:best.next,before,after:best.v};
 }
 /** One-line reason for the summary above the itinerary. Wording is a weather fact, never a safety claim. */
-function hbWeatherDraftReason(signal,stops,classOf){
+function hbWeatherDraftReason(signal,stops,classOf,before=null){
  const hours=signal?.hours instanceof Map?signal.hours:new Map(),bad=h=>!!(h.wet||h.hot||h.cold);
  const band=typeof hbWeatherBand==='function'?hbWeatherBand:m=>m<720?'오전':'오후';
  const counts=new Map(),indoorBands=new Set();
@@ -813,9 +829,29 @@ function hbWeatherDraftReason(signal,stops,classOf){
  const word=sample.some(h=>h.wet)?(sample.find(h=>wetTypes.includes(h.type))?.type||'강수')+' 예보':sample.some(h=>h.hot)?'더위 부담':'추위 부담';
  const particle=/부담$/.test(word)?'으로':'로';
  const indoor=indoorBands.has(main);
- return {band:main,word,indoor,
-  applied:indoor?main+' '+word+particle+' 실내 일정을 '+main+'에 배치했어요.':main+' '+word+particle+' 야외 일정을 날씨가 나은 시간대로 옮겼어요.',
-  proposal:indoor?main+' '+word+'에 맞춰 실내 일정을 '+main+'에 둔 대체안이에요.':main+' '+word+'에 맞춰 야외 일정을 날씨가 나은 시간대로 옮긴 대체안이에요.'};
+ // P1-8 (2026-11-26): say only what actually changed. Outdoor stops still inside burden hours are named as
+ // kept, never described as moved. `before` (the original order) identifies the stops that really moved.
+ const badCount=stop=>hbWeatherStopHours(hbDraftMinute(stop.plannedArrival||stop.time),Number(stop.stayMinutes),hours).filter(bad).length;
+ const outdoor=(Array.isArray(stops)?stops:[]).filter(x=>hbWeatherIsSight(x)&&classOf(x)==='outdoor');
+ const prior=new Map((Array.isArray(before)?before:[]).filter(hbWeatherIsSight).map(x=>[x.placeId,badCount(x)]));
+ const names=list=>list.map(x=>x.name).filter(x=>typeof x==='string'&&x.trim());
+ const moved=names(outdoor.filter(x=>prior.has(x.placeId)&&badCount(x)<prior.get(x.placeId)));
+ const stayed=names(outdoor.filter(x=>badCount(x)>0));
+ const list=xs=>xs.join(', ');
+ const keptNote=stayed.length?' '+list(stayed)+hbJosa(stayed[stayed.length-1],'은','는')+' 옮길 수 있는 시간대가 없어 그대로예요.':'';
+ const movedPart=moved.length?list(moved)+hbJosa(moved[moved.length-1],'을','를'):'야외 일정을';
+ const outdoorApplied=moved.length||!stayed.length?main+' '+word+particle+' '+movedPart+' 날씨가 나은 시간대로 옮겼어요.'+keptNote:
+  main+' '+word+particle+' 일정 순서를 조정했어요.'+keptNote;
+ const outdoorProposal=moved.length||!stayed.length?main+' '+word+'에 맞춰 '+movedPart+' 날씨가 나은 시간대로 옮긴 대체안이에요.'+keptNote:
+  main+' '+word+'에 맞춰 일정 순서를 조정한 대체안이에요.'+keptNote;
+ return {band:main,word,indoor,moved,stayed,
+  applied:indoor?main+' '+word+particle+' 실내 일정을 '+main+'에 배치했어요.'+keptNote:outdoorApplied,
+  proposal:indoor?main+' '+word+'에 맞춰 실내 일정을 '+main+'에 둔 대체안이에요.'+keptNote:outdoorProposal};
+}
+/** 받침에 따라 조사를 고른다(을/를, 은/는). */
+function hbJosa(word,withFinal,withoutFinal){
+ const code=String(word||'').trim().slice(-1).charCodeAt(0)-0xAC00;
+ return code>=0&&code<11172&&code%28?withFinal:withoutFinal;
 }
 function hbWeatherStopClassifier(){
  const list=typeof places!=='undefined'&&Array.isArray(places)?places:[];
@@ -830,7 +866,7 @@ function hbWeatherDraftForNewPlan(stops,state){
  const classOf=hbWeatherStopClassifier();
  const result=hbWeatherReorderStops(stops,{classOf,signal,isLocked:x=>hbWeatherStopLocked(x)||must.includes(x.placeId)});
  if(!result)return null;
- return {region:state.region,date:state.date,message:hbWeatherDraftReason(signal,result.stops,classOf).applied,source:signal.source||'',
+ return {region:state.region,date:state.date,message:hbWeatherDraftReason(signal,result.stops,classOf,stops).applied,source:signal.source||'',
   originalStops:stops,weatherStops:result.stops,createdAt:new Date().toISOString()};
 }
 let hbPlanWeatherMessage='';
@@ -854,7 +890,7 @@ function hbPlanWeatherView(){
  if(!result)return {kind:'none'};
  const dismissKey=signal.fingerprint+'|'+current;
  if(s.hbWeatherDismissed===dismissKey)return {kind:'none'};
- return {kind:'proposal',result,signal,reason:hbWeatherDraftReason(signal,result.stops,classOf),dismissKey,signature:hbTripSignature(s),region,date};
+ return {kind:'proposal',result,signal,reason:hbWeatherDraftReason(signal,result.stops,classOf,stops),dismissKey,signature:hbTripSignature(s),region,date};
 }
 function hbPlanWeatherMarkup(view){
  const message=hbPlanWeatherMessage;hbPlanWeatherMessage='';
@@ -1061,7 +1097,7 @@ function hbRenderTripEndpoints(generator,now){
   (desired?'<p class="hb-trip-desired" data-hb-desired="'+safe(desired.status)+'">'+safe(desired.message)+'</p>'+(desired.canApply?'<button type="button" class="light" id="hb-trip-desired-apply">일정 시각을 희망 출발에 맞추기</button>':''):'')+
   '<p class="muted">첫 방문지 시각과 집 출발 시각은 달라요. 집 출발·귀가 시각은 네이버 자동차 경로로 계산하고, 주차·하차·보행 시간과 교통 상황에 따라 달라질 수 있어요.</p>'+
   '<p class="muted">출발지·귀가 위치는 이 기기에만 저장되고 가족 공유 링크에 포함되지 않아요. 경로를 확인할 때만 약 100m 단위로 줄인 좌표를 서버에 보내요.</p>'+
-  '<div class="actions">'+((hbTripPointRoutable(state.origin)||hbTripPointRoutable(returnPoint))?'<button type="button" class="light" id="hb-trip-endpoint-check">집 출발·귀가 시간 확인</button>':'')+
+  '<div class="actions">'+(hbRouteProviderState!=='unavailable'&&(hbTripPointRoutable(state.origin)||hbTripPointRoutable(returnPoint))?'<button type="button" class="light" id="hb-trip-endpoint-check">집 출발·귀가 시간 확인</button>':'')+
   ((state.origin||state.returnTo)?'<button type="button" class="light" id="hb-trip-endpoint-clear">출발지·귀가 위치 지우기</button>':'')+'</div>'+
   '<p id="hb-trip-endpoint-status" role="status" aria-live="polite"></p></section>';
  generator.insertAdjacentHTML('beforeend',html);
@@ -1235,8 +1271,19 @@ function hbPlanViewEnhance(){
     document.getElementById('hb-route-estimate')?.focus();
    };
   }
-  if(routeStops.length>=2&&routeMode.kind==='car'){
-   generator.insertAdjacentHTML('beforeend','<section class="hb-plan-travel" data-hb-route-mode="car"><h3>자동차 이동시간 반영 미리보기</h3><p>네이버 자동차 경로로 계산한 구간만 일정에 반영해요.</p><button type="button" class="light" id="hb-route-estimate">자동차 이동시간 확인 및 변경안 보기</button><div id="hb-route-result" role="status" aria-live="polite"></div></section>');
+  // P1-10 (2026-11-26): when the deployment has no NAVER Directions setup the button can only fail, so it
+  // is not shown; each row keeps its "약 N분 (예상)" travel. The state comes from the existing API answer.
+  if(routeStops.length>=2&&routeMode.kind==='car'&&hbRouteProviderState!=='unavailable'){
+   if(hbRouteProviderState===null){
+    hbRouteProviderState='checking';
+    hbProbeRouteProvider(now,{region:s.hbPlanInfo?.region||s.region,transport:'car'}).then(state=>{
+     hbRouteProviderState=state||'ready';
+     const box=document.querySelector('.hb-plan-travel[data-hb-route-mode="car"]');
+     if(!box)return;
+     if(hbRouteProviderState==='unavailable')box.remove();else box.hidden=false;
+    });
+   }
+   generator.insertAdjacentHTML('beforeend','<section class="hb-plan-travel" data-hb-route-mode="car"'+(hbRouteProviderState==='ready'?'':' hidden')+'><h3>자동차 이동시간 반영 미리보기</h3><p>네이버 자동차 경로로 계산한 구간만 일정에 반영해요.</p><button type="button" class="light" id="hb-route-estimate">자동차 이동시간 확인 및 변경안 보기</button><div id="hb-route-result" role="status" aria-live="polite"></div></section>');
    const routeButton=document.getElementById('hb-route-estimate');
    routeButton.onclick=async()=>{
     const output=document.getElementById('hb-route-result');
@@ -1246,6 +1293,7 @@ function hbPlanViewEnhance(){
     output.textContent='자동차 이동시간을 계산하는 중이에요.';
     try{
      const travel=await hbFetchPlanTravelTimes(now,context);
+     if(hbRouteProviderUnavailable(travel))hbRouteProviderState='unavailable';
      if(document.getElementById('hb-route-result')!==output)return;
      if(hbTripSignature(s)!==signature){output.textContent='계산하는 동안 일정이 바뀌었어요. 다시 눌러 주세요.';return}
      if(!['estimated','incomplete'].includes(travel.status)){
@@ -1272,7 +1320,7 @@ function hbPlanViewEnhance(){
       (travel.limited?'<p class="warn">일부 구간은 조회 횟수 제한으로 예상 이동시간을 유지했어요.</p>':'')+
       '<div class="hb-replan-compare"><div><h4>변경 전 일정</h4><ol>'+before+'</ol></div>'+
       '<div><h4>반영 후 예상 일정</h4><ol>'+after+'</ol></div></div>'+
-      (warnings?'<h4>충돌·확인 필요</h4><ul>'+warnings+'</ul>':'<p>확인된 구간에 따른 시간 충돌은 발견하지 못했어요.</p>')+
+      (warnings?'<h4>시간 충돌 안내</h4><ul>'+warnings+'</ul>':'<p>확인된 구간에 따른 시간 충돌은 발견하지 못했어요.</p>')+
       '<p class="muted">교통 상황에 따라 실제 소요시간은 달라질 수 있어요.</p>'+
       (preview.canApply?'<div class="actions"><button type="button" id="hb-route-apply">이 변경안 적용</button><button type="button" class="light" id="hb-route-cancel">취소</button></div>':
        '<p class="warn">'+(preview.warnings.some(w=>w.blocking)?

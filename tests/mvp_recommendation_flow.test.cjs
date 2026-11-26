@@ -129,36 +129,38 @@ test("tourism and food filtering, invalid IDs and category display",()=>{
 test("automatic server eligibility replaces local provisional label",async()=>{
   const h=harness({response:{eligible:[{id,reason:"documented_route"}],needsReview:[],excluded:[],foodPreferencesApplied:false}});
   h.run();
-  assert.match(h.html,/서버에서 이동 조건을 확인하고/);
-  assert.doesNotMatch(h.html,/서버 기준 조건 일치/);
+  assert.match(h.html,/이동 조건을 반영하고 있어요/);
+  assert.doesNotMatch(h.html,/이동 조건에 맞아요/);
   await h.flush();
-  assert.match(h.html,/서버 기준 조건 일치/);
+  assert.match(h.html,/이동 조건에 맞아요/);
   assert.match(h.html,/상세 정보/);
   assert.match(h.html,/일정에 담기/);
 });
 test("zero server recommendation is not an API error",async()=>{
   const h=harness({response:{eligible:[],needsReview:[],excluded:[],foodPreferencesApplied:false}});
   h.run();await h.flush();
-  assert.match(h.html,/서버 추천 결과 0건/);
-  assert.doesNotMatch(h.html,/서버 추천 API 오류/);
-  assert.match(h.html,/접근성 확인 필요/);
+  // 2026-11-26 사용자 결정(MVP, judge P1-2): 판정 건수·'접근성 확인 필요' 배지는 보이지 않는다.
+  assert.match(h.html,/이동 조건을 반영해 장소를 정리했어요/);
+  assert.doesNotMatch(h.html,/추천 정보를 불러오지 못했어요/);
+  assert.doesNotMatch(h.html,/확인 필요|서버 추천 결과 0건|조건 일치 0/);
 });
 test("API failure clearly differs from empty recommendations and can retry",async()=>{
   let calls=0;
   const h=harness({request:async()=>{calls++;if(calls===1)throw Error("502");return {eligible:[],needsReview:[],excluded:[]}}});
   h.run();await h.flush();
-  assert.match(h.html,/서버 추천 API 오류/);
-  assert.doesNotMatch(h.html,/서버 추천 결과 0건/);
+  assert.match(h.html,/추천 정보를 불러오지 못했어요/);
+  assert.doesNotMatch(h.html,/이동 조건을 반영해 장소를 정리했어요/);
   h.getId("hb-recommend-retry").onclick();
   await h.flush();
-  assert.equal(calls,2);assert.match(h.html,/서버 추천 결과 0건/);
+  assert.equal(calls,2);assert.match(h.html,/이동 조건을 반영해 장소를 정리했어요/);
 });
-test("unsupported food preferences are disclosed and not inferred as filters",async()=>{
+// 2026-11-26 사용자 결정(MVP): 미지원 안내는 보이지 않되, 반영했다고 주장하지도 않는다.
+test("unsupported food preferences are not claimed as applied and show no unsupported notice",async()=>{
   const h=harness({s:state({hbBrowseFilter:"food",hbFoodPreferences:["vegetarian"]}),
     places:[place("food-1",{kind:"food"})],
     response:{eligible:[],needsReview:[{id:"food-1",reason:"insufficient_evidence"}],excluded:[],foodPreferencesApplied:false}});
   h.run();await h.flush();
-  assert.match(h.html,/식당 자동 필터에 반영하지 않아요/);
+  assert.doesNotMatch(h.html,/식당 자동 필터에 반영하지 않아요|음식 선호를 식당 추천에 반영했어요/);
   assert.match(h.html,/식당/);
 });
 test("selected places remain unique and survive search, category changes and reload",()=>{
@@ -221,15 +223,17 @@ test("conflicting or stale catalog evidence downgrades a contrary server decisio
     const h=harness({places:[place(id,{accessStatus})],
       response:{eligible:[{id,reason:"documented_route"}],needsReview:[],excluded:[]}});
     h.run();await h.flush();
-    assert.doesNotMatch(h.html,/서버 기준 조건 일치/);
-    assert.match(h.html,accessStatus==="conflicting"?/자료 상충/:/접근성 자료가 오래됐어요/);
+    assert.doesNotMatch(h.html,/이동 조건에 맞아요/);
+    // judge P1-2: the downgrade is kept, but no '자료 상충·확인 필요' wording is shown.
+    assert.doesNotMatch(h.html,/자료 상충|오래되어|확인 필요/);
+    assert.match(h.html,/여행 후보 장소/);
   }
 });
 test("food preference application requires explicit supported preference codes",async()=>{
   const h=harness({s:state({hbFoodPreferences:["vegetarian","less_spicy"]}),
     response:{eligible:[],needsReview:[],excluded:[],foodPreferencesApplied:true,appliedFoodPreferences:["vegetarian"]}});
   h.run();await h.flush();
-  assert.match(h.html,/식당 자동 필터에 반영하지 않아요/);
+  assert.doesNotMatch(h.html,/음식 선호를 식당 추천에 반영했어요/);
   const accepted=h.ctx.hbNormalizeRecommendationResponse({eligible:[],needsReview:[],excluded:[],
     foodPreferencesApplied:true,appliedFoodPreferences:["vegetarian"]});
   assert.equal(accepted.foodPreferencesApplied,true);
@@ -246,6 +250,6 @@ test("a stale request cannot overwrite the result for newly chosen walking minut
   await latest;
   pending[0]({eligible:[{id,reason:"documented_route"}],needsReview:[],excluded:[]});
   await previous;
-  assert.match(h.html,/서버 추천 판정/);
-  assert.doesNotMatch(h.html,/서버 기준 조건 일치/);
+  assert.match(h.html,/이동 조건을 반영해 장소를 정리했어요/);
+  assert.doesNotMatch(h.html,/이동 조건에 맞아요/);
 });

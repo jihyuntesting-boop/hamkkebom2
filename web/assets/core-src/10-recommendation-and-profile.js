@@ -155,6 +155,23 @@ function hbClockSummary(date,time,offset,verb){
   if(parsed.error)return day.label+' · 시각을 다시 확인해 주세요';
   return parsed.value?day.label+' '+parsed.value+' '+verb:day.label+' · 시각을 비우면 일정에 맞춰 제안해요';
 }
+/** P1-7 (2026-11-26): the single reader for the "여행 조건" time summary. 1단계 saves the home times in
+ * hbDepartTime/hbReturnTime(+hbReturnDay). Older drafts may only hold hbPlanStart/hbPlanEnd, which mean the
+ * first-visit window (a different value the engine still uses), so they are shown under their own label. */
+function hbTripTimeSummary(state){
+  const st=state||{};
+  const parts=[typeof st.date==='string'?st.date:''];
+  const depart=hbParseClockInput(st.hbDepartTime??''),back=hbParseClockInput(st.hbReturnTime??'');
+  const day=hbReturnDay(st.hbReturnDay??0,st.hbDuration||'day')??0;
+  if(!depart.error&&depart.value)parts.push('집 출발 '+depart.value);
+  if(!back.error&&back.value)parts.push('집 도착 '+(day===1?'다음 날 ':day>1?day+'일 뒤 ':'')+back.value);
+  if(parts.length===1){
+    const a=hbParseClockInput(st.hbPlanStart??''),b=hbParseClockInput(st.hbPlanEnd??'');
+    const first=!a.error&&a.value?a.value:'',last=!b.error&&b.value?b.value:'';
+    parts.push(first||last?'첫 방문 '+(first||'자동')+' ~ '+(last||'자동'):'시간은 일정에 맞춰 제안해요');
+  }
+  return parts.filter(Boolean).join(' · ');
+}
 function hbTravelInput(profile,today=hbTodaySeoul()){
   const errors=[];
   const allowed=(value,choices)=>choices.includes(value)?value:null;
@@ -327,7 +344,7 @@ function newPlan(){
       (current?' aria-label="'+n+'단계 '+name+' (현재 단계)"':target.ok?' aria-label="'+n+'단계 '+name+' 화면으로 이동"':' aria-disabled="true" aria-label="'+n+'단계 '+name+' (앞 단계를 먼저 완료해 주세요)" aria-describedby="hb-step-error"')+
       '><span class="hb-step-num" aria-hidden="true">'+n+'</span>'+name+'</button>';
   };
-  const intro=hbDiscoveryPendingMarkup()+'<h1>부모님과 여행 만들기</h1><p class="muted">여행 지역과 이동 조건부터 확인해요.</p><ol class="hb-progress" aria-label="여행 만들기 3단계 중 '+step+'단계">'+['여행 정보','이동 조건','선호사항'].map((name,i)=>'<li'+(i+1===step?' aria-current="step"':i+1<step?' class="hb-step-done"':'')+'>'+stepLink(name,i)+'</li>').join('')+'</ol><p id="hb-step-nav-notice" class="hb-step-nav-notice" role="status" aria-live="polite" hidden></p>';
+  const intro=hbDiscoveryPendingMarkup()+'<h1>부모님과 여행 만들기</h1><p class="muted">여행 지역과 이동 조건부터 정해요.</p><ol class="hb-progress" aria-label="여행 만들기 3단계 중 '+step+'단계">'+['여행 정보','이동 조건','선호사항'].map((name,i)=>'<li'+(i+1===step?' aria-current="step"':i+1<step?' class="hb-step-done"':'')+'>'+stepLink(name,i)+'</li>').join('')+'</ol><p id="hb-step-nav-notice" class="hb-step-nav-notice" role="status" aria-live="polite" hidden></p>';
   if(step===1){
     el.innerHTML=intro+'<section class="panel hb-ai-box" id="hb-ai-slot" data-hb-ai aria-labelledby="hb-ai-title" hidden></section><section class="panel"><h2 tabindex="-1">1. 여행 정보</h2>'+prefs()+(s.hbDateRefreshedFrom?'<p role="status">이전에 저장된 날짜를 오늘로 갱신했어요. 기존 일정의 날짜는 그대로 유지돼요.</p>':'')+'<div class="actions"><button class="light" type="button" id="hb-date-today">오늘</button><button class="light" type="button" id="hb-date-tomorrow">내일</button></div><div class="row hb-trip-time-row">'+hbClockField('hb-trip-start','여행 출발 희망 시각 (선택)',s.hbDepartTime,'집(출발지)에서 출발하는 시각')+hbClockField('hb-trip-end','집 도착 희망 시각 (선택)',s.hbReturnTime,'집(귀가 위치)에 도착하고 싶은 날짜와 시각',true)+'</div><div id="hb-trip-home-preview" class="hb-trip-home-preview" aria-live="polite">'+(typeof hbHomePreviewMarkup==='function'?hbHomePreviewMarkup():'')+'</div><p class="muted" id="hb-trip-time-help">시간을 비워 두면 선택한 장소에 맞춰 시간표 초안을 제안해요. 숫자로 7:30, 0730, 19:05처럼 직접 입력하거나 시계로 고를 수 있고, 새벽·저녁 시간도 가능해요. 출발 시각을 정하면 출발지에서 첫 방문지까지 이동시간을 더해 첫 방문지 도착 시각을 잡아요. 네이버 자동차 경로로 계산한 이동시간이 있으면 그 값을, 없으면 이동 약 25분 (예상)으로 넣어요.</p>'+((s.hbPlanStart||s.hbPlanEnd)?'<p class="hb-legacy-time-note" role="note">이전에 저장한 첫 방문지 기준 시각('+safe(s.hbPlanStart||'제안')+' ~ '+safe(s.hbPlanEnd||'제안')+')은 그 의미 그대로 유지돼요. 값이 있으면 집 출발·도착 희망 시각보다 우선해요. <button type="button" class="light" id="hb-legacy-time-clear">이전 첫 방문지 시각 지우기</button></p>':'')+hbTripOriginStepMarkup()+'<div class="row"><div class="field"><label for="hb-duration">여행 형태</label><select id="hb-duration"><option value="day">당일 여행</option><option value="overnight">숙박 여행</option></select></div><div class="field"><label for="hb-transport">주요 이동 수단</label><select id="hb-transport"><option value="car">자동차</option><option value="transit">대중교통</option><option value="mixed">상황에 따라 선택</option></select></div><div class="field"><label for="hb-party">동행 인원</label><select id="hb-party"><option value="2">2명</option><option value="3">3명</option><option value="4">4명</option><option value="5">5명</option><option value="6">6명</option><option value="7">7명</option><option value="8">8명</option><option value="9">9명</option><option value="10">10명</option><option value="11">11명</option><option value="12">12명</option></select></div></div><div class="actions"><button type="button" id="hb-next">다음: 이동 조건 →</button></div><p class="muted" id="hb-step-error" role="alert"></p></section>'+(typeof weatherCard==='function'?weatherCard():'');
     hbDiscoveryBindPending(newPlan);bindPrefs();hbAiMountParse(document.getElementById('hb-ai-slot'));
@@ -552,17 +569,17 @@ function hbPlaceDetailPath(id){
 }
 
 const hbRecommendationReasons={
-  documented_route:'서버 자료에서 선택한 이동 조건과 일치하는 동선이 확인됐어요.',
-  required_stairs:'검증된 이동 구간에 필수 계단이 있어 선택한 조건과 충돌해요.',
+  documented_route:'선택한 이동 조건과 맞는 동선 자료가 있어요.',
+  required_stairs:'자료에 필수 계단이 있어 선택한 이동 조건과 맞지 않아요.',
+  // 2026-11-26 사용자 결정(MVP): 미확인·확인 필요 문구는 보여 주지 않는다. 판정 근거가 없는 장소는 문장·배지 없이 후보로만 보인다.
   conflicting_evidence:'',
-  stale_evidence:'접근성 자료가 오래됐어요.',
+  stale_evidence:'',
   mobility_aid_unverified:'',
   insufficient_evidence:'',
-  // 2026-11-26 사용자 결정: 서버 판정 대상이 아닌 장소의 확인 안내 문장은 보여 주지 않는다(판정 배지는 유지).
   server_not_assessed:'',
-  local_unverified:'서버 판정 전 임시 목록이에요.',
-  missing_reason:'서버 판정 근거가 오지 않아 방문 전 확인으로 표시했어요.',
-  classification_mismatch:'서버 판정과 장소 자료의 접근성 정보가 일치하지 않아요.'
+  local_unverified:'',
+  missing_reason:'',
+  classification_mismatch:''
 };
 let hbRecommendationState=null;
 let hbRecommendationSequence=0;
@@ -672,7 +689,7 @@ function browse(){
     const picked=chosen.includes(p.id);
     const status=hbRecommendationStatusText(e);
     const description=Object.prototype.hasOwnProperty.call(hbRecommendationReasons,e.reason)?hbRecommendationReasons[e.reason]:hbRecommendationReasons.missing_reason;
-    return '<article class="card hb-recommend-card"><div class="hb-card-top"><span class="chip">'+hbPlaceCategory(p)+'</span><span class="hb-recommend-state">'+status+'</span></div>'+
+    return '<article class="card hb-recommend-card"><div class="hb-card-top"><span class="chip">'+hbPlaceCategory(p)+'</span>'+(status?'<span class="hb-recommend-state">'+safe(status)+'</span>':'')+'</div>'+
       '<h3>'+safe(p.name)+'</h3>'+(p.address?'<p class="muted">'+safe(p.address)+'</p>':'')+
       (description?'<p class="muted">'+safe(description)+'</p>':'')+hbWeatherPlaceNote(p,weatherSignal)+extra+
       (e.scope?'<p>확인 범위: '+safe(e.scope)+'</p>':'')+
@@ -686,20 +703,20 @@ function browse(){
   const noResults=ready&&!ranked.length;
   const results=!ready?'':noResults&&photoGate.pending?'<p class="muted">장소를 불러오고 있어요…</p>':noResults?
     panel('검색 결과 0건',curated.enabled&&!curated.visible.length&&curated.hidden?'<p>정보가 충분한 장소가 없어 목록을 표시하지 않았어요. 정보가 부족한 장소 '+curation.hidden+'곳은 숨겼어요. 조건을 자동으로 완화하지 않았어요. 다른 지역을 선택해 보세요.</p>':photoGate.hidden&&!photoGate.visible.length?'<p>이 지역에서 지금 보여 드릴 장소를 찾지 못했어요. 다른 지역을 선택해 보세요.</p>':places.length?'<p>현재 검색어·분류에 맞는 장소가 없어요. 조건을 자동으로 완화하지 않았어요.</p>'+(curation.hidden?'<p class="muted">정보가 부족해 숨긴 장소 '+curation.hidden+'곳은 검색에 포함하지 않았어요.</p>':''):'<p>이 지역에서 조회된 장소가 없어요. 다른 지역을 직접 선택해 보세요.</p>'):
-    (good.length?section('서버 자료 기준 조건 일치',good):'')+
-    (review.length?section('방문 전 확인할 장소',review):'')+
-    (excluded.length?'<details class="hb-conflict"><summary>확인된 이동 조건 충돌 '+excluded.length+'곳</summary><div class="grid">'+excluded.slice(0,limited).map(x=>card(x)).join('')+'</div></details>':'')+
+    (good.length?section('이동 조건에 맞는 장소',good):'')+
+    (review.length?section('여행 후보 장소',review):'')+
+    (excluded.length?'<details class="hb-conflict"><summary>이동 조건과 맞지 않는 장소 '+excluded.length+'곳</summary><div class="grid">'+excluded.slice(0,limited).map(x=>card(x)).join('')+'</div></details>':'')+
     (Math.max(good.length,review.length,excluded.length)>limited?'<button type="button" class="light" id="hb-more">장소 더 보기</button>':'')+
     (photoGate.pending?'<p class="muted hb-photo-gate-more">장소를 더 불러오고 있어요…</p>':'');
   const extraPrefs=[
     s.hbMobilityAid&&s.hbMobilityAid!=='none'?hbMobilityAidLabels[s.hbMobilityAid]:null,
-    s.hbSlopePreference==='avoid_steep'?'가파른 경사 피하기 (실제 경사 미검증)':null,
+    s.hbSlopePreference==='avoid_steep'?'가파른 경사 피하기':null,
     [30,45,60].includes(Number(s.hbRestIntervalMinutes))?'휴식 간격 '+Number(s.hbRestIntervalMinutes)+'분 (일정 초안)':null,
     s.hbIndoorPreference==='indoor'?'실내 위주':s.hbIndoorPreference==='outdoor'?'야외 위주':null
   ].filter(Boolean);
   const stairs={impossible:'이용 불가',avoid:'피하기',possible:'이용 가능'}[s.hbStairsChoice]||'선택해 주세요';
-  const foodNote=foodUnsupported?'<p class="warn" role="status">선택한 음식 선호는 식당 자동 필터에 반영하지 않아요.</p>':
-    foodPrefs.length?'<p class="muted">서버가 음식 선호 반영을 보고했어요.</p>':'';
+  // 2026-11-26 사용자 결정(MVP): 미지원 안내는 보여 주지 않는다. 서버가 반영을 보고한 경우에만 알린다.
+  const foodNote=!foodUnsupported&&foodPrefs.length?'<p class="muted">선택한 음식 선호를 식당 추천에 반영했어요.</p>':'';
   const selectedList=selections.length?'<ul class="hb-selected-places">'+selections.map(({id,place})=>
     '<li><span>'+safe(place?.name||'이전에 담은 장소')+'</span> '+
     '<button type="button" class="light" data-hb-must="'+safe(id)+'" aria-pressed="'+String(must.includes(id))+'"'+(!place?' disabled':'')+'>'+(must.includes(id)?'필수 방문지 ✓':'필수 방문지 지정')+'</button> '+
@@ -711,23 +728,20 @@ function browse(){
     '<button type="button" id="build"'+(canBuild?'':' disabled')+'>선택한 장소로 일정 만들기</button></div>'+
     (selections.length?'<details class="hb-selection-list"'+(hbSelectionListOpen?' open':'')+'><summary>담은 장소 보기</summary>'+selectedList+'</details>':
       '<p class="muted hb-selection-hint">아래 목록에서 일정에 담기를 누르면 여기에 바로 반영돼요.</p>')+'</section>';
-  const serverStatus=!ready?'장소 자료 조회 대기':
-    travel.errors.length?'이동 조건을 입력하면 서버 판정을 확인할 수 있어요. '+safe(travel.errors.join(' ')):
-    serverState?.state==='loading'?'서버에서 이동 조건을 확인하고 있어요.':
-    serverState?.state==='error'?'서버 추천 API 오류 · 임시 장소 목록만 표시합니다. 확정 적합 판정은 제공하지 않아요.':
-    serverState?.state==='ready'?'서버 추천 판정: 조건 일치 '+[...serverState.result.byId.values()].filter(x=>x.status==='eligible').length+
-      '곳 · 방문 전 확인 '+[...serverState.result.byId.values()].filter(x=>x.status==='needsReview').length+
-      '곳 · 조건 충돌 '+[...serverState.result.byId.values()].filter(x=>x.status==='excluded').length+'곳.':
-    '이동 조건 확인 대기';
-  const serverZero=serverState?.state==='ready'&&serverState.result.byId.size===0;
+  // P1-2 (2026-11-26): no internal verdict counts ("조건 일치 0곳") or server jargon on screen.
+  const serverStatus=!ready?'장소 자료를 불러오고 있어요.':
+    travel.errors.length?'이동 조건을 입력하면 조건에 맞춰 장소를 정리해요. '+safe(travel.errors.join(' ')):
+    serverState?.state==='loading'?'이동 조건을 반영하고 있어요.':
+    serverState?.state==='error'?'추천 정보를 불러오지 못했어요. 장소 목록은 그대로 볼 수 있어요.':
+    serverState?.state==='ready'?'이동 조건을 반영해 장소를 정리했어요.':
+    '이동 조건을 반영할 준비를 하고 있어요.';
   const seasonalView=hbSeasonalView({ready,profile,serverState,chosen,pool:curation.visible,weatherSignal});
   const tripSummary=hbTripResultSummary({ready,curation,good,review,excluded,serverState,travel});
-  const retry=serverState?.state==='error'?'<button type="button" id="hb-recommend-retry" class="light">서버 추천 다시 확인</button>':'';
+  const retry=serverState?.state==='error'?'<button type="button" id="hb-recommend-retry" class="light">추천 다시 불러오기</button>':'';
   el.innerHTML='<h1>여행 장소 찾기</h1>'+hbDiscoveryPendingMarkup()+prefs()+
-    '<div class="hb-profile-summary"><strong>여행 조건</strong><p>'+safe(s.date)+' · '+safe(s.hbPlanStart||'시작 제안받기')+' ~ '+safe(s.hbPlanEnd||'종료 제안받기')+'</p><p>걷기 '+safe(s.hbWalkConfirmed?s.walk+'분':'선택해 주세요')+' · 계단 '+safe(stairs)+
+    '<div class="hb-profile-summary"><strong>여행 조건</strong><p>'+safe(hbTripTimeSummary(s))+'</p><p>걷기 '+safe(s.hbWalkConfirmed?s.walk+'분':'선택해 주세요')+' · 계단 '+safe(stairs)+
     (extraPrefs.length?' · '+safe(extraPrefs.join(' / ')):'')+'</p><button type="button" class="light" id="hb-edit-profile">조건 수정</button></div>'+tray+
-    '<section class="panel"><h2>이동 조건 추천 판정</h2><p id="hb-recommend-status" role="'+(serverState?.state==='error'?'alert':'status')+'">'+serverStatus+'</p>'+retry+
-    (serverZero?'<p class="muted">서버 추천 결과 0건이에요. 아래에 서버에서 판정하지 않은 장소가 있더라도 조건 일치로 간주하지 않아요.</p>':'')+
+    '<section class="panel"><h2>이동 조건 반영</h2><p id="hb-recommend-status" role="'+(serverState?.state==='error'?'alert':'status')+'">'+serverStatus+'</p>'+retry+
     tripSummary+hbTripQuickConditions()+
     '</section>'+
     (ready?hbWeatherSuggestBanner(weatherSignal):'')+
@@ -910,7 +924,8 @@ function hbSeasonalCounts(stops){
   return {eligible:count('eligible'),needsReview:count('needsReview'),excluded:count('excluded')};
 }
 function hbRecommendationStatusText(e){
-  return e.status==='eligible'?'서버 기준 조건 일치':e.status==='excluded'?'이동 조건 충돌':e.reason==='conflicting_evidence'||e.conflict?'자료 상충 · 확인 필요':'접근성 확인 필요';
+  // 2026-11-26 사용자 결정(MVP): '접근성 확인 필요'·'자료 상충' 배지는 보여 주지 않는다. 근거가 있는 판정만 배지로 표시.
+  return e.status==='eligible'?'이동 조건에 맞아요':e.status==='excluded'?'이동 조건 충돌':'';
 }
 /** One bounded editorial-featured lookup per trip region (exact TourAPI IDs, address-verified rows). */
 function hbSeasonalEnsureFeatured(region){
@@ -971,8 +986,8 @@ function hbSeasonalMarkup(view){
     return '<article class="hb-seasonal-course" data-hb-season-course="'+safe(c.id)+'">'+
       '<p class="hb-discovery-kicker">'+(c.kind==='editorial'?'함께봄 편집 코스 · '+safe(view.region)+' · '+safe(season.label):'조건 기반 자동 묶음 · '+safe(c.district))+'</p>'+
       '<h4>'+safe(c.title)+'</h4><p class="muted">'+(c.kind==='editorial'?safe(c.description)+'. 방문 순서 아이디어예요.':'같은 시·군·구 주소의 계절 테마 장소 '+c.stops.length+'곳이에요. 방문 순서는 정하지 않았어요.')+'</p>'+
-      '<p class="hb-seasonal-summary">조건 일치 '+counts.eligible+' · 확인 필요 '+counts.needsReview+' · 조건 충돌 '+counts.excluded+'</p>'+hbWeatherCourseNote(c.stops,view.weatherSignal)+
-      '<'+List+' class="hb-seasonal-stops">'+c.stops.map(({p,e})=>'<li><a data-hb-season-open="'+safe(p.id)+'" href="'+safe(hbPlaceDetailPath(p.id))+'">'+safe(p.name)+'</a> <span class="hb-recommend-state">'+safe(hbRecommendationStatusText(e))+'</span>'+
+      hbWeatherCourseNote(c.stops,view.weatherSignal)+
+      '<'+List+' class="hb-seasonal-stops">'+c.stops.map(({p,e})=>'<li><a data-hb-season-open="'+safe(p.id)+'" href="'+safe(hbPlaceDetailPath(p.id))+'">'+safe(p.name)+'</a>'+(hbRecommendationStatusText(e)?' <span class="hb-recommend-state">'+safe(hbRecommendationStatusText(e))+'</span>':'')+
         (e.status==='excluded'?' <span class="muted">이 장소는 담지 않아요.</span>':hbVisibleGaps(e.gaps).length?' <span class="muted">'+safe(hbVisibleGaps(e.gaps)[0])+'</span>':'')+'</li>').join('')+'</'+List+'>'+
       (counts.excluded?'<p class="warn">확인된 이동 조건 충돌 장소가 포함돼 있어요. 충돌 장소는 담기에서 빠져요.</p>':'')+
       '<div class="actions"><button type="button" class="light" data-hb-season-map="'+safe(c.id)+'" aria-expanded="'+String(hbSeasonalMapOpen===c.id)+'">지도에서 위치 보기</button>'+
@@ -1043,7 +1058,7 @@ function hbSeasonalBind(view,{serverState}){
 // Seasonal cards deliberately avoid .hb-recommend-card/data-hb-info: the main list owns those hooks.
 function hbSeasonalPlaceCard({p,e,basis},chosen,weatherSignal=null){
   const picked=chosen.includes(p.id);
-  return '<article class="card hb-seasonal-card"><div class="hb-card-top"><span class="chip">'+hbPlaceCategory(p)+'</span><span class="hb-recommend-state">'+safe(hbRecommendationStatusText(e))+'</span></div>'+
+  return '<article class="card hb-seasonal-card"><div class="hb-card-top"><span class="chip">'+hbPlaceCategory(p)+'</span>'+(hbRecommendationStatusText(e)?'<span class="hb-recommend-state">'+safe(hbRecommendationStatusText(e))+'</span>':'')+'</div>'+
     '<h3>'+safe(p.name)+'</h3>'+(p.address?'<p class="muted">'+safe(p.address)+'</p>':'')+
     '<p class="hb-seasonal-tag">계절 근거: '+safe(hbSeasonalBasisLabels[basis])+'</p>'+hbWeatherPlaceNote(p,weatherSignal)+
     (hbVisibleGaps(e.gaps).length?'<p class="muted">'+safe(hbVisibleGaps(e.gaps).slice(0,2).join(' · '))+'</p>':'')+
@@ -1108,10 +1123,9 @@ function hbTripResultSummary({ready,curation,good,review,excluded,serverState,tr
   const stairs={impossible:'이용 불가',avoid:'피하기',possible:'이용 가능'}[s.hbStairsChoice]||'';
   const total=good.length+review.length+excluded.length;
   if(!travel.errors.length&&total){
-    parts.push('<p class="hb-trip-result-line"><strong>걷기 '+safe(walk)+' · 계단 '+safe(stairs)+' 조건 결과</strong>: 조건 일치 '+good.length+'곳 · 방문 전 확인 '+review.length+'곳 · 조건 충돌 '+excluded.length+'곳</p>');
-    if(serverState?.state==='ready'&&!good.length){
-      parts.push(review.length?
-        '<p class="muted">선택한 조건을 검증된 동선 자료로 확인한 장소가 아직 없어 후보가 모두 ‘방문 전 확인’으로 표시돼요. 걷기 시간을 늘려도 동선 검증 자료가 없으면 결과는 같아요. 상세 정보의 시설 안내를 확인하거나 방문 전 장소에 문의해 주세요.</p>':
+    parts.push('<p class="hb-trip-result-line"><strong>걷기 '+safe(walk)+' · 계단 '+safe(stairs)+'</strong> 조건을 반영해 장소를 정리했어요.</p>');
+    if(serverState?.state==='ready'&&!good.length&&!review.length&&excluded.length){
+      parts.push(
         '<p class="warn">모든 후보가 확인된 이동 조건과 충돌해요. 아래에서 계단 조건을 ‘가능하면 피하기’ 또는 ‘이용 가능’으로 바꾸거나 다른 지역을 선택해 보세요.</p>');
     }
   }
@@ -1120,7 +1134,7 @@ function hbTripResultSummary({ready,curation,good,review,excluded,serverState,tr
 function hbTripQuickConditions(){
   const walk=s.hbWalkConfirmed?String(s.walk):null;
   const chip=(key,id,label,current)=>'<button type="button" class="hb-choice '+(current===id?'chosen':'')+'" data-hb-quick-'+key+'="'+id+'" aria-pressed="'+String(current===id)+'">'+safe(label)+'</button>';
-  return '<div class="hb-quick-conditions" role="group" aria-labelledby="hb-quick-title"><h3 id="hb-quick-title">이동 조건 바로 바꾸기</h3><p class="muted">바꾸면 서버 판정과 계절 추천을 다시 계산해요.</p>'+
+  return '<div class="hb-quick-conditions" role="group" aria-labelledby="hb-quick-title"><h3 id="hb-quick-title">이동 조건 바로 바꾸기</h3><p class="muted">바꾸면 추천 장소를 다시 정리해요.</p>'+
     '<div class="hb-choice-grid">'+[['5','5분 이하'],['10','10분 정도'],['15','15분 정도'],['20','20분 정도'],['30','30분 이상']].map(([id,label])=>chip('walk',id,'걷기 '+label,walk)).join('')+'</div>'+
     '<div class="hb-choice-grid">'+[['possible','계단 이용 가능'],['avoid','가능하면 계단 피하기'],['impossible','계단 이용 불가']].map(([id,label])=>chip('stairs',id,label,s.hbStairsChoice||null)).join('')+'</div>'+
     '<p role="status" id="hb-quick-status">'+safe(hbTripMessage)+'</p></div>';
@@ -1146,7 +1160,8 @@ function hbTripBindQuickConditions(){
 }
 /** MVP wording: show only action guidance, never "미확인/미지원/자료 없음/미선택" gap text. */
 function hbVisibleGaps(gaps){
-  return (Array.isArray(gaps)?gaps:[]).filter(x=>typeof x==='string'&&!/미확인|미지원|미선택|자료\s*없음|확인되지\s*않|확인\s*안\s*됨|확인\s*필요/.test(x));
+  // 2026-11-26 사용자 결정(MVP): '확인 필요'·'미검증' 같은 판정 근거 공백도 화면에 내지 않는다(데이터에는 남는다).
+  return (Array.isArray(gaps)?gaps:[]).filter(x=>typeof x==='string'&&!/미확인|미지원|미선택|미검증|자료\s*없음|확인되지\s*않|확인\s*안\s*됨|확인\s*필요|확인이\s*필요/.test(x));
 }
 // END HB_TRIP_DATA_CURATION
 

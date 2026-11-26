@@ -150,8 +150,8 @@ function hbShareReadOnlyStop(stop) {
     + '<time datetime="' + safe(stop.time) + '">' + safe(stop.time) + '</time> '
     + '<strong style="overflow-wrap:anywhere">' + safe(stop.name) + '</strong>'
     + (stop.address ? '<p style="overflow-wrap:anywhere">공개 장소 주소: ' + safe(stop.address) + '</p>'
-      : '<p class="muted">주소 정보 없음</p>')
-    + (stop.notice ? '<p>공유된 현장 주의사항 (방문 전 재확인): ' + safe(stop.notice) + '</p>' : '')
+      : '')
+    + (stop.notice ? '<p>공유된 현장 주의사항: ' + safe(stop.notice) + '</p>' : '')
     + (mapUrl ? '<p><a href="' + safe(mapUrl) + '" target="_blank" rel="noopener noreferrer" style="overflow-wrap:anywhere">네이버지도에서 장소 확인</a></p>' : '')
     + '</li>';
 }
@@ -354,7 +354,11 @@ function hbDiscoveryRender(){
 }
 // END HB_DISCOVERY_EDITORIAL
 
-function render(){if(typeof hbRichCleanup==='function')hbRichCleanup();const p=path();if(p!=='/discover')hbDiscoveryClearMap();if(!p.startsWith('/place/'))hbDiscoveryDetailId=null;const initialize=hbEnsureOwnerState(p);if(initialize)queueMicrotask(()=>{if(!hbIsShareReceiver(path()))load();});if(p!=='/')dropNearbyMap();if(p!=='/plan')hbDropPlanMap();if(p==='/')home();else if(p==='/new')newPlan();else if(p==='/places')browse();else if(p==='/discover')hbDiscoveryRender();else if(p.startsWith('/place/'))detail(hbDecodePlaceId(p.slice(7)));else if(p==='/plan')plan();else if(p==='/travel')travel();else if(p==='/share/create')share();else if(p.startsWith('/share/'))shared(p.slice(7));else home()}
+// P1-1 (2026-11-26): a new route opens at the top; a redraw of the same route keeps the reader's position.
+let hbLastRenderedRoute=null;
+function hbRouteChanged(p){const changed=hbLastRenderedRoute!==null&&hbLastRenderedRoute!==p;hbLastRenderedRoute=p;return changed}
+function render(){hbRenderRoute();if(hbRouteChanged(path())&&typeof window!=='undefined'&&typeof window.scrollTo==='function')window.scrollTo(0,0)}
+function hbRenderRoute(){if(typeof hbRichCleanup==='function')hbRichCleanup();const p=path();if(p!=='/discover')hbDiscoveryClearMap();if(!p.startsWith('/place/'))hbDiscoveryDetailId=null;const initialize=hbEnsureOwnerState(p);if(initialize)queueMicrotask(()=>{if(!hbIsShareReceiver(path()))load();});if(p!=='/')dropNearbyMap();if(p!=='/plan')hbDropPlanMap();if(p==='/')home();else if(p==='/new')newPlan();else if(p==='/places')browse();else if(p==='/discover')hbDiscoveryRender();else if(p.startsWith('/place/'))detail(hbDecodePlaceId(p.slice(7)));else if(p==='/plan')plan();else if(p==='/travel')travel();else if(p==='/share/create')share();else if(p.startsWith('/share/'))shared(p.slice(7));else home()}
 async function get(u){
  const response=await fetch(u);
  const data=await response.json().catch(()=>null);
@@ -402,27 +406,15 @@ async function load(){
    }
    records.set(place.id,combined);
   }
-  const catalogFile={서울:'/catalog/seoul.json',경기:'/catalog/gyeonggi.json'}[region];
-  const [catalog,featured]=await Promise.all([
-   catalogFile?get(catalogFile).catch(()=>[]):[],
-   region==='서울'?get('/api/featured.js?lat=37.5665&lng=126.9780').catch(()=>null):null
-  ]);
+  // P1-11 (2026-11-26): the static /catalog/{seoul,gyeonggi}.json files were never deployed (404 on every
+  // load and nothing read the images). Places come from /api/data plus the featured list only.
+  const featured=region==='서울'?await get('/api/featured.js?lat=37.5665&lng=126.9780').catch(()=>null):null;
   if(!stillCurrent())return;
-  const catalogPlaces=Array.isArray(catalog)?catalog.filter(Boolean):[];
-  const catalogById=new Map(catalogPlaces.map(place=>[place.id,place]));
-  window.hbCatalogImages=Object.create(null);
-  for(const place of catalogPlaces){
-   if(place.imageUrl)window.hbCatalogImages[String(place.id).replace(/^tour-/,'')]={imageUrl:place.imageUrl,license:place.imageLicense,source:place.imageSource};
-  }
   const featuredPlaces=Array.isArray(featured?.places)?featured.places:[];
   for(const place of featuredPlaces){
    if(!place)continue;
-   const linked=catalogById.get(place.id);
-   add({...place,kind:place.kind||'spot',accessFacts:[],accessStatus:'unknown',
-    ...(linked?{imageUrl:linked.imageUrl,imageLicense:linked.imageLicense,imageSource:linked.imageSource}:{}),
-    reason:'서울 대표 관광지예요.'});
+   add({...place,kind:place.kind||'spot',accessFacts:[],accessStatus:'unknown',reason:'서울 대표 관광지예요.'});
   }
-  catalogPlaces.forEach(add);
   data.places.forEach(add);
   for(const place of places){
    if(Array.isArray(s.chosen)&&s.chosen.includes(place.id)&&!records.has(place.id)&&place.hbPickedRegion===region)add(place);

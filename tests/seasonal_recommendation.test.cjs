@@ -102,7 +102,8 @@ test("normal winter result: editorial course and culture places, needsReview whe
   assert.match(part,/국립중앙박물관/);assert.match(part,/동대문디자인플라자/);
   assert.doesNotMatch(part,/서울숲|올림픽공원/,"spring/autumn park course is not a winter idea");
   assert.doesNotMatch(part,/미확인|미지원|확인되지 않|확인 안 됨/);
-  assert.match(part,/접근성 확인 필요/);
+  // judge P1-2 (2026-11-26 사용자 결정): needsReview 장소에는 '접근성 확인 필요' 배지를 달지 않는다.
+  assert.doesNotMatch(part,/접근성 확인 필요|확인 필요/);
   assert.doesNotMatch(part,/이동시간·경로·보행 난이도는 계산하지 않았어요|보장하지 않아요/,"2026-11-26 사용자 결정: 코스 카드 보행 안내 비노출");
   assert.doesNotMatch(part,/[0-9]+분 이동|안전한 코스|이동 가능 보장/);
   const rows=h.ctx.hbSeasonalPlaces(h.ctx.places,"winter","서울",p=>({status:"needsReview",score:0}));
@@ -121,7 +122,7 @@ test("verified condition conflict is excluded from season places and from course
   const h=harness({places:[blocked,ddp],response:{eligible:[],needsReview:[{id:ddp.id,reason:"insufficient_evidence"}],excluded:[{id:blocked.id,reason:"required_stairs"}],foodPreferencesApplied:false}});
   h.run();await h.flush();h.run();
   const part=seasonalHtml(h);
-  assert.match(part,/조건 충돌 1/);
+  assert.match(part,/확인된 이동 조건 충돌 장소가 포함돼 있어요/);
   assert.match(part,/계절 추천에서 제외한 장소 1곳/);
   assert.match(part,/이 코스 장소 담기 \(1곳\)/);
   h.node("season-course-pick","editorial-art").onclick();
@@ -139,8 +140,9 @@ test("server eligible places rank before review places and keep the existing rea
   const part=seasonalHtml(h);
   const grid=part.split("테마 추천 장소")[1];
   assert.ok(grid.indexOf("동대문디자인플라자")<grid.indexOf("국립중앙박물관"));
-  assert.match(part,/조건 일치 1 · 확인 필요 1 · 조건 충돌 0/);
-  assert.match(part,/서버 기준 조건 일치/);
+  // judge P1-2: verdict counts are no longer printed; the evidence-backed badge stays.
+  assert.doesNotMatch(part,/조건 일치 1 · 확인 필요 1/);
+  assert.match(part,/이동 조건에 맞아요/);
 });
 test("no data: nothing seasonal, no relaxation, unresolved editorial course hidden and lookup failure stated",async()=>{
   const plain={id:"tour-5",name:"예시 장소",kind:"spot",address:"서울특별시 중구 1",region:"서울",accessFacts:[],accessStatus:"unknown"};
@@ -191,7 +193,7 @@ test("missing travel conditions still show season ideas but never a server fit",
   h.run();await h.flush();
   const part=seasonalHtml(h);
   assert.match(part,/겨울 여행 추천/);
-  assert.doesNotMatch(part,/서버 기준 조건 일치/);
+  assert.doesNotMatch(part,/이동 조건에 맞아요/);
 });
 
 // ---- HB_TRIP_DATA_RULE: 여행 장소 찾기 shows only data-sufficient places ----
@@ -213,11 +215,11 @@ test("data rule: identity, category, coordinates, region address and one concret
   assert.deepEqual(plain(ctx.hbTripDataEvidence(otherRegion,"서울").missing),["address"]);
   assert.equal(ctx.hbTripCurationEnabled(),true,"rule is on by default");
 });
-test("방문 전 확인할 장소 lists only qualified places and states the hidden count",async()=>{
+test("여행 후보 장소 lists only qualified places and states the hidden count",async()=>{
   const h=harness({places:[lib,museum,bare,restaurant,noCoords]});
   h.run();await h.flush();
   const list=resultsHtml(h);
-  assert.match(list,/방문 전 확인할 장소 <span class="hb-result-count">2곳/);
+  assert.match(list,/여행 후보 장소 <span class="hb-result-count">2곳/);
   assert.match(list,/논현문화마루도서관/);assert.match(list,/국립중앙박물관/);
   for(const name of ["자료 부족 관광지","자료 있는 식당","좌표 없는 도서관"])assert.doesNotMatch(h.html,new RegExp(name),name);
   assert.match(h.html,/정보가 부족한 장소 3곳은 숨겼어요/);
@@ -240,10 +242,11 @@ test("one switch restores every place",async()=>{
 test("finishing conditions shows the condition result automatically with honest zero-fit guidance",async()=>{
   const h=harness({places:[lib,museum,bare]});
   h.run();
-  assert.match(h.html,/서버에서 이동 조건을 확인하고 있어요/);
+  assert.match(h.html,/이동 조건을 반영하고 있어요/);
   await h.flush();
-  assert.match(h.html,/걷기 15분 · 계단 이용 불가 조건 결과<\/strong>: 조건 일치 0곳 · 방문 전 확인 2곳 · 조건 충돌 0곳/);
-  assert.match(h.html,/걷기 시간을 늘려도 동선 검증 자료가 없으면 결과는 같아요/);
+  // judge P1-2: the condition result is stated without '조건 일치 0곳' counts or unverified-route wording.
+  assert.match(h.html,/<strong>걷기 15분 · 계단 이용 불가<\/strong> 조건을 반영해 장소를 정리했어요/);
+  assert.doesNotMatch(h.html,/조건 일치 0곳|동선 검증 자료가 없으면/);
   assert.match(h.html,/data-hb-quick-walk="15" aria-pressed="true"/);
 });
 test("changing a condition on the result screen re-requests and recomputes",async()=>{
@@ -253,12 +256,13 @@ test("changing a condition on the result screen re-requests and recomputes",asyn
   const h=harness({places:[ok,museum],request});
   h.run();await h.flush();
   assert.equal(sent.at(-1).walkingMinutes,15);
-  assert.match(h.html,/조건 일치 0곳/);
+  assert.doesNotMatch(h.html,/이동 조건에 맞아요/);
   h.node("quick-walk","30").onclick();
   await h.flush();
   assert.equal(h.s.walk,"30");assert.equal(h.s.hbWalkConfirmed,true);
   assert.equal(sent.at(-1).walkingMinutes,30);
-  assert.match(h.html,/걷기 30분 · 계단 이용 불가 조건 결과<\/strong>: 조건 일치 1곳 · 방문 전 확인 1곳/);
+  assert.match(h.html,/<strong>걷기 30분 · 계단 이용 불가<\/strong> 조건을 반영해 장소를 정리했어요/);
+  assert.match(h.html,/이동 조건에 맞는 장소 <span class="hb-result-count">1곳/);
   h.node("quick-stairs","possible").onclick();
   await h.flush();
   assert.equal(h.s.hbStairsChoice,"possible");assert.equal(sent.at(-1).stairs,"possible");
@@ -279,9 +283,9 @@ test("zero qualified places: no list, reason and hidden count, no relaxation",as
 test("recommendation API failure is an error, never a fit, and offers retry",async()=>{
   const h=harness({places:[lib,museum],request:()=>Promise.reject(Error("503"))});
   h.run();await h.flush();
-  assert.match(h.html,/서버 추천 API 오류/);
+  assert.match(h.html,/추천 정보를 불러오지 못했어요/);
   assert.match(h.html,/id="hb-recommend-retry"/);
-  assert.doesNotMatch(h.html,/서버 기준 조건 일치/);
+  assert.doesNotMatch(h.html,/이동 조건에 맞아요/);
   assert.match(resultsHtml(h),/논현문화마루도서관/,"qualified candidates remain as review-only");
 });
 test("featured-only candidate can be picked and is added to the place list once",async()=>{
@@ -316,27 +320,30 @@ test("places screen hides the walking/route/wheelchair disclaimers but keeps ver
   assert.doesNotMatch(html,/안전한 코스|안전합니다|안전 보장|보장해요|보장합니다/,"no new safety guarantee wording");
   assert.doesNotMatch(html,/<p class="(?:muted|warn)">\s*<\/p>/,"no empty notice paragraph left behind");
   const part=seasonalHtml(h);
-  assert.match(part,/조건 일치 0 · 확인 필요 1 · 조건 충돌 1/);
+  // judge P1-2: counts and '확인 필요' are gone; the conflict badge (evidence-backed) stays.
+  assert.doesNotMatch(part,/조건 일치 0 · 확인 필요 1/);
   assert.match(part,/확인된 이동 조건 충돌 장소가 포함돼 있어요/);
-  assert.match(part,/class="hb-recommend-state"/);
+  assert.match(part,/<span class="hb-recommend-state">이동 조건 충돌<\/span>/);
   assert.match(part,/계절 추천에서 제외한 장소 1곳/);
-  assert.match(html,/조건 결과<\/strong>: 조건 일치 0곳 · 방문 전 확인 2곳 · 조건 충돌 1곳/);
+  assert.match(html,/조건을 반영해 장소를 정리했어요/);
   assert.match(html,/정보가 부족한 장소 1곳은 숨겼어요/);
-  assert.match(resultsHtml(h),/방문 전 확인/);
+  assert.match(resultsHtml(h),/여행 후보 장소/);
+  assert.match(resultsHtml(h),/이동 조건과 맞지 않는 장소 1곳/);
 });
 // 2026-11-26 사용자 결정(MVP): 서버 판정 대상이 아닌 장소의 확인 안내와 2단계 장소별 확인 안내는 보이지 않는다.
-test("server-unassessed place shows its verdict badge without the separate-check sentence or an empty paragraph",async()=>{
+// judge P1-2 (2026-11-26 사용자 결정 갱신): 근거 없는 '접근성 확인 필요' 배지도 비노출로 바뀌었다.
+test("server-unassessed place shows no unverified badge, no separate-check sentence and no empty paragraph",async()=>{
   const h=harness({places:[lib,museum],response:{eligible:[],needsReview:[{id:museum.id,reason:"insufficient_evidence"}],excluded:[],foodPreferencesApplied:false}});
   h.run();await h.flush();h.run();
   const list=resultsHtml(h);
   const card=list.split('<article class="card hb-recommend-card">').find(x=>x.includes(lib.name));
   assert.ok(card,"unassessed place is still listed");
-  assert.match(card,/<span class="hb-recommend-state">[^<]+<\/span>/,"verdict badge kept");
+  assert.doesNotMatch(card,/hb-recommend-state/,"no unverified badge");
   assert.match(card,/data-hb-pick="tour-3432213"/,"pick action kept");
   assert.doesNotMatch(h.html,/서버 추천 판정 대상에 없어요|접근성을 별도로 확인해 주세요/);
   assert.doesNotMatch(card,/<p class="muted"><\/p>/);
   assert.match(source,/server_not_assessed:'',/);
-  assert.doesNotMatch(list,/계단·연속 보행시간·이동 동선은 방문 전에 직접 확인해 주세요/,"2026-11-26: reason disclaimers hidden too");
+  assert.doesNotMatch(list,/방문 전에 직접 확인해 주세요/,"unverified reasons are hidden too");
   assert.doesNotMatch(source,/실제 보행 거리와 계단 여부는 장소별 확인이 필요해요/);
   assert.match(source,/<h2 tabindex="-1">2\. 이동 조건<\/h2><p class="muted">필수 항목이에요\.<\/p>/,"step 2 keeps the required-field hint");
 });

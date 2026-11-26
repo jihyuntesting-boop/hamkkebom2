@@ -398,7 +398,9 @@ function hbProposal(level,items,all=[]){
   const kind=v.kind||(catalog.find(p=>p&&p.id===(v.placeId||v.id))||{}).kind;
   return !hbProtected(v)&&!v.isRestCandidate&&!v.isPlaceholder&&kind!=='food'&&kind!=='rest';
  });
- const count=level==='low'?0:level==='mid'?Math.ceil(optional.length/2):optional.length;
+ // P1-9 (2026-11-26): '조금 힘들어요' trims gently (one visit per three optional, at least one);
+ // '많이 힘들어요' keeps only protected visits, meals and rests.
+ const count=level==='low'?0:level==='mid'?(optional.length?Math.max(1,Math.floor(optional.length/3)):0):optional.length;
  const removedIndices=new Set((count?optional.slice(-count):[]).map(entry=>entry.i));
  return {kept:items.filter((_,i)=>!removedIndices.has(i)),removed:items.filter((_,i)=>removedIndices.has(i)),protected:items.filter(hbProtected)};
 }
@@ -450,7 +452,7 @@ function hbReplanResult(items,proposal,alternative){
  const place=alternative?.place;
  const choose=place&&place.id&&alternative.point&&firstRemoved&&!hbProtected(firstRemoved)&&
   !items.some(stop=>(stop.placeId||stop.id)===place.id);
- return items.flatMap(stop=>{
+ const result=items.flatMap(stop=>{
   if(hbProtected(stop)||!dropped.has(stop))return [stop];
   if(!choose||stop!==firstRemoved)return [];
   const {point,rest}=alternative;
@@ -461,7 +463,57 @@ function hbReplanResult(items,proposal,alternative){
    restMinutes:rest?stop.stayMinutes:0,travelTimeStatus:'unknown',transitionBufferMinutes:stop.transitionBufferMinutes,
    done:false,completed:false,must:false,mustVisit:false,reserved:false,booked:false
   }];
- }).map((stop,index)=>({...stop,position:index+1}));
+ });
+ return hbReplanRetime(result).map((stop,index)=>({...stop,position:index+1}));
+}
+// P1-9 (2026-11-26): after a condition change the remaining stops are re-timed so removals leave no
+// unexplained gap. Completed/must/reserved stops are fixed anchors and never change. Other stops only move
+// earlier (a meal not before its usual window); if anything would overlap, the times are left as they were.
+function hbReplanRetime(list){
+ if(!Array.isArray(list)||typeof hbDraftMinute!=='function'||typeof hbClock!=='function')return list;
+ const minute=stop=>hbDraftMinute(stop?.plannedArrival||stop?.time);
+ const restSlot=stop=>!!(stop&&stop.kind==='rest'&&stop.isPlaceholder&&!hbProtected(stop));
+ // A placeholder rest left right after another rest (the visit between them was removed) is merged away.
+ const merged=[];
+ for(const stop of list){
+  const prev=merged[merged.length-1];
+  if(restSlot(stop)&&(!prev||prev.kind==='rest'))continue;
+  merged.push(stop);
+ }
+ if(merged.some(stop=>minute(stop)===null||!Number.isInteger(Number(stop.stayMinutes))||Number(stop.stayMinutes)<0))return merged;
+ const out=[];let cursor=null,lastVisit=null;
+ for(const original of merged){
+  let stop=original;
+  const start=minute(stop),stay=Number(stop.stayMinutes);
+  if(!hbProtected(stop)&&cursor!==null){
+   if(stop.travelFromId&&stop.travelFromId!==lastVisit){
+    // A confirmed route leg from a visit that is no longer before this stop does not apply any more.
+    stop={...stop,transitionBufferMinutes:25,travelTimeStatus:'unknown'};
+    for(const key of ['travelTimeMinutes','travelSource','travelCheckedAt','travelFromId','travelToId'])delete stop[key];
+   }
+   let next=cursor+Math.max(0,Number(stop.transitionBufferMinutes)||0);
+   if(stop.kind==='food')next=Math.max(next,Math.min(start,start>=900?1020:690));
+   if(next>start||next+stay>1439)return merged;
+   stop={...stop,time:hbClock(next),plannedArrival:hbClock(next)};
+  }else if(cursor!==null&&start<cursor)return merged;
+  out.push(stop);
+  cursor=minute(stop)+stay;
+  if(stop.placeId&&!stop.isPlaceholder)lastVisit=stop.placeId;
+ }
+ return out;
+}
+/** Total span and placeholder travel of a re-timed day, for the plan summary. */
+function hbReplanSpan(stops){
+ const list=Array.isArray(stops)?stops:[];
+ if(typeof hbDraftMinute!=='function'||typeof hbClock!=='function'||!list.length)return null;
+ const starts=list.map(stop=>hbDraftMinute(stop?.plannedArrival||stop?.time));
+ if(starts.some(x=>x===null))return null;
+ const first=Math.min(...starts),end=Math.max(...list.map((stop,i)=>starts[i]+(Number(stop.stayMinutes)||0)));
+ const travel=list.slice(1).reduce((sum,stop)=>sum+(stop.travelTimeStatus==='estimated'?0:Math.max(0,Number(stop.transitionBufferMinutes)||0)),0);
+ const span=minutes=>(minutes>=60?Math.floor(minutes/60)+'시간 ':'')+(minutes%60?minutes%60+'분':minutes>=60?'':'0분');
+ const total=end-first;
+ return {start:hbClock(first),end:hbClock(Math.min(1439,end)),totalMinutes:total,placeholderTravelMinutes:travel,
+  line:'예상 소요: 약 '+span(total).trim()+' (체류·식사·휴식 '+span(Math.max(0,total-travel)).trim()+' + 이동 약 '+span(travel).trim()+' (예상))'};
 }
 // The map's itinerary list uses the same applied result as the side-by-side comparison.
 // Removed originals are an explicitly labeled overlay, never proposed visits.
@@ -504,8 +556,29 @@ function hbApplyReplan(signature,items,proposal,alternative){
  const {region,date}=hbPlanContext(s);
  if(JSON.stringify(items)===JSON.stringify(now))return {ok:false,error:'변경되는 일정이 없어요. 원안을 유지했어요.'};
  const undo={before:items.map(stop=>({...stop})),after:JSON.stringify(now),region,date,appliedAt:new Date().toISOString()};
+ // P1-9: the plan summary (예상 소요, end time) follows the re-timed day; undo restores the previous summary.
+ const summary=hbReplanSummary(now);
+ if(summary){undo.warnings=s.hbPlanWarnings;undo.info=s.hbPlanInfo;}
+ const previous=s;
  if(!hbSaveTripStops(now,undo))return {ok:false,error:'저장에 실패해 기존 일정을 유지했어요.'};
+ if(summary){
+  s={...s,...summary};
+  try{save()}catch{s=previous;try{save()}catch{}return {ok:false,error:'저장에 실패해 기존 일정을 유지했어요.'};}
+ }
  return {ok:true,stops:now};
+}
+function hbReplanSummary(stops){
+ const span=hbReplanSpan(stops);
+ if(!span)return null;
+ const warnings=(Array.isArray(s.hbPlanWarnings)?s.hbPlanWarnings:[]).filter(w=>typeof w==='string');
+ const hadLine=warnings.some(w=>w.startsWith('예상 소요:'));
+ const requested=hbDraftMinute(s.hbPlanInfo?.requestedEnd);
+ const fits=requested===null||hbDraftMinute(span.end)<=requested;
+ const next=warnings.filter(w=>!(fits&&w.startsWith('예상 시간이 종료(귀가) 희망 시각'))).map(w=>w.startsWith('예상 소요:')?span.line:w);
+ if(!hadLine)next.push(span.line);
+ const info=s.hbPlanInfo&&typeof s.hbPlanInfo==='object'?{...s.hbPlanInfo,end:span.end,totalMinutes:span.totalMinutes,
+  placeholderTravelMinutes:span.placeholderTravelMinutes,...(fits?{overrunMinutes:0}:{})}:s.hbPlanInfo;
+ return {hbPlanWarnings:next,hbPlanInfo:info};
 }
 function hbUndoReplan(){
  const undo=s.hbReplanUndo;
@@ -516,6 +589,11 @@ function hbUndoReplan(){
   return {ok:false,error:'다른 변경이 있어 자동 복구할 수 없어요. 새로고침하고 일정을 확인해 주세요.'};
  if(!hbSaveTripStops(undo.before.map(stop=>({...stop}))))
   return {ok:false,error:'되돌린 일정을 저장하지 못했어요.'};
+ if(Object.prototype.hasOwnProperty.call(undo,'warnings')||Object.prototype.hasOwnProperty.call(undo,'info')){
+  const previous=s;
+  s={...s,hbPlanWarnings:undo.warnings,hbPlanInfo:undo.info};
+  try{save()}catch{s=previous;}
+ }
  return {ok:true};
 }
 
@@ -525,7 +603,7 @@ function plan(){
  const {region,date}=hbPlanContext(s);
  const undo=s.hbReplanUndo&&hbValidReplanStops(s.hbReplanUndo.before)&&s.hbReplanUndo.date===date&&s.hbReplanUndo.region===region&&s.hbReplanUndo.after===JSON.stringify(stops);
  hbDropPlanMap();
- el.innerHTML='<h1>가족 여행 일정</h1><p>'+safe(region)+' · '+safe(date)+'</p><div id="hb-plan-map-slot"></div>'+(typeof weatherCard==='function'?weatherCard(region,date):'')+'<p class="warn">방문 시간은 예상 계획이에요. 자동차 이동시간을 확인하면 일정에 반영할 수 있어요.</p>'+(stops.length?stops.map((x,i)=>'<article class="panel hb-itinerary-row" data-hb-stop-kind="'+safe(['food','rest','spot','travel','move','transport'].includes(x.kind)?x.kind:'unknown')+'"><div><h3>'+safe(x.time||'시간 미정')+' · '+safe(x.name||'장소명 미확인')+'</h3></div><div class="hb-itinerary-flags"><label><input type="checkbox" data-done="'+i+'" '+(hbCompleted(x)?'checked':'')+'> 완료</label><label><input type="checkbox" data-must="'+i+'" '+(hbMustVisit(x)?'checked':'')+'> 필수</label><label><input type="checkbox" data-reserved="'+i+'" '+(x.reserved||x.booked?'checked':'')+'> 예약됨</label><button type="button" class="light" data-remove="'+i+'" '+(hbProtected(x)?'disabled':'')+'>삭제</button></div></article>').join(''):panel('일정이 비어 있어요','추천 장소를 먼저 담아 주세요.'))+(undo?panel('최근 일정 변경','<p>부모님 컨디션에 따라 이 기기에서 수정한 일정이에요.</p><button type="button" class="light" id="hb-rpl-undo">이전 일정 되돌리기</button>'):'')+'<div class="actions">'+button('add','장소 더 담기',true)+button('fatigue','컨디션에 맞게 일정 조정')+button('share','가족에게 공유')+'</div>';
+ el.innerHTML='<h1>가족 여행 일정</h1><p>'+safe(region)+' · '+safe(date)+'</p><div id="hb-plan-map-slot"></div>'+(typeof weatherCard==='function'?weatherCard(region,date):'')+'<p class="warn">방문 시간은 예상 계획이에요. 자동차 이동시간을 확인하면 일정에 반영할 수 있어요.</p>'+(stops.length?stops.map((x,i)=>'<article class="panel hb-itinerary-row" data-hb-stop-kind="'+safe(['food','rest','spot','travel','move','transport'].includes(x.kind)?x.kind:'unknown')+'"><div><h3>'+safe(x.time||'시간 미정')+' · '+safe(x.name||'방문지')+'</h3></div><div class="hb-itinerary-flags"><label><input type="checkbox" data-done="'+i+'" '+(hbCompleted(x)?'checked':'')+'> 완료</label><label><input type="checkbox" data-must="'+i+'" '+(hbMustVisit(x)?'checked':'')+'> 필수</label><label><input type="checkbox" data-reserved="'+i+'" '+(x.reserved||x.booked?'checked':'')+'> 예약됨</label><button type="button" class="light" data-remove="'+i+'" '+(hbProtected(x)?'disabled':'')+'>삭제</button></div></article>').join(''):panel('일정이 비어 있어요','추천 장소를 먼저 담아 주세요.'))+(undo?panel('최근 일정 변경','<p>부모님 컨디션에 따라 이 기기에서 수정한 일정이에요.</p><div id="hb-rpl-undo-box"><button type="button" class="light" id="hb-rpl-undo">이전 일정 되돌리기</button></div><p id="hb-rpl-undo-status" role="status" aria-live="polite"></p>'):'')+'<div class="actions">'+button('add','장소 더 담기',true)+button('fatigue','컨디션에 맞게 일정 조정')+button('share','가족에게 공유')+'</div>';
  document.getElementById('add').onclick=()=>go('/places');document.getElementById('fatigue').onclick=()=>go('/travel');document.getElementById('share').onclick=()=>go('/share/create');
  document.querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{let i=+b.dataset.remove;if(hbProtected(s.stops[i]))return;
   const stops=s.stops.filter((_,index)=>index!==i).map((stop,index)=>({...stop,position:index+1}));
@@ -537,12 +615,25 @@ function plan(){
   if(!hbSaveTripStops(stops)){b.checked=!b.checked;alert('보호 표시를 저장하지 못했어요.');return}
   plan();
   el.querySelector('[data-'+k+'="'+index+'"]')?.focus()}));
+ // P2-9 (2026-11-26): an in-page confirmation instead of window.confirm(), which in-app browsers can
+ // suppress (the button then looked dead).
  if(undo)document.getElementById('hb-rpl-undo').onclick=()=>{
-  if(!confirm('컨디션 조정 전 일정으로 되돌릴까요?'))return;
-  const result=hbUndoReplan();
-  if(!result.ok){alert(result.error);return}
-  plan();
-  document.getElementById('fatigue')?.focus();
+  const box=document.getElementById('hb-rpl-undo-box'),status=document.getElementById('hb-rpl-undo-status');
+  if(!box)return;
+  box.innerHTML='<p>컨디션 조정 전 일정으로 되돌릴까요?</p><div class="actions"><button type="button" id="hb-rpl-undo-yes">되돌리기</button><button type="button" class="light" id="hb-rpl-undo-no">취소</button></div>';
+  document.getElementById('hb-rpl-undo-yes').onclick=()=>{
+   const result=hbUndoReplan();
+   if(!result.ok){if(status)status.textContent=result.error;return}
+   plan();
+   document.getElementById('fatigue')?.focus();
+  };
+  document.getElementById('hb-rpl-undo-no').onclick=()=>{
+   plan();
+   document.getElementById('hb-rpl-undo')?.focus();
+   const kept=document.getElementById('hb-rpl-undo-status');
+   if(kept)kept.textContent='지금 일정을 그대로 유지해요.';
+  };
+  document.getElementById('hb-rpl-undo-yes').focus?.();
  };
 }
 function travel(){
@@ -606,8 +697,8 @@ function travel(){
      safe(place.name)+'</strong>로 교체 · '+(rest?'휴식 공간 안내 있음':'계단 없는 구간 확인')+
      ' · 직선거리 약 '+km.toFixed(1)+'km</label><br>'+safe(note)+
      (source?' <a href="'+safe(source)+'" target="_blank" rel="noopener noreferrer">출처</a>':'')+'</p>').join('')+'</fieldset>':
-    level!=='low'&&proposal.removed.length?'<p>확인된 대안 없음. 방문을 줄이거나 쉬기·숙소 복귀·귀가를 검토해 주세요.</p>':'')+
-   '<p class="warn">완료·필수·예약 일정은 보호돼요.</p>'+
+    level!=='low'&&proposal.removed.length?'<p>가까운 곳에 바꿔 갈 장소가 없어 방문을 줄이는 안으로 보여 드려요. 쉬는 시간을 넉넉히 가져 주세요.</p>':'')+
+   '<p class="muted">완료·필수·예약 일정은 그대로 두고, 남은 일정의 시간을 다시 맞춰요.</p>'+
    '<div class="actions"><button type="button" class="light" id="hb-rpl-cancel">취소</button>'+
    (proposal.removed.length?'<button type="button" id="hb-rpl-confirm">이 변경안 적용</button>':'<p>현재 일정을 유지해요.</p>')+
    '</div></section>';
