@@ -637,3 +637,8 @@ html[data-large-type="true"] #app :is(button, .actions > a) { min-height: 52px; 
 #app ol.hb-progress li:not([aria-current="step"]):has(.hb-step-link:not([aria-disabled="true"])):hover { border-color: currentColor; }
 #app .hb-step-nav-notice { margin: -8px 0 16px; padding: 10px 14px; border: 1px solid var(--hb-line); border-left: 4px solid currentColor; border-radius: 12px; background: var(--hb-soft); color: var(--hb-ink); font-weight: 650; }
 #app .hb-step-nav-notice[hidden] { display: none; }
+
+/* AI 보조(선택): 구조 규칙만. 색·글꼴 토큰은 13-editorial.css 가 소유한다. */
+.hb-ai-box textarea { width: 100%; min-height: 96px; resize: vertical; line-height: 1.6; padding: 12px; }
+.hb-ai-box .hb-ai-preview { margin: 8px 0 12px; padding-left: 20px; }
+.hb-ai-box .hb-ai-preview li { margin: 4px 0; }

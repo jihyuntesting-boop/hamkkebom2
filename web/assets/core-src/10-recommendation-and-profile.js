@@ -329,8 +329,8 @@ function newPlan(){
   };
   const intro=hbDiscoveryPendingMarkup()+'<h1>부모님과 여행 만들기</h1><p class="muted">여행 지역과 이동 조건부터 확인해요. 방문 가능한 동선이 검증됐다는 뜻은 아니에요.</p><ol class="hb-progress" aria-label="여행 만들기 3단계 중 '+step+'단계">'+['여행 정보','이동 조건','선호사항'].map((name,i)=>'<li'+(i+1===step?' aria-current="step"':i+1<step?' class="hb-step-done"':'')+'>'+stepLink(name,i)+'</li>').join('')+'</ol><p id="hb-step-nav-notice" class="hb-step-nav-notice" role="status" aria-live="polite" hidden></p>';
   if(step===1){
-    el.innerHTML=intro+'<section class="panel"><h2 tabindex="-1">1. 여행 정보</h2>'+prefs()+(s.hbDateRefreshedFrom?'<p role="status">이전에 저장된 날짜를 오늘로 갱신했어요. 기존 일정의 날짜는 그대로 유지돼요.</p>':'')+'<div class="actions"><button class="light" type="button" id="hb-date-today">오늘</button><button class="light" type="button" id="hb-date-tomorrow">내일</button></div><div class="row hb-trip-time-row">'+hbClockField('hb-trip-start','여행 출발 희망 시각 (선택)',s.hbDepartTime,'집(출발지)에서 출발하는 시각')+hbClockField('hb-trip-end','집 도착 희망 시각 (선택)',s.hbReturnTime,'집(귀가 위치)에 도착하고 싶은 날짜와 시각',true)+'</div><div id="hb-trip-home-preview" class="hb-trip-home-preview" aria-live="polite">'+(typeof hbHomePreviewMarkup==='function'?hbHomePreviewMarkup():'')+'</div><p class="muted" id="hb-trip-time-help">시간을 비워 두면 선택한 장소에 맞춰 시간표 초안을 제안해요. 숫자로 7:30, 0730, 19:05처럼 직접 입력하거나 시계로 고를 수 있고, 새벽·저녁 시간도 가능해요. 출발 시각을 정하면 출발지에서 첫 방문지까지 이동시간을 더해 첫 방문지 도착 시각을 잡아요. 네이버 자동차 경로로 계산한 이동시간이 있으면 그 값을, 없으면 이동 약 25분 (예상)으로 넣어요.</p>'+((s.hbPlanStart||s.hbPlanEnd)?'<p class="hb-legacy-time-note" role="note">이전에 저장한 첫 방문지 기준 시각('+safe(s.hbPlanStart||'제안')+' ~ '+safe(s.hbPlanEnd||'제안')+')은 그 의미 그대로 유지돼요. 값이 있으면 집 출발·도착 희망 시각보다 우선해요. <button type="button" class="light" id="hb-legacy-time-clear">이전 첫 방문지 시각 지우기</button></p>':'')+hbTripOriginStepMarkup()+'<div class="row"><div class="field"><label for="hb-duration">여행 형태</label><select id="hb-duration"><option value="day">당일 여행</option><option value="overnight">숙박 여행</option></select></div><div class="field"><label for="hb-transport">주요 이동 수단</label><select id="hb-transport"><option value="car">자동차</option><option value="transit">대중교통</option><option value="mixed">상황에 따라 선택</option></select></div><div class="field"><label for="hb-party">동행 인원</label><select id="hb-party"><option value="2">2명</option><option value="3">3명</option><option value="4">4명</option><option value="5">5명</option><option value="6">6명</option><option value="7">7명</option><option value="8">8명</option><option value="9">9명</option><option value="10">10명</option><option value="11">11명</option><option value="12">12명</option></select></div></div><div class="actions"><button type="button" id="hb-next">다음: 이동 조건 →</button></div><p class="muted" id="hb-step-error" role="alert"></p></section>'+(typeof weatherCard==='function'?weatherCard():'');
-    hbDiscoveryBindPending(newPlan);bindPrefs();
+    el.innerHTML=intro+'<section class="panel hb-ai-box" id="hb-ai-slot" data-hb-ai aria-labelledby="hb-ai-title" hidden></section><section class="panel"><h2 tabindex="-1">1. 여행 정보</h2>'+prefs()+(s.hbDateRefreshedFrom?'<p role="status">이전에 저장된 날짜를 오늘로 갱신했어요. 기존 일정의 날짜는 그대로 유지돼요.</p>':'')+'<div class="actions"><button class="light" type="button" id="hb-date-today">오늘</button><button class="light" type="button" id="hb-date-tomorrow">내일</button></div><div class="row hb-trip-time-row">'+hbClockField('hb-trip-start','여행 출발 희망 시각 (선택)',s.hbDepartTime,'집(출발지)에서 출발하는 시각')+hbClockField('hb-trip-end','집 도착 희망 시각 (선택)',s.hbReturnTime,'집(귀가 위치)에 도착하고 싶은 날짜와 시각',true)+'</div><div id="hb-trip-home-preview" class="hb-trip-home-preview" aria-live="polite">'+(typeof hbHomePreviewMarkup==='function'?hbHomePreviewMarkup():'')+'</div><p class="muted" id="hb-trip-time-help">시간을 비워 두면 선택한 장소에 맞춰 시간표 초안을 제안해요. 숫자로 7:30, 0730, 19:05처럼 직접 입력하거나 시계로 고를 수 있고, 새벽·저녁 시간도 가능해요. 출발 시각을 정하면 출발지에서 첫 방문지까지 이동시간을 더해 첫 방문지 도착 시각을 잡아요. 네이버 자동차 경로로 계산한 이동시간이 있으면 그 값을, 없으면 이동 약 25분 (예상)으로 넣어요.</p>'+((s.hbPlanStart||s.hbPlanEnd)?'<p class="hb-legacy-time-note" role="note">이전에 저장한 첫 방문지 기준 시각('+safe(s.hbPlanStart||'제안')+' ~ '+safe(s.hbPlanEnd||'제안')+')은 그 의미 그대로 유지돼요. 값이 있으면 집 출발·도착 희망 시각보다 우선해요. <button type="button" class="light" id="hb-legacy-time-clear">이전 첫 방문지 시각 지우기</button></p>':'')+hbTripOriginStepMarkup()+'<div class="row"><div class="field"><label for="hb-duration">여행 형태</label><select id="hb-duration"><option value="day">당일 여행</option><option value="overnight">숙박 여행</option></select></div><div class="field"><label for="hb-transport">주요 이동 수단</label><select id="hb-transport"><option value="car">자동차</option><option value="transit">대중교통</option><option value="mixed">상황에 따라 선택</option></select></div><div class="field"><label for="hb-party">동행 인원</label><select id="hb-party"><option value="2">2명</option><option value="3">3명</option><option value="4">4명</option><option value="5">5명</option><option value="6">6명</option><option value="7">7명</option><option value="8">8명</option><option value="9">9명</option><option value="10">10명</option><option value="11">11명</option><option value="12">12명</option></select></div></div><div class="actions"><button type="button" id="hb-next">다음: 이동 조건 →</button></div><p class="muted" id="hb-step-error" role="alert"></p></section>'+(typeof weatherCard==='function'?weatherCard():'');
+    hbDiscoveryBindPending(newPlan);bindPrefs();hbAiMountParse(document.getElementById('hb-ai-slot'));
     const dateField=document.getElementById('date');
     const chooseDate=value=>{dateField.value=value;dateField.onchange({target:dateField});document.getElementById('hb-step-error').textContent='';};
     document.getElementById('hb-date-today').onclick=()=>chooseDate(hbTodaySeoul());
@@ -388,6 +388,143 @@ function newPlan(){
   document.getElementById('hb-prev').onclick=()=>{changeStep(2)};
   document.getElementById('hb-finish').onclick=()=>{s=hbRefreshAutomaticDate(s);if(hbTravelDateError(s.date)||s.hbStep===1){newPlan();document.getElementById('date')?.focus();return;}const result=hbTravelInput(s);if(result.errors.length){document.getElementById('hb-finish-error').textContent=result.errors.join(' ');return;}s.hbBrowseLimit=30;s.hbBrowseFilter=s.hbInterest||'all';s.hbDraftActive=false;s.hbStep=1;save();go('/places')};
 }
+// HB_AI_ASSIST_START — 생성형 AI 보조(선택). 서버 /api/ai-assist 가 키 미등록·실패면
+// 이 영역을 통째로 숨기고 기존 수동 입력을 그대로 쓴다(오류·미지원 문구를 보이지 않음).
+// AI 제안은 미리보기 후 사용자가 "이 조건으로 채우기"를 눌러야만 적용된다.
+let hbAiStatusPromise=null,hbAiOff=false,hbAiNotice='',hbAiDraftText='';
+function hbAiQueryStatus(fetchImpl){
+ return Promise.resolve().then(()=>fetchImpl('/api/ai-assist',{headers:{Accept:'application/json'},
+  signal:typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(4000):undefined}))
+  .then(r=>r&&r.ok?r.json():null).then(d=>!!(d&&d.enabled===true)).catch(()=>false);
+}
+function hbAiAvailable(fetchImpl){
+ if(hbAiOff)return Promise.resolve(false);
+ if(fetchImpl)return hbAiQueryStatus(fetchImpl);
+ if(typeof fetch!=='function')return Promise.resolve(false);
+ if(!hbAiStatusPromise)hbAiStatusPromise=hbAiQueryStatus(fetch);
+ return hbAiStatusPromise.then(ok=>ok&&!hbAiOff);
+}
+async function hbAiPost(body,fetchImpl){
+ const call=fetchImpl||fetch;
+ const r=await call('/api/ai-assist',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),
+  signal:typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(12000):undefined});
+ if(!r||!r.ok)throw Error('ai-assist');
+ return r.json();
+}
+// 실패하면 이번 방문 동안 AI 영역을 모두 숨긴다. 입력은 수동 폼에서 계속할 수 있다.
+function hbAiDisable(){
+ hbAiOff=true;
+ if(typeof document!=='undefined')document.querySelectorAll('[data-hb-ai]').forEach(node=>{node.hidden=true;node.innerHTML=''});
+}
+const HB_AI_FIELD_VIEW={
+ region:['여행 지역',v=>v],
+ date:['여행 날짜',v=>{const d=hbTravelWeekday(v);return d?d.label:v}],
+ tripType:['여행 형태',v=>({day:'당일 여행',overnight:'숙박 여행'})[v]],
+ transport:['주요 이동 수단',v=>({car:'자동차',transit:'대중교통',mixed:'상황에 따라 선택'})[v]],
+ partySize:['동행 인원',v=>v+'명'],
+ walkingMinutes:['한 번에 걸을 수 있는 시간',v=>({5:'5분 이하',10:'10분 정도',15:'15분 정도',20:'20분 정도',30:'30분 이상'})[v]],
+ stairs:['계단 이용',v=>({possible:'계단 이용 가능',avoid:'가능하면 계단 피하기',impossible:'계단 이용 불가'})[v]],
+ slopePreference:['경사',v=>({avoid_steep:'가파른 경사 피하기',flexible:'특별한 제한 없음'})[v]],
+ restIntervalMinutes:['휴식 간격',v=>'약 '+v+'분마다'],
+ indoorPreference:['선호 장소',v=>({any:'실내외 모두',indoor:'실내 위주',outdoor:'야외 위주'})[v]],
+ mobilityAid:['이동 보조기구',v=>hbMobilityAidLabels[v]],
+ placePreference:['먼저 볼 장소',v=>({all:'관광지와 식당 모두',spot:'관광지·문화시설',food:'식당'})[v]],
+ facilityNeeds:['중요한 편의시설',v=>v.map(x=>({toilet:'화장실 가까이',rest:'쉴 곳 많게',dropoff:'입구 가까운 하차',elevator:'엘리베이터',wheelchair:'휠체어 편의시설'})[x]).join(', ')],
+ foodPreferences:['식사 선호',v=>v.map(x=>({less_spicy:'덜 매운 음식',easy_to_chew:'씹기 편한 음식',vegetarian:'채식'})[x]).join(', ')]
+};
+/** 서버 제안 → 기존 로컬 입력 상태 키로 옮길 패치. 허용 값만 받고, 기존 선택은 지우지 않는다(목록은 합친다). */
+function hbAiSuggestionPatch(suggestion,state,today=hbTodaySeoul()){
+ const x=suggestion&&typeof suggestion==='object'&&!Array.isArray(suggestion)?suggestion:{};
+ const st=state&&typeof state==='object'?state:{};
+ const patch={},rows=[];
+ const one=(key,choices)=>choices.includes(x[key])?x[key]:null;
+ const list=(key,choices)=>Array.isArray(x[key])?[...new Set(x[key].filter(v=>choices.includes(v)))]:[];
+ const row=(key,value)=>rows.push({key,label:HB_AI_FIELD_VIEW[key][0],value:HB_AI_FIELD_VIEW[key][1](value)});
+ const region=one('region',['서울','경기']);
+ if(region){patch.region=region;row('region',region)}
+ if(typeof x.date==='string'&&!hbTravelDateError(x.date,today)){patch.date=x.date;patch.hbDateExplicit=true;row('date',x.date)}
+ const trip=one('tripType',['day','overnight']);
+ if(trip){patch.hbDuration=trip;row('tripType',trip)}
+ const transport=one('transport',['car','transit','mixed']);
+ if(transport){patch.hbTransport=transport;row('transport',transport)}
+ if(Number.isInteger(x.partySize)&&x.partySize>=2&&x.partySize<=12){patch.hbParty=String(x.partySize);row('partySize',x.partySize)}
+ const walk=one('walkingMinutes',[5,10,15,20,30]);
+ if(walk){patch.walk=String(walk);patch.hbWalkConfirmed=true;row('walkingMinutes',walk)}
+ const stairs=one('stairs',['impossible','avoid','possible']);
+ if(stairs){patch.hbStairsChoice=stairs;patch.stairs=stairs==='possible'?'possible':'avoid';row('stairs',stairs)}
+ const slope=one('slopePreference',['avoid_steep','flexible']);
+ if(slope){patch.hbSlopePreference=slope;row('slopePreference',slope)}
+ const rest=one('restIntervalMinutes',[30,45,60]);
+ if(rest){patch.hbRestIntervalMinutes=rest;row('restIntervalMinutes',rest)}
+ const indoor=one('indoorPreference',['any','indoor','outdoor']);
+ if(indoor){patch.hbIndoorPreference=indoor;row('indoorPreference',indoor)}
+ const aid=one('mobilityAid',['none','cane','walker','wheelchair','other']);
+ if(aid){patch.hbMobilityAid=aid;row('mobilityAid',aid)}
+ const interest=one('placePreference',['all','spot','food']);
+ if(interest){patch.hbInterest=interest;patch.hbBrowseFilter=interest;row('placePreference',interest)}
+ const needs=list('facilityNeeds',['toilet','rest','dropoff','elevator','wheelchair']);
+ if(needs.length){patch.momNeeds=[...new Set([...(Array.isArray(st.momNeeds)?st.momNeeds:[]),...needs])];row('facilityNeeds',needs)}
+ const foods=list('foodPreferences',['less_spicy','easy_to_chew','vegetarian']);
+ if(foods.length){patch.hbFoodPreferences=[...new Set([...(Array.isArray(st.hbFoodPreferences)?st.hbFoodPreferences:[]),...foods])];row('foodPreferences',foods)}
+ return {patch,rows,regionChange:!!(patch.region&&patch.region!==st.region)};
+}
+function hbAiApplySuggestion(suggestion){
+ const {patch,rows,regionChange}=hbAiSuggestionPatch(suggestion,s);
+ if(!rows.length)return false;
+ const before=s;
+ if(regionChange){hbKeepItineraryContext();Object.assign(patch,{chosen:[],hbBrowseQuery:'',hbBrowseLimit:30});}
+ const next={...s,...patch,hbDraftActive:true,hbStep:1};
+ if(patch.date)delete next.hbDateRefreshedFrom;
+ if(patch.hbDuration&&hbReturnDay(next.hbReturnDay,next.hbDuration)===null)next.hbReturnDay=Math.min(Number(next.hbReturnDay)||0,hbReturnDayLimit(next.hbDuration));
+ s=next;
+ try{save()}catch{s=before;return false}
+ hbAiNotice='문장에서 찾은 조건 '+rows.length+'개를 채웠어요. 단계마다 내용을 확인하고 고칠 수 있어요.';
+ newPlan();
+ if(regionChange&&typeof load==='function')load();
+ if(patch.date&&typeof getWeather==='function')getWeather();
+ return true;
+}
+function hbAiParseMarkup(){
+ return '<h2 id="hb-ai-title" tabindex="-1">말로 여행 조건 적기 (선택)</h2>'+
+  (hbAiNotice?'<p class="hb-ai-notice" role="status">'+safe(hbAiNotice)+'</p>':'')+
+  '<p class="muted" id="hb-ai-help">예: 엄마가 무릎이 안 좋아서 계단 적고 화장실 가까운 곳, 이번 토요일 서울 근교. 적은 문장은 조건을 정리하는 데에만 AI(Anthropic Claude)로 보내고 저장하지 않아요. 이름이나 진단명은 적지 않아도 돼요.</p>'+
+  '<div class="field"><label for="hb-ai-text">원하는 여행을 한두 문장으로 적어 주세요</label><textarea id="hb-ai-text" rows="3" maxlength="300" aria-describedby="hb-ai-help hb-ai-count"></textarea><small id="hb-ai-count">0/300자</small></div>'+
+  '<div class="actions"><button type="button" id="hb-ai-fill">조건 채우기</button></div><div id="hb-ai-result" aria-live="polite"></div>';
+}
+function hbAiMountParse(slot){
+ if(!slot)return Promise.resolve(false);
+ return hbAiAvailable().then(ok=>{
+  if(!ok||slot.isConnected===false)return false;
+  const announce=!!hbAiNotice;
+  slot.innerHTML=hbAiParseMarkup();slot.hidden=false;hbAiNotice='';
+  if(announce)slot.querySelector('#hb-ai-title')?.focus();
+  const text=slot.querySelector('#hb-ai-text'),fill=slot.querySelector('#hb-ai-fill'),out=slot.querySelector('#hb-ai-result'),count=slot.querySelector('#hb-ai-count');
+  text.value=hbAiDraftText;count.textContent=text.value.length+'/300자';
+  text.oninput=()=>{hbAiDraftText=text.value;count.textContent=text.value.length+'/300자'};
+  fill.onclick=async()=>{
+   const value=text.value.trim();
+   if(!value){out.textContent='여행 조건을 한두 문장으로 적어 주세요.';text.focus();return}
+   fill.disabled=true;fill.setAttribute('aria-busy','true');out.textContent='조건을 정리하는 중이에요.';
+   let data=null;
+   try{data=await hbAiPost({action:'parse',text:value.slice(0,300)})}catch{data=null}
+   if(!slot.isConnected)return;
+   fill.disabled=false;fill.removeAttribute('aria-busy');
+   if(!data||!['ok','empty'].includes(data.status)){hbAiDisable();document.getElementById('region')?.focus();return}
+   const view=hbAiSuggestionPatch(data.suggestion,s);
+   if(!view.rows.length){out.innerHTML='<p>문장에서 채울 조건을 찾지 못했어요. 아래에서 직접 골라 주세요.</p>';return}
+   out.innerHTML='<h3 id="hb-ai-preview-title" tabindex="-1">이렇게 채울까요?</h3><ul class="hb-ai-preview">'+
+    view.rows.map(r=>'<li><strong>'+safe(r.label)+'</strong> · '+safe(r.value)+'</li>').join('')+'</ul>'+
+    (view.regionChange&&Array.isArray(s.chosen)&&s.chosen.length?'<p class="warn">여행 지역이 바뀌면 담은 장소 선택이 초기화돼요. 저장한 일정은 유지돼요.</p>':'')+
+    '<p class="muted">적용하기 전에는 아무것도 바뀌지 않아요. 적용한 뒤에도 각 단계에서 고칠 수 있어요.</p>'+
+    '<div class="actions"><button type="button" id="hb-ai-apply">이 조건으로 채우기</button><button type="button" class="light" id="hb-ai-cancel">취소</button></div>';
+   out.querySelector('#hb-ai-preview-title')?.focus();
+   out.querySelector('#hb-ai-apply').onclick=()=>{if(!hbAiApplySuggestion(data.suggestion))out.textContent='조건을 저장하지 못했어요. 아래에서 직접 골라 주세요.'};
+   out.querySelector('#hb-ai-cancel').onclick=()=>{out.textContent='채우지 않았어요. 아래에서 직접 골라도 돼요.';text.focus()};
+  };
+  return true;
+ });
+}
+// HB_AI_ASSIST_END
 function hbBrowseText(value){
   return String(value??'').normalize('NFKC').toLocaleLowerCase('ko').replace(/\s+/g,'').trim();
 }

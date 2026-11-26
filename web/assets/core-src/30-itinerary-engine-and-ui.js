@@ -1113,6 +1113,71 @@ const HB_PLAN_PANEL_LOCAL_NOTICE='edit'; // 'always' | 'edit'(일정 편집 모�
 const HB_PLAN_PANEL_TRAVEL_BASIS=false;  // '이동시간 · 네이버 자동차 경로 n구간 …' 요약 줄
 const HB_PLAN_PANEL_ENDPOINTS=false;     // '출발지·귀가 위치와 예상 시간' 섹션
 let hbPlanEditMode=false,hbPlanChecksOpen=false;
+// HB_AI_SUMMARY_START — 가족 공유용 일정 설명(선택). 일정표에 이미 있는 자료만 서버로 보낸다.
+// 서버는 안전 보장 표현·자료에 없는 숫자가 든 문장을 빼고 돌려준다. 실패하면 영역을 숨긴다.
+let hbAiSummaryCache=null;
+const HB_AI_SUMMARY_FOOTER='※ 함께봄 일정 자료로 만든 설명이에요. 방문 전에 한 번 더 확인해 주세요.';
+function hbAiItineraryFacts(stops,state,list){
+ const items=Array.isArray(stops)?stops:[],st=state||{};
+ const byId=new Map((Array.isArray(list)?list:[]).filter(p=>p&&typeof p.id==='string').map(p=>[p.id,p]));
+ const out=[];
+ items.forEach((stop,i)=>{
+  if(!stop||typeof stop.name!=='string'||!stop.name.trim()||out.length>=12)return;
+  const basis=hbTravelBasis(items,i);
+  const place=stop.placeId?byId.get(stop.placeId):null;
+  const facilities=place?hbAccessFacts(place).filter(f=>!['conflicting','stale'].includes(f.status))
+   .map(f=>String(f.label||'').trim()).filter(Boolean).slice(0,5):[];
+  const time=stop.plannedArrival||stop.time;
+  out.push({name:stop.name.trim().slice(0,60),kind:['spot','culture','food','rest'].includes(stop.kind)?stop.kind:'spot',
+   time:typeof time==='string'&&/^([01]\d|2[0-3]):[0-5]\d$/.test(time)?time:null,
+   stayMinutes:Number.isInteger(Number(stop.stayMinutes))&&Number(stop.stayMinutes)>0?Number(stop.stayMinutes):null,
+   travelMinutes:basis.kind==='verified'||basis.kind==='placeholder'?basis.minutes:null,
+   travelBasis:basis.kind==='verified'?'naver':basis.kind==='placeholder'?'estimate':null,facilities});
+ });
+ return {region:st.hbPlanInfo?.region||st.region||null,date:st.hbPlanInfo?.date||st.date||null,stops:out};
+}
+function hbAiSummaryResultMarkup(text){
+ return '<div class="field"><label for="hb-ai-summary-text">설명 글 (복사해서 가족에게 보낼 수 있어요)</label><textarea id="hb-ai-summary-text" rows="7" readonly>'+safe(text)+'</textarea></div>'+
+  '<div class="actions"><button type="button" id="hb-ai-summary-copy">설명 복사</button></div><p id="hb-ai-summary-copied" role="status" aria-live="polite"></p>';
+}
+function hbAiBindSummaryCopy(root){
+ const button=root.querySelector('#hb-ai-summary-copy'),area=root.querySelector('#hb-ai-summary-text'),note=root.querySelector('#hb-ai-summary-copied');
+ if(!button||!area)return;
+ button.onclick=async()=>{
+  try{await navigator.clipboard.writeText(area.value);note.textContent='복사했어요.'}
+  catch{area.focus();area.select();note.textContent='글을 선택했어요. 길게 누르거나 Ctrl+C로 복사해 주세요.'}
+ };
+}
+function hbAiMountSummary(root,stops){
+ if(!root||!Array.isArray(stops)||!stops.length)return Promise.resolve(false);
+ return hbAiAvailable().then(ok=>{
+  if(!ok||root.isConnected===false||root.querySelector('#hb-ai-summary'))return false;
+  const facts=hbAiItineraryFacts(stops,s,places);
+  if(!facts.stops.length)return false;
+  const key=JSON.stringify(facts);
+  const box=document.createElement('section');
+  box.id='hb-ai-summary';box.className='panel hb-ai-box hb-ai-summary';box.setAttribute('data-hb-ai','');box.setAttribute('aria-labelledby','hb-ai-summary-title');
+  box.innerHTML='<h2 id="hb-ai-summary-title">가족에게 보낼 일정 설명 (선택)</h2><p class="muted">일정표의 장소·도착 시각·머무는 시간·이동시간과 자료에 있는 편의시설 이름만으로 짧은 설명을 만들어요. 일정 자료는 설명을 만드는 데에만 AI(Anthropic Claude)로 보내고 저장하지 않아요.</p>'+
+   '<div class="actions"><button type="button" class="light" id="hb-ai-summary-make">설명 만들기</button></div><div id="hb-ai-summary-out" aria-live="polite"></div>';
+  root.append(box);
+  const out=box.querySelector('#hb-ai-summary-out'),make=box.querySelector('#hb-ai-summary-make');
+  if(hbAiSummaryCache&&hbAiSummaryCache.key===key){out.innerHTML=hbAiSummaryResultMarkup(hbAiSummaryCache.text);hbAiBindSummaryCopy(box);}
+  make.onclick=async()=>{
+   make.disabled=true;make.setAttribute('aria-busy','true');out.textContent='설명을 만드는 중이에요.';
+   let data=null;
+   try{data=await hbAiPost({action:'summary',itinerary:facts})}catch{data=null}
+   if(!box.isConnected)return;
+   make.disabled=false;make.removeAttribute('aria-busy');
+   if(!data||data.status!=='ok'||!Array.isArray(data.lines)||!data.lines.length){hbAiDisable();return}
+   const text=data.lines.filter(x=>typeof x==='string').join('\n')+'\n'+HB_AI_SUMMARY_FOOTER;
+   hbAiSummaryCache={key,text};
+   out.innerHTML=hbAiSummaryResultMarkup(text);hbAiBindSummaryCopy(box);
+   box.querySelector('#hb-ai-summary-text')?.focus();
+  };
+  return true;
+ });
+}
+// HB_AI_SUMMARY_END
 function hbPlanViewEnhance(){
  const oldView=plan;
  plan=function(){
@@ -1302,6 +1367,7 @@ function hbPlanViewEnhance(){
   const firstRow=layout.querySelector?.('.hb-itinerary-row');
   if(now.length&&firstRow?.insertAdjacentHTML){firstRow.insertAdjacentHTML('beforebegin','<div data-hb-plan-weather-slot></div>');hbPlanWeatherRefresh();}
   hbRenderPlanMap();
+  if(now.length)hbAiMountSummary(layout,now);
  };
 }
 hbPlanViewEnhance();
