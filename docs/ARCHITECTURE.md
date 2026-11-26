@@ -24,6 +24,8 @@ flowchart LR
 
 생성형 AI(자연어 조건 정리, 일정 설명)는 `/api/ai-assist` → `web/server/ai-assistant.cjs` → Claude API 경로입니다. 운영에는 `ANTHROPIC_API_KEY`가 아직 등록되지 않아 `{"enabled":false}`를 돌려주고 화면에 AI 영역이 나타나지 않습니다(2026-11-26 확인). 상세는 [AI_INTEGRATION.md](AI_INTEGRATION.md).
 
+구현 중(미병합, 2026-11-26): AI Agent 여행 초안(Claude 도구 호출 `search_places`·`get_place_facts`·`get_weather`·`estimate_travel`), RAG 장소 Q&A(카탈로그·공식 근거 검색 → 답변과 출처), Long-term Memory(동의한 선호를 기기에만 저장해 프롬프트에 사용), 앱 내 피드백 폼(`#/feedback`). 병합 전이라 이 문서의 구성도·API 표에는 넣지 않았고 병합 후 갱신합니다. 기술 선택 이유는 [TECH_STACK.md](TECH_STACK.md), 진행 과정은 [PROCESS.md](PROCESS.md).
+
 ## 2. 구성 요소
 
 | 구성 요소 | 경로 | 역할 |

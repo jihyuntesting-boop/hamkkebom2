@@ -79,7 +79,7 @@ PR 본문에는 다음을 적습니다.
 
 - 워크플로: `.github/workflows/evaluation-public-sync.yml`
 - 실행 시점: 정본 main에 `web/**`, 빌드 검사 스크립트, 제출 문서(`docs/submission/**`), 안정성 측정 스크립트, lint·format 설정과 `package*.json`, 공개 테스트 러너, `tests/*.test.cjs`, 공개 CI 원본(`public-ci/ci.yml`), 워크플로 자체가 바뀐 커밋이 push될 때와 수동 실행 시
-- 내보내는 파일: 명시적 허용 목록만. 새 `web/` 경로나 `docs/submission/`의 목록 밖 파일이 있으면 동기화가 실패하고 사람이 검토합니다. 공개 테스트 목록이 `scripts/run_public_tests.mjs`의 목록과 다르면 역시 실패합니다.
+- 내보내는 파일: 명시적 허용 목록만. 새 `web/` 경로나 `docs/submission/`의 목록 밖 파일이 있으면 동기화가 실패하고 사람이 검토합니다. 제출 문서는 필수 목록(없으면 실패)과 선택 목록(있을 때만 내보냄, 예: 병합 전인 `AI_DESIGN.md`)으로 나뉩니다. 공개 테스트 목록이 `scripts/run_public_tests.mjs`의 목록과 다르면 역시 실패합니다.
 - 공개 CI: 정본의 `public-ci/ci.yml`을 공개 저장소의 `.github/workflows/ci.yml`로 복사합니다. 정본에서는 실행되지 않고, 공개 저장소에서 lint·format·번들 일치·공개 테스트를 실행합니다.
 - 안전장치: 비밀값 패턴 검사, 지도 공개 키 자리표시자 치환, 권리 검토 전 사진 목록 비우기, 대상 저장소의 관리 표식 확인, 스냅샷에 없는 파일이 대상에 있으면 중단, force push 없음
 - 대상 저장소에는 원본 Git 이력을 보내지 않고, 매번 "Update public evaluation source snapshot" 커밋 하나를 추가합니다.
