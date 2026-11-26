@@ -1,5 +1,6 @@
 'use strict';
 // Agent N: curated IDs, independently fetched by TourAPI detailCommon2.
+const {listPhotoFields,photoFields}=require('./tour-official-image.cjs');
 const SOURCE = 'https://www.data.go.kr/data/15101578/openapi.do';
 const ENDPOINT = 'https://apis.data.go.kr/B551011/KorService2/detailCommon2';
 const RADIUS_KM = 42;
@@ -59,7 +60,7 @@ function normalize(item,c,checkedAt){
     kind:String(item.contenttypeid)==='14'?'culture':'spot',matched:true,accessStatus:'unverified',accessFacts:[],
     source:'한국관광공사 국문 관광정보 TourAPI',sourceUrl:SOURCE,collectedAt:checkedAt,
     sourceUpdatedAt:/^\d{8}(?:\d{6})?$/.test(updated)?updated.slice(0,4)+'-'+updated.slice(4,6)+'-'+updated.slice(6,8):null,
-    imageIdentifier:c.id,imageUrl:null,featured:true};
+    imageIdentifier:c.id,imageUrl:null,featured:true,dataMode:'live',...listPhotoFields(item,c.id)};
 }
 function resolveKey(env){
   const raw=[env.HB_TOURAPI_KEY,env.DATA_GO_KR_KEY].find(v=>typeof v==='string'&&v.trim());
@@ -107,8 +108,35 @@ async function detail(c,fetcher,key,checkedAt,timeoutMs){
 function distance(a,b){const r=Math.PI/180,dlat=(a.lat-b.lat)*r,dlng=(a.lng-b.lng)*r;
   const h=Math.sin(dlat/2)**2+Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin(dlng/2)**2;
   return 6371*2*Math.asin(Math.sqrt(Math.min(1,Math.max(0,h))));}
-function createCatalog({fetcher=globalThis.fetch,env=process.env,now=Date.now,timeoutMs=TIMEOUT_MS}={}){
-  let cached=null,inFlight=null;
+// Saved fallback (web/catalog/featured-snapshot.v1.json): served when TourAPI fails or hits its
+// quota, so the editorial list never disappears. Each record passes the same identity checks as
+// a live row; a record that fails them is dropped, never shown.
+function loadSnapshot(data){
+  if(data?.schemaVersion!==1||!Array.isArray(data.records)||typeof data.checkedAt!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(data.checkedAt))return new Map();
+  const checkedAt=data.checkedAt+'T00:00:00+09:00',byId=new Map();
+  for(const r of data.records){
+    const c=CANDIDATES.find(x=>x.id===r?.contentId);
+    if(!c||byId.has(c.id))continue;
+    const item={contentid:r.contentId,title:r.name,contenttypeid:r.contentTypeId,addr1:r.address,mapy:r.lat,mapx:r.lng,
+      firstimage:typeof r.officialImageUrl==='string'?r.officialImageUrl:''};
+    try{
+      const place=normalize(item,c,checkedAt);
+      // No saved image URL means "not known", not "confirmed without a photo".
+      byId.set(c.id,{...place,...(item.firstimage?{}:photoFields('tour-'+c.id,undefined)),source:'한국관광공사 국문 관광정보 TourAPI (저장 자료)',dataMode:'snapshot',snapshotVersion:String(data.catalogVersion||''),collectedAt:checkedAt});
+    }catch{/* identity mismatch: omit */}
+  }
+  return byId;
+}
+const SNAPSHOT=loadSnapshot(require('../catalog/featured-snapshot.v1.json'));
+// Transient provider failures fall back to the snapshot. A live identity mismatch does not:
+// the provider then says something different from our saved record.
+const SNAPSHOT_FALLBACK=new Set(['upstream_unauthorized','upstream_rate_limited','upstream_timeout','upstream_unavailable',
+  'upstream_invalid_response','upstream_invalid_schema','upstream_error','missing_api_key']);
+const QUOTA_COOLDOWN=10*60*1000,ERROR_COOLDOWN=2*60*1000;
+function createCatalog({fetcher=globalThis.fetch,env=process.env,now=Date.now,timeoutMs=TIMEOUT_MS,snapshot=SNAPSHOT}={}){
+  // Memory keeps successes only. A failed refresh never replaces an earlier live place.
+  const live=new Map(),missing=new Set(),lastErrors=new Map();
+  let freshUntil=0,cooldownUntil=0,fetchedAt=null,inFlight=null;
   async function refresh(key){
     const checkedAt=new Date(now()).toISOString();let cursor=0,halt=null;
     const results=Array(CANDIDATES.length);
@@ -117,42 +145,64 @@ function createCatalog({fetcher=globalThis.fetch,env=process.env,now=Date.now,ti
       catch(e){results[i]={error:e};if(['upstream_unauthorized','upstream_rate_limited'].includes(e.code))halt=e;}
     }}
     await Promise.all([worker(),worker(),worker()]);
-    for(let i=0;i<results.length;i++)if(!results[i])results[i]={error:halt,skipped:true};
-    const errors=results.filter(x=>x.error);
-    const expiry=errors.length?60*60*1000:TTL; // Bound repeated failing refreshes under Hobby quotas.
-    const value={results,checkedAt};cached={key,value,until:now()+expiry};return value;
+    let failed=0;
+    CANDIDATES.forEach((c,i)=>{const r=results[i]||{error:halt,skipped:true};
+      if(r.place){live.set(c.id,r.place);missing.delete(c.id);lastErrors.delete(c.id);}
+      else if(r.missing){live.delete(c.id);missing.add(c.id);lastErrors.delete(c.id);}
+      else{failed++;lastErrors.set(c.id,{error:r.error,skipped:!!r.skipped});}
+    });
+    fetchedAt=checkedAt;
+    if(!failed)freshUntil=now()+TTL;
+    // Bound repeated failing refreshes under Hobby quotas; serve memory/snapshot meanwhile.
+    else cooldownUntil=now()+(halt?QUOTA_COOLDOWN:ERROR_COOLDOWN);
   }
-  async function load(){const key=resolveKey(env);
-    if(cached?.key===key&&cached.until>now())return cached.value;
-    // A deployment has one server key; serialize refreshes even on key change.
-    if(inFlight){await inFlight;return load();}
-    inFlight=refresh(key);try{return await inFlight;}finally{inFlight=null;}
+  async function load(){
+    let key=null,keyError=null;
+    try{key=resolveKey(env);}catch(e){keyError=e;}
+    if(key&&now()>=freshUntil&&now()>=cooldownUntil){
+      // A deployment has one server key; one shared refresh across map centers.
+      if(!inFlight)inFlight=refresh(key).finally(()=>{inFlight=null;});
+      await inFlight;
+    }
+    return CANDIDATES.map(c=>{
+      if(live.has(c.id))return {place:live.get(c.id)};
+      if(missing.has(c.id))return {missing:true};
+      const row=keyError?{error:keyError,skipped:false}:lastErrors.get(c.id)||{error:failure('upstream_unavailable'),skipped:true};
+      if(snapshot?.has(c.id)&&SNAPSHOT_FALLBACK.has(row.error?.code))return {place:snapshot.get(c.id),fallback:row.error.code};
+      return row;
+    });
   }
   return async function get(query){
     const lat=number(query.lat,-90,90),lng=number(query.lng,-180,180);
     if(lat===null||lng===null)throw Object.assign(new Error('invalid_coordinates'),{code:'invalid_coordinates',status:400});
     if(query.region!==undefined&&!['서울','경기'].includes(query.region))throw Object.assign(new Error('invalid_region'),{code:'invalid_region',status:400});
-    const center={lat,lng};const {results,checkedAt}=await load();
+    const center={lat,lng};const results=await load();
     const relevant=results.map((result,i)=>({...result,candidate:CANDIDATES[i]})).filter(r=>!query.region||r.candidate.region===query.region);
-    const failed=relevant.filter(r=>r.error),missing=relevant.filter(r=>r.missing);
-    const valid=relevant.filter(r=>r.place);
+    const failed=relevant.filter(r=>r.error),missingRows=relevant.filter(r=>r.missing);
+    const valid=relevant.filter(r=>r.place),fallback=valid.filter(r=>r.fallback);
     const places=valid.map(r=>({place:r.place,km:distance(center,r.place)})).filter(r=>r.km<=RADIUS_KM)
       .sort((a,b)=>a.km-b.km||a.place.id.localeCompare(b.place.id)).slice(0,10)
       .map(r=>({...r.place,distanceKm:Math.round(r.km*10)/10,distanceType:'straight_line',drivingDistanceKm:null}));
     // Never return a seemingly normal empty list when a selected lookup failed.
     if(!places.length&&failed.length){const priorities=['upstream_rate_limited','upstream_unauthorized','upstream_timeout'];
       throw priorities.map(code=>failed.find(r=>r.error.code===code)?.error).find(Boolean)||failed[0].error;}
-    const partial=failed.length>0||missing.length>0;
-    return {mode:'live',source:'한국관광공사 TourAPI',selection:'editorial-shortlist-confirmed-exact-title',
+    const partial=failed.length>0||missingRows.length>0;
+    const mode=valid.length&&fallback.length===valid.length?'snapshot':'live';
+    return {mode,source:'한국관광공사 TourAPI',selection:'editorial-shortlist-confirmed-exact-title',
       note:'편집 선정 목록이며 공식 인기순위 아님. 직선거리이며 자동차 이동거리는 미확인. 접근성은 별도 확인 필요.',
       radiusKm:RADIUS_KM,requested:relevant.length,validated:places.length,failedQueries:failed.filter(r=>!r.skipped).length,
-      center,distanceType:'straight_line',meta:{dataStatus:partial?'partial':'ok',partial,sourceUpdatedAt:null,fetchedAt:checkedAt,
-        coverage:['서울','경기'].filter(r=>!query.region||r===query.region).map(region=>({region,mode:'live',count:valid.filter(r=>r.candidate.region===region).length})),
-        selectionCoverage:'curated_content_ids',resolved:valid.length,skippedQueries:failed.filter(r=>r.skipped).length,missingIds:missing.map(r=>'tour-'+r.candidate.id),
+      center,distanceType:'straight_line',meta:{dataStatus:partial?'partial':'ok',partial,sourceUpdatedAt:null,fetchedAt,
+        coverage:['서울','경기'].filter(r=>!query.region||r===query.region).map(region=>({region,mode,count:valid.filter(r=>r.candidate.region===region).length})),
+        selectionCoverage:'curated_content_ids',resolved:valid.length,skippedQueries:failed.filter(r=>r.skipped).length,missingIds:missingRows.map(r=>'tour-'+r.candidate.id),
         failures:failed.map(r=>({id:'tour-'+r.candidate.id,code:r.error.code,skipped:!!r.skipped})),
+        fallback:fallback.length?{source:'featured_snapshot',ids:fallback.map(r=>'tour-'+r.candidate.id),reason:fallback[0].fallback}:null,
         emptyReason:places.length?null:valid.length?'outside_radius':'no_data'},places};
   };
 }
+// CDN policy: live editorial list 1 day (+7 days stale while revalidating). Snapshot-backed
+// answers stay short so live data replaces them soon. Errors are never stored.
+const CACHE_LIVE='public, max-age=300, s-maxage=86400, stale-while-revalidate=604800';
+const CACHE_FALLBACK='public, max-age=60, s-maxage=600, stale-while-revalidate=3600';
 const getFeatured=createCatalog();const traffic=new Map();
 async function serve(req,res,get=getFeatured){
   res.setHeader('Cache-Control','no-store');
@@ -163,9 +213,12 @@ async function serve(req,res,get=getFeatured){
     if(traffic.size>=2048&&!traffic.has(ip))traffic.delete(traffic.keys().next().value);
     traffic.set(ip,hit);if(++hit.count>90)return res.status(429).json({error:'rate_limited'});
     const query=req.query&&Object.keys(req.query).length?req.query:Object.fromEntries(new URL(req.url||'/','https://localhost').searchParams);
-    return res.status(200).json(await get(query));
+    const body=await get(query);
+    res.setHeader('Cache-Control',body.meta?.fallback||body.meta?.partial?CACHE_FALLBACK:CACHE_LIVE);
+    return res.status(200).json(body);
   }catch(e){const code=['invalid_coordinates','invalid_region'].includes(e?.code)||Object.hasOwn(ERROR,e?.code)?e.code:'upstream_unavailable';
     const status=code.startsWith('invalid_')?400:ERROR[code];
+    res.setHeader('Cache-Control','no-store');
     return res.status(status).json({error:code,...(Number.isInteger(e?.upstreamStatus)?{upstreamStatus:e.upstreamStatus}:{})});}
 }
-module.exports={createCatalog,serve,CANDIDATES};
+module.exports={createCatalog,serve,CANDIDATES,SNAPSHOT,CACHE_LIVE,CACHE_FALLBACK};

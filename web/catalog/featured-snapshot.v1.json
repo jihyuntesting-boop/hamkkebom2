@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "catalogVersion": "featured-snapshot-2026-11-26",
+  "purpose": "TourAPI 장애·호출 한도(429) 때 /api/featured 와 /api/photo 가 쓰는 대표 명소 대체 자료. 실시간 응답이 성공하면 실시간 값이 우선한다.",
+  "checkedAt": "2026-11-26",
+  "source": "한국관광공사 국문 관광정보 TourAPI (KorService2)",
+  "sourceUrl": "https://www.data.go.kr/data/15101578/openapi.do",
+  "evidence": {
+    "nameAddressCoordinates": "contentId 126508·126537·126535·2470006·129703·128611·126532·2649975: 기존 운영 /api/featured.js 실제 응답 관측값 (docs/progress/AGENT_N_FEATURED_2026-11-24.md, 2026-11-24 14:30 KST). 125449: 한국관광공사 열린관광 무장애 관광정보 상세(access.visitkorea.or.kr, cotId=6809d5a9-0e05-4ad6-b312-eccb36f08927) 지도 좌표·주소, 2026-11-26 확인.",
+    "officialImage": "같은 contentId 의 한국관광공사 등록 대표 이미지(TourAPI firstimage 형식 *_image2_1.jpg). 지역N문화 포털(nculture.org, 한국문화원연합회)이 한국관광공사 자료로 게시한 같은 targetId 상세의 소개정보 이미지에서 2026-11-26 확인했고, tong.visitkorea.or.kr 에서 이미지 응답(206 image/jpg)을 확인했다. TourAPI 직접 응답이 아니므로 실시간 응답이 오면 그 값이 우선한다. 남산서울타워(126535)는 그 페이지에 소개 이미지가 없어 null.",
+    "liveApiAtBuild": "2026-11-26 운영 /api/featured.js 1회 조회 결과 HTTP 503 upstream_rate_limited (TourAPI 429). 대량 호출 없음."
+  },
+  "records": [
+    {"contentId": "126508", "contentTypeId": "12", "name": "경복궁", "address": "서울특별시 종로구 사직로 161 (세종로)", "lat": 37.5760307, "lng": 126.9767218661, "region": "서울", "officialImageUrl": "https://tong.visitkorea.or.kr/cms/resource/98/3487598_image2_1.jpg"},
+    {"contentId": "126537", "contentTypeId": "12", "name": "북촌한옥마을", "address": "서울특별시 종로구 계동길 37 (계동)", "lat": 37.5789989927, "lng": 126.9866898118, "region": "서울", "officialImageUrl": "https://tong.visitkorea.or.kr/cms/resource/04/3304404_image2_1.jpg"},
+    {"contentId": "126535", "contentTypeId": "12", "name": "남산서울타워", "address": "서울특별시 용산구 남산공원길 105", "lat": 37.5510545366, "lng": 126.9878820833, "region": "서울", "officialImageUrl": null},
+    {"contentId": "2470006", "contentTypeId": "12", "name": "동대문디자인플라자(DDP)", "address": "서울특별시 중구 을지로 281 (을지로7가)", "lat": 37.566107632, "lng": 127.0095709797, "region": "서울", "officialImageUrl": "https://tong.visitkorea.or.kr/cms/resource/06/3539606_image2_1.jpg"},
+    {"contentId": "129703", "contentTypeId": "14", "name": "국립중앙박물관", "address": "서울특별시 용산구 서빙고로 137 (용산동6가)", "lat": 37.5211167887, "lng": 126.9791124287, "region": "서울", "officialImageUrl": "https://tong.visitkorea.or.kr/cms/resource/12/3495012_image2_1.jpg"},
+    {"contentId": "128611", "contentTypeId": "12", "name": "서울숲", "address": "서울특별시 성동구 뚝섬로 273", "lat": 37.5430715815, "lng": 127.041798446, "region": "서울", "officialImageUrl": "https://tong.visitkorea.or.kr/cms/resource_photo/99/3580599_image2_1.jpg"},
+    {"contentId": "126532", "contentTypeId": "12", "name": "올림픽공원", "address": "서울특별시 송파구 올림픽로 424 (방이동)", "lat": 37.5205340629, "lng": 127.1208127833, "region": "서울", "officialImageUrl": "https://tong.visitkorea.or.kr/cms/resource/33/4129633_image2_1.jpg"},
+    {"contentId": "2649975", "contentTypeId": "12", "name": "광명동굴", "address": "경기도 광명시 가학로85번길 142", "lat": 37.4243017512, "lng": 126.8648770331, "region": "경기", "officialImageUrl": "https://tong.visitkorea.or.kr/cms/resource/27/4095727_image2_1.jpg"},
+    {"contentId": "125449", "contentTypeId": "12", "name": "남한산성도립공원", "address": "경기도 광주시 남한산성면 남한산성로 731", "lat": 37.4766144656, "lng": 127.1883674581, "region": "경기", "officialImageUrl": "https://tong.visitkorea.or.kr/cms/resource/79/4104179_image2_1.jpg"}
+  ],
+  "excluded": [
+    {"contentId": "125555", "name": "수원 화성", "reason": "coordinates_unverified", "note": "공식 좌표를 이번에 확인하지 못해 대체 자료에서 뺐다. 실시간 응답이 성공하면 그대로 보인다."}
+  ]
+}

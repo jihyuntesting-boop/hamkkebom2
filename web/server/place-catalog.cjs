@@ -6,6 +6,7 @@ const LANDMARKS = require('../catalog/nearby-landmark-supplement.v1.json');
 const {loadNationwideCatalog,normalizeRecord,publicPlace}=require('./nationwide-tour-catalog.cjs');
 const {enrichCatalog}=require('./catalog-accessibility.cjs');
 const {attachLegacyAccessNotes}=require('./legacy-accessibility-notes.cjs');
+const {officialTourImage,photoFields,listPhotoFields}=require('./tour-official-image.cjs');
 const SOURCE_URL = 'https://www.data.go.kr/data/15101578/openapi.do';
 const BASE_URL = 'https://apis.data.go.kr/B551011/KorService2/areaBasedList2';
 const REGION_CODES = { '서울': '1', '경기': '31' };
@@ -56,7 +57,10 @@ function normalizePlace(raw) {
     sourceUpdatedAt: raw.sourceUpdatedAt || null,
     // Identifier only: image reuse rights are NOT asserted by a content ID.
     imageIdentifier: contentId, imageUrl: null,
-    ...(raw.featured === true ? { featured: true } : {})
+    ...(raw.featured === true ? { featured: true } : {}),
+    // Photo availability for list consumers (see tour-official-image.cjs photoFields):
+    // raw.officialImage undefined = the source row carries no image data (unknown).
+    ...photoFields(raw.id, raw.officialImage)
   };
 }
 
@@ -88,6 +92,7 @@ function normalizeTour(item, kind, region, checkedAt) {
   return normalizePlace({
     id: 'tour-' + id, name, address, kind, region,
     lat: Number(item?.mapy), lng: Number(item?.mapx),
+    officialImage: officialTourImage(item, id),
     accessStatus: 'unverified', accessFacts: [],
     source: '한국관광공사 국문 관광정보 TourAPI',
     collectedAt: checkedAt,
@@ -156,7 +161,7 @@ async function fetchType(region, type, kind, { fetcher, key, checkedAt, center, 
     total: Number(body.totalCount),
     places: items.filter(item=>!center || String(item?.contenttypeid??'')===type)
       .map(item => {
-        if(center){const p=normalizeRecord(item,type,checkedAt);return p&&p.areaCode&&p.lat!==null?publicPlace(p,'nationwide_live'):null;}
+        if(center){const p=normalizeRecord(item,type,checkedAt);return p&&p.areaCode&&p.lat!==null?{...publicPlace(p,'nationwide_live'),...listPhotoFields(item,p.contentId)}:null;}
         return normalizeTour(item,kind,region,checkedAt);
       }).filter(Boolean)
   };
@@ -198,8 +203,16 @@ async function getCatalog(region, options = {}) {
     return result;
   })();
   if (useCache) inFlight.set(region,task);
-  try { return await task; } finally { if (useCache) inFlight.delete(region); }
+  try { return await task; }
+  catch (error) {
+    // TourAPI failed (e.g. 429): an earlier successful answer beats an error.
+    const previous = useCache && cache.get(region);
+    if (previous) return staleCopy(previous.value);
+    throw error;
+  } finally { if (useCache) inFlight.delete(region); }
 }
+// Marks a memory hit served past its TTL because the provider is failing.
+function staleCopy(value){return {...value,meta:{...value.meta,cache:'stale'}};}
 
 const radians = degrees => degrees * Math.PI / 180;
 function distanceMeters(a,b) {
@@ -239,7 +252,7 @@ async function nearbySearch(center,filter,options={}){
   if(nationwide){
     const found=nationwide.nearby(center,NEARBY_RADIUS,filter,NEARBY_LIMIT,options.now||Date.now());
     const partial=nationwide.catalogPartial||found.hasNext||found.hiddenPastEvents>0;
-    return {mode:'catalog_snapshot',center,radiusMeters:NEARBY_RADIUS,category:filter,count:found.places.length,source:'한국관광공사 TourAPI 전국 수집 자료',distanceType:'straight_line',note:'전국 카탈로그 수집 자료 · 현재 영업·보행·접근성 미확인 · 일정 작성은 서울·경기',fetchedAt:nationwide.collectedAt,meta:{dataStatus:partial?'partial':'ok',partial,coverage:nationwide.coverage,quality:nationwide.quality,searchMethod:'nationwide_catalog',snapshotCollectedAt:nationwide.collectedAt,totalAvailable:found.totalAvailable,hasNext:found.hasNext,hiddenPastEvents:found.hiddenPastEvents},places:found.places};
+    return {mode:'catalog_snapshot',center,radiusMeters:NEARBY_RADIUS,category:filter,count:found.places.length,source:'한국관광공사 TourAPI 전국 수집 자료',distanceType:'straight_line',note:'전국 카탈로그 수집 자료 · 현재 영업·보행·접근성 미확인 · 일정 작성은 서울·경기',fetchedAt:nationwide.collectedAt,meta:{dataStatus:partial?'partial':'ok',partial,coverage:nationwide.coverage,quality:nationwide.quality,searchMethod:'nationwide_catalog',snapshotCollectedAt:nationwide.collectedAt,totalAvailable:found.totalAvailable,hasNext:found.hasNext,hiddenPastEvents:found.hiddenPastEvents},places:found.places.map(p=>({...p,...photoFields(p.id,undefined)}))};
   }
   const key=[env.HB_TOURAPI_KEY,env.DATA_GO_KR_KEY].find(v=>typeof v==='string'&&v.trim())?.trim();
   const types=TYPES.filter(([type,kind])=>matchesCategory({kind},filter));
@@ -284,7 +297,11 @@ async function nearbySearch(center,filter,options={}){
   const cacheKey=filter+':'+center.lat+','+center.lng;
   if(useCache&&nearbyCache.get(cacheKey)?.expires>now)return nearbyCache.get(cacheKey).value;
   if(useCache&&nearbyPending.has(cacheKey))return nearbyPending.get(cacheKey);
-  if(useCache&&(now<nearbyCooldownUntil||nearbyActive+types.length>6))throw new PlaceError('upstream_rate_limited',503);
+  if(useCache&&(now<nearbyCooldownUntil||nearbyActive+types.length>6)){
+    const previous=nearbyCache.get(cacheKey);
+    if(previous)return staleCopy(previous.value);
+    throw new PlaceError('upstream_rate_limited',503);
+  }
   const task=(async()=>{
     if(useCache)nearbyActive+=types.length;
     try{
@@ -316,7 +333,9 @@ async function nearbySearch(center,filter,options={}){
     }finally{if(useCache)nearbyActive-=types.length;}
   })();
   if(useCache)nearbyPending.set(cacheKey,task);
-  try{return await task;}finally{if(useCache)nearbyPending.delete(cacheKey);}
+  try{return await task;}
+  catch(error){const previous=useCache&&nearbyCache.get(cacheKey);if(previous)return staleCopy(previous.value);throw error;}
+  finally{if(useCache)nearbyPending.delete(cacheKey);}
 }
 
 const detailCache=new Map(),detailPending=new Map();
@@ -385,6 +404,14 @@ function hitLimit(req) {
   traffic.set(ip,{count,expires:last&&last.expires>now?last.expires:now+60000});
   if (count>90) throw new PlaceError('rate_limited',429);
 }
+// CDN policy for TourAPI-backed place lists. The cache key is the full URL (region or
+// coordinates + category); responses hold public provider data only, nothing per user.
+const CACHE_LIST='public, max-age=60, s-maxage=3600, stale-while-revalidate=86400';
+const CACHE_SHORT='public, max-age=0, s-maxage=60, stale-while-revalidate=300';
+function listCachePolicy(result){
+  const failed=Array.isArray(result?.meta?.failures)&&result.meta.failures.length>0;
+  return failed||result?.meta?.cache==='stale'?CACHE_SHORT:CACHE_LIST;
+}
 function respondError(res,error) {
   const safe=error instanceof PlaceError ? error : new PlaceError('catalog_unavailable',502);
   res.setHeader('Cache-Control','no-store');
@@ -405,11 +432,15 @@ async function serve(kind,req,res,options={}) {
         throw new PlaceError('weather_handler_not_connected',501); // Agent C, not Agent J.
       if (query.type !== 'places') throw new PlaceError('invalid_type',400);
       const result=await enrichCatalog(await getCatalog(query.region,options),options);
-      res.setHeader('Cache-Control',result.meta.accessibility?'no-store':'public, max-age=0, s-maxage=300');
+      res.setHeader('Cache-Control',result.meta.accessibility?'no-store':listCachePolicy(result));
       return res.status(200).json(result);
     }
     const center=validateLocation(query);
-    if(kind==='nearby')return res.status(200).json(await nearbySearch(center,nearbyCategory(query.category),options));
+    if(kind==='nearby'){
+      const result=await nearbySearch(center,nearbyCategory(query.category),options);
+      res.setHeader('Cache-Control',listCachePolicy(result));
+      return res.status(200).json(result);
+    }
     const {places,sources}=await allPlaces(options);
     const meta={dataStatus:sources.some(s=>s.meta.partial)?'partial':'ok',
       partial:sources.some(s=>s.meta.partial),sourceUpdatedAt:null,
@@ -432,4 +463,4 @@ async function serve(kind,req,res,options={}) {
 }
 
 module.exports = {getCatalog,staticCatalog,normalizePlace,normalizeTour,uniquePlaces,
-  distanceMeters,validateLocation,serve,PlaceError,resolveRoutePlace};
+  distanceMeters,validateLocation,serve,PlaceError,resolveRoutePlace,CACHE_LIST,CACHE_SHORT};

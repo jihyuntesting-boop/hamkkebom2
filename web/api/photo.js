@@ -7,7 +7,27 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const catalog = require('../photo-catalog.json');
-const {createTourImageLookup} = require('../server/tour-official-image.cjs');
+const {createTourImageLookup, officialTourImage} = require('../server/tour-official-image.cjs');
+const featuredSnapshot = require('../catalog/featured-snapshot.v1.json');
+
+// CDN policy (Vercel honours s-maxage; browsers get max-age). Errors stay short.
+const CACHE_PHOTO = 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800';
+const CACHE_SAVED = 'public, max-age=600, s-maxage=3600, stale-while-revalidate=86400';
+const CACHE_EMPTY = 'public, max-age=600, s-maxage=21600';
+const CACHE_ERROR = 'public, max-age=60, s-maxage=60';
+
+// 3) When TourAPI is failing or rate limited, the KTO image saved for the same content ID in
+//    web/catalog/featured-snapshot.v1.json. Same host/ID checks as a live row.
+function snapshotImages(data = featuredSnapshot) {
+  const images = new Map();
+  for (const r of Array.isArray(data?.records) ? data.records : []) {
+    if (typeof r?.contentId !== 'string' || !/^\d{1,12}$/.test(r.contentId)) continue;
+    const image = officialTourImage({contentid: r.contentId, firstimage: r.officialImageUrl || ''}, r.contentId);
+    if (image) images.set('tour-' + r.contentId, {...image, dataMode: 'snapshot', snapshotCheckedAt: data.checkedAt || null});
+  }
+  return images;
+}
+const SNAPSHOT_IMAGES = snapshotImages();
 
 const LICENSES = new Set(['CC0-1.0', 'CC-BY-2.0', 'CC-BY-SA-2.0', 'CC-BY-4.0', 'CC-BY-SA-4.0', 'KOGL-TYPE-1', 'PD-self']);
 const PLACE_ID = /^tour-\d{1,12}$/;
@@ -101,22 +121,31 @@ function publishedPhoto(entry, id, root) {
 }
 
 function createHandler({manifest = catalog, rootDir = path.resolve(__dirname, '..'), publicOrigin = configuredOrigin(),
-  tourImages = createTourImageLookup()} = {}) {
+  tourImages = createTourImageLookup(), fallbackImages = SNAPSHOT_IMAGES} = {}) {
   const origin = validOrigin(publicOrigin);
   function unavailable(req, res, id, cacheControl) {
     res.setHeader('Cache-Control', cacheControl);
     if (req.method === 'HEAD') return res.status(404).end();
     return res.status(200).json({contentId: id.slice(5), placeId: id, status: 'unverified_or_unavailable', imageUrl: null, source: null});
   }
+  function saved(req, res, id) {
+    const image = fallbackImages?.get?.(id);
+    if (!image) return null;
+    res.setHeader('Cache-Control', CACHE_SAVED);
+    if (req.method === 'HEAD') return res.status(200).end();
+    return res.status(200).json({contentId: id.slice(5), placeId: id, ...image});
+  }
   async function official(req, res, id) {
     const found = await tourImages(id.slice(5));
     if (found?.image) {
-      // Same-ID KTO image URL is public and immutable enough for CDN caching.
-      res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800');
+      // Same-ID KTO image URL is public and immutable enough for CDN caching. A stale
+      // memory hit (served while TourAPI fails) is cached for a shorter time.
+      res.setHeader('Cache-Control', found.stale ? CACHE_SAVED : CACHE_PHOTO);
       if (req.method === 'HEAD') return res.status(200).end();
       return res.status(200).json({contentId: id.slice(5), placeId: id, ...found.image});
     }
-    return unavailable(req, res, id, found?.error ? 'public, max-age=60, s-maxage=60' : 'public, max-age=600, s-maxage=21600');
+    if (found?.error) return saved(req, res, id) || unavailable(req, res, id, CACHE_ERROR);
+    return unavailable(req, res, id, CACHE_EMPTY);
   }
   return function handler(req, res) {
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -138,7 +167,7 @@ function createHandler({manifest = catalog, rootDir = path.resolve(__dirname, '.
     if (available) {
       if (origin) result.imageUrl = new URL(result.imagePath, origin).href;
       result.status = 'approved_local';
-      res.setHeader('Cache-Control', 'public, max-age=600');
+      res.setHeader('Cache-Control', CACHE_PHOTO);
       if (req.method === 'HEAD') return res.status(200).end();
       return res.status(200).json(result);
     }
@@ -152,3 +181,5 @@ module.exports.createHandler = createHandler;
 module.exports.publishedPhoto = publishedPhoto;
 module.exports.webpDimensions = webpDimensions;
 module.exports.configuredOrigin = configuredOrigin;
+module.exports.snapshotImages = snapshotImages;
+module.exports.CACHE = {photo: CACHE_PHOTO, saved: CACHE_SAVED, empty: CACHE_EMPTY, error: CACHE_ERROR};

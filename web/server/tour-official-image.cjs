@@ -12,6 +12,7 @@ const KOGL_URLS = {
   3: 'https://www.kogl.or.kr/info/licenseType3.do',
   4: 'https://www.kogl.or.kr/info/licenseType4.do'
 };
+const PHOTO_CATALOG = require('../photo-catalog.json');
 const FOUND_TTL = 6 * 60 * 60 * 1000;
 const EMPTY_TTL = 6 * 60 * 60 * 1000;
 const ERROR_TTL = 60 * 1000;
@@ -55,6 +56,40 @@ function officialTourImage(item, contentId) {
   };
 }
 
+// Compact copy of officialTourImage() for list rows (no long rights note per row).
+function compactOfficialImage(image) {
+  if (!image || image.status !== 'official_tourapi' || !officialImageUrl(image.imageUrl)) return null;
+  const {status, imageUrl, source, sourceUrl, credit, copyrightCode, license, licenseUrl, licenseLabel} = image;
+  return {status, imageUrl, source, sourceUrl, credit, copyrightCode, license, licenseUrl, licenseLabel};
+}
+
+// Rights-approved local photo listed in photo-catalog.json (/api/photo stays authoritative
+// and re-checks the file hash; this is only the cheap list-level availability hint).
+function approvedLocalPhoto(placeId) {
+  const entry = PHOTO_CATALOG?.photos?.[placeId];
+  return !!(entry && entry.placeId === placeId && entry.rightsStatus === 'approved' &&
+    entry.imagePath === '/images/places/' + placeId + '.webp');
+}
+
+// List-row photo fields. officialImage: the provider row's image result, null when the row
+// was checked and has no official image, undefined when the source carries no image data.
+//   hasPhoto: true (approved local or TourAPI official image) | false (checked, none) | null (unknown)
+//   photoSource: 'approved_local' | 'official_tourapi' | null
+function photoFields(placeId, officialImage) {
+  const local = approvedLocalPhoto(placeId);
+  const official = compactOfficialImage(officialImage);
+  return {
+    officialImage: official,
+    hasPhoto: local || official ? true : officialImage === undefined ? null : false,
+    photoSource: local ? 'approved_local' : official ? 'official_tourapi' : null
+  };
+}
+
+// item: one TourAPI list/detail row (areaBasedList2, locationBasedList2, detailCommon2).
+function listPhotoFields(item, contentId) {
+  return photoFields('tour-' + contentId, officialTourImage(item, contentId));
+}
+
 function resolveKey(env) {
   const raw = [env?.HB_TOURAPI_KEY, env?.DATA_GO_KR_KEY].find(v => typeof v === 'string' && v.trim());
   if (!raw) return null;
@@ -96,12 +131,18 @@ async function fetchDetail(contentId, {fetcher, key, timeoutMs}) {
 }
 
 function createTourImageLookup({fetcher = globalThis.fetch, env = process.env, now = Date.now, timeoutMs = TIMEOUT_MS} = {}) {
-  const cache = new Map();
+  const cache = new Map(); // successful results only ({image} or {image:null})
+  const errors = new Map(); // short negative cache, never overwrites a success
   const inFlight = new Map();
   let breakerUntil = 0;
   function remember(id, value, ttl) {
-    if (cache.size >= MAX_ENTRIES) cache.delete(cache.keys().next().value);
+    if (!cache.has(id) && cache.size >= MAX_ENTRIES) cache.delete(cache.keys().next().value);
     cache.set(id, {value, until: now() + ttl});
+  }
+  // On provider failure, an earlier success (even past its TTL) beats an error.
+  function staleOr(id, error) {
+    const previous = cache.get(id);
+    return previous ? {...previous.value, stale: true} : {error};
   }
   // Resolves to {image} | {image:null} | {error}. Never throws; never exposes the key.
   async function lookup(contentId) {
@@ -111,17 +152,21 @@ function createTourImageLookup({fetcher = globalThis.fetch, env = process.env, n
     if (!key || typeof fetcher !== 'function') return {image: null, disabled: true};
     const hit = cache.get(id);
     if (hit && hit.until > now()) return hit.value;
-    if (breakerUntil > now()) return {error: 'upstream_rate_limited'};
+    if (breakerUntil > now()) return staleOr(id, 'upstream_rate_limited');
+    const failed = errors.get(id);
+    if (failed && failed.until > now()) return staleOr(id, failed.code);
     if (inFlight.has(id)) return inFlight.get(id);
     const pending = fetchDetail(id, {fetcher, key, timeoutMs}).then(image => {
       const value = {image};
+      errors.delete(id);
       remember(id, value, image ? FOUND_TTL : EMPTY_TTL);
       return value;
     }, e => {
-      if (e.code === 'upstream_rate_limited') breakerUntil = now() + BREAKER_MS;
-      const value = {error: e.code || 'upstream_error'};
-      remember(id, value, ERROR_TTL);
-      return value;
+      const code = e.code || 'upstream_error';
+      if (code === 'upstream_rate_limited') breakerUntil = now() + BREAKER_MS;
+      if (errors.size >= MAX_ENTRIES) errors.delete(errors.keys().next().value);
+      errors.set(id, {code, until: now() + ERROR_TTL});
+      return staleOr(id, code);
     }).finally(() => inFlight.delete(id));
     inFlight.set(id, pending);
     return pending;
@@ -130,4 +175,5 @@ function createTourImageLookup({fetcher = globalThis.fetch, env = process.env, n
   return lookup;
 }
 
-module.exports = {createTourImageLookup, officialTourImage, officialImageUrl, koglTerms, IMAGE_HOSTS, SOURCE_URL};
+module.exports = {createTourImageLookup, officialTourImage, officialImageUrl, koglTerms, compactOfficialImage,
+  approvedLocalPhoto, photoFields, listPhotoFields, IMAGE_HOSTS, SOURCE_URL};

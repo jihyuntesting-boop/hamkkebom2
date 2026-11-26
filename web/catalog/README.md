@@ -73,3 +73,10 @@
 - 식별: 운영 '/api/featured.js'(detailCommon2)·'/api/data?type=places'(areaBasedList2) 응답의 ID·이름·주소·좌표. 대표 명소 일부는 주소·좌표 없이 ID·이름만 둔다(선택 항목).
 - 서빙: 'curated-place-details.cjs'가 대치 카탈로그와 함께 읽고, '/api/rich-tour?action=detail'이 실시간 상세가 꺼져 있거나 키가 없을 때(운영) 'sourceMode:curated_snapshot'으로 돌려준다. 세부페이지는 자동으로 조회해 값 있는 항목만 표시한다.
 - 검증: 'node --test tests/place_details_catalog.test.cjs'.
+
+## 대표 명소 대체 스냅숏 (2026-11-26, TourAPI 한도 대응)
+
+- 'featured-snapshot.v1.json': 대표 명소 10곳 중 9곳의 이름·주소·좌표·contentId·공식 이미지 URL. TourAPI 가 실패하거나 429 일 때 '/api/featured'(featured-catalog.cjs)와 '/api/photo'(같은 ID 이미지)가 이 자료로 정상 응답한다. 실시간 응답이 성공하면 실시간 값이 우선한다.
+- 근거: 이름·주소·좌표는 기존 운영 '/api/featured.js' 실제 응답 관측값(AGENT_N_FEATURED_2026-11-24), 남한산성도립공원은 한국관광공사 열린관광 무장애 관광정보 상세 좌표. 공식 이미지는 같은 contentId 의 한국관광공사 등록 대표 이미지(지역N문화 포털이 한국관광공사 자료로 게시한 같은 ID 상세에서 확인, 이미지 응답 확인). 확인일 2026-11-26. TourAPI 직접 응답 아님(그날 운영 응답은 429).
+- 수원 화성(125555)은 공식 좌표를 확인하지 못해 뺐다('excluded'). 남산서울타워는 이미지 URL 미확인('officialImageUrl: null', 목록에서 'hasPhoto: null').
+- 레코드는 실시간 행과 같은 식별 검사(ID·이름·유형·주소·좌표 범위)를 통과해야 쓰인다. 검증: 'node --test tests/featured_fallback_cache.test.cjs'.
