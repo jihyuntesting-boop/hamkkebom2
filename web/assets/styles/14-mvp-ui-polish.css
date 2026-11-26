@@ -626,4 +626,10 @@ html[data-large-type="true"] #app :is(button, .actions > a) { min-height: 52px; 
   background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer;
 }
 #app ol.hb-progress .hb-step-link:focus-visible { outline: 3px solid currentColor; outline-offset: 2px; }
-#app ol.hb-progress .hb-step-link[aria-disabled="true"] { cursor: not-allowed; opacity: .72; }
+/* Blocked steps look inactive but still answer a click with the notice below. */
+#app ol.hb-progress .hb-step-link[aria-disabled="true"] { cursor: help; opacity: .55; text-decoration: line-through dotted; text-decoration-thickness: 1px; }
+#app ol.hb-progress li:has(.hb-step-link[aria-disabled="true"]) { border-style: dashed; }
+#app ol.hb-progress .hb-step-link:not([aria-disabled="true"]):hover { text-decoration: underline; text-underline-offset: 3px; }
+#app ol.hb-progress li:not([aria-current="step"]):has(.hb-step-link:not([aria-disabled="true"])):hover { border-color: currentColor; }
+#app .hb-step-nav-notice { margin: -8px 0 16px; padding: 10px 14px; border: 1px solid var(--hb-line); border-left: 4px solid currentColor; border-radius: 12px; background: var(--hb-soft); color: var(--hb-ink); font-weight: 650; }
+#app .hb-step-nav-notice[hidden] { display: none; }
