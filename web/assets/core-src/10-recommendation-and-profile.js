@@ -510,8 +510,11 @@ function browse(){
   if(ready)hbSeasonalEnsureFeatured(s.region);
   const curation=hbTripCuration(ready?hbTripCandidatePool(s.region):[],s.region,hbTripKeepIds(chosen,s.stops));
   const filtered=ready?hbSearchPlaces(curation.visible,filter,query):[];
+  // Weather suggestion (HB_WEATHER_SUGGEST): reorders within each accessibility group only.
+  const weatherSignal=hbWeatherBrowseSignal();
+  hbWeatherBrowseFingerprint=weatherSignal.fingerprint;
   const ranked=filtered.map(p=>({p,e:hbReconcileRecommendation(p,profile,serverState)}))
-    .sort((a,b)=>hbDiscoveryPriority(b.p.id,s.region)-hbDiscoveryPriority(a.p.id,s.region)||b.e.score-a.e.score||String(a.p.name||'').localeCompare(String(b.p.name||''),'ko'));
+    .sort((a,b)=>hbWeatherPlaceRank(b.p,weatherSignal)-hbWeatherPlaceRank(a.p,weatherSignal)||hbDiscoveryPriority(b.p.id,s.region)-hbDiscoveryPriority(a.p.id,s.region)||b.e.score-a.e.score||String(a.p.name||'').localeCompare(String(b.p.name||''),'ko'));
   const good=ranked.filter(x=>x.e.status==='eligible');
   const review=ranked.filter(x=>x.e.status==='needsReview');
   const excluded=ranked.filter(x=>x.e.status==='excluded');
@@ -526,7 +529,7 @@ function browse(){
     const description=hbRecommendationReasons[e.reason]||hbRecommendationReasons.missing_reason;
     return '<article class="card hb-recommend-card"><div class="hb-card-top"><span class="chip">'+hbPlaceCategory(p)+'</span><span class="hb-recommend-state">'+status+'</span></div>'+
       '<h3>'+safe(p.name)+'</h3>'+(p.address?'<p class="muted">'+safe(p.address)+'</p>':'')+
-      '<p class="muted">'+safe(description)+'</p>'+extra+
+      '<p class="muted">'+safe(description)+'</p>'+hbWeatherPlaceNote(p,weatherSignal)+extra+
       (e.scope?'<p>확인 범위: '+safe(e.scope)+'</p>':'')+
       (e.found.length?'<p>관련 편의시설 안내 (동선 검증과 별개): '+safe(e.found.join(', '))+'</p>':'')+
       (hbVisibleGaps(e.gaps).length?'<p class="muted">'+safe(hbVisibleGaps(e.gaps).slice(0,3).join(' · '))+'</p>':'')+
@@ -571,7 +574,7 @@ function browse(){
       '곳 · 조건 충돌 '+[...serverState.result.byId.values()].filter(x=>x.status==='excluded').length+'곳.':
     '이동 조건 확인 대기';
   const serverZero=serverState?.state==='ready'&&serverState.result.byId.size===0;
-  const seasonalView=hbSeasonalView({ready,profile,serverState,chosen,pool:curation.visible});
+  const seasonalView=hbSeasonalView({ready,profile,serverState,chosen,pool:curation.visible,weatherSignal});
   const tripSummary=hbTripResultSummary({ready,curation,good,review,excluded,serverState,travel});
   const retry=serverState?.state==='error'?'<button type="button" id="hb-recommend-retry" class="light">서버 추천 다시 확인</button>':'';
   el.innerHTML='<h1>여행 장소 찾기</h1>'+hbDiscoveryPendingMarkup()+prefs()+
@@ -581,6 +584,7 @@ function browse(){
     (serverZero?'<p class="muted">서버 추천 결과 0건이에요. 아래에 서버에서 판정하지 않은 장소가 있더라도 조건 일치로 간주하지 않아요.</p>':'')+
     tripSummary+hbTripQuickConditions()+
     '<p class="muted">현장 동선·영업시간·실제 보행 거리는 별도로 확인해 주세요.</p></section>'+
+    (ready?hbWeatherSuggestBanner(weatherSignal):'')+
     hbSeasonalMarkup(seasonalView)+
     (typeof weatherCard==='function'?weatherCard():'')+
     '<form class="row" role="search" id="hb-browse-search"><div class="field"><label for="hb-place-search">장소 이름 또는 주소</label><input type="search" id="hb-place-search" maxlength="100" value="'+safe(query)+'"></div>'+
@@ -784,16 +788,23 @@ function hbSeasonalClearMap(){
   if(typeof hbSeasonalMapDispose==='function')hbSeasonalMapDispose();
   hbSeasonalMapDispose=null;
 }
-function hbSeasonalView({ready,profile,serverState,chosen,pool}){
+function hbSeasonalView({ready,profile,serverState,chosen,pool,weatherSignal=null}){
   const season=hbTravelSeason(s.date);
   const region=s.region;
   if(!ready)return {season,region,ready:false,courses:[],rows:{shown:[],excluded:[]},hidden:0,featured:null};
   const evaluate=p=>hbReconcileRecommendation(p,profile,serverState);
   const rows=hbSeasonalPlaces(pool,season.season,region,evaluate);
   const editorial=hbSeasonalEditorialCourses(season.season,region,pool,evaluate);
-  const courses=[...editorial.filter(c=>c.complete),...hbSeasonalComposedCourses(rows.shown,editorial)];
+  let courses=[...editorial.filter(c=>c.complete),...hbSeasonalComposedCourses(rows.shown,editorial)];
+  if(['adverse','pleasant'].includes(weatherSignal?.mode)){
+    // Weather suggestion: status stays first; weather-fit places/courses move up (stable sort).
+    const rank=p=>hbWeatherPlaceRank(p,weatherSignal);
+    rows.shown.sort((a,b)=>hbSeasonalStatusRank[b.e.status]-hbSeasonalStatusRank[a.e.status]||rank(b.p)-rank(a.p)||hbSeasonalSort(a,b));
+    const fit=c=>c.stops.reduce((sum,x)=>sum+rank(x.p),0)/Math.max(1,c.stops.length);
+    courses=courses.map((c,i)=>({c,i})).sort((a,b)=>fit(b.c)-fit(a.c)||a.i-b.i).map(x=>x.c);
+  }
   return {season,region,ready:true,courses,rows,hidden:editorial.filter(c=>!c.complete).length,
-    featured:hbSeasonalFeatured.get(region)?.state||null,chosen};
+    featured:hbSeasonalFeatured.get(region)?.state||null,chosen,weatherSignal};
 }
 function hbSeasonalMarkup(view){
   const {season}=view;
@@ -814,7 +825,7 @@ function hbSeasonalMarkup(view){
     return '<article class="hb-seasonal-course" data-hb-season-course="'+safe(c.id)+'">'+
       '<p class="hb-discovery-kicker">'+(c.kind==='editorial'?'함께봄 편집 코스 · '+safe(view.region)+' · '+safe(season.label):'조건 기반 자동 묶음 · '+safe(c.district))+'</p>'+
       '<h4>'+safe(c.title)+'</h4><p class="muted">'+(c.kind==='editorial'?safe(c.description)+'. 방문 순서 아이디어예요.':'같은 시·군·구 주소의 계절 테마 장소 '+c.stops.length+'곳이에요. 방문 순서는 정하지 않았어요.')+'</p>'+
-      '<p class="hb-seasonal-summary">조건 일치 '+counts.eligible+' · 확인 필요 '+counts.needsReview+' · 조건 충돌 '+counts.excluded+'</p>'+
+      '<p class="hb-seasonal-summary">조건 일치 '+counts.eligible+' · 확인 필요 '+counts.needsReview+' · 조건 충돌 '+counts.excluded+'</p>'+hbWeatherCourseNote(c.stops,view.weatherSignal)+
       '<'+List+' class="hb-seasonal-stops">'+c.stops.map(({p,e})=>'<li><a data-hb-season-open="'+safe(p.id)+'" href="'+safe(hbPlaceDetailPath(p.id))+'">'+safe(p.name)+'</a> <span class="hb-recommend-state">'+safe(hbRecommendationStatusText(e))+'</span>'+
         (e.status==='excluded'?' <span class="muted">이 장소는 담지 않아요.</span>':hbVisibleGaps(e.gaps).length?' <span class="muted">'+safe(hbVisibleGaps(e.gaps)[0])+'</span>':'')+'</li>').join('')+'</'+List+'>'+
       (counts.excluded?'<p class="warn">확인된 이동 조건 충돌 장소가 포함돼 있어요. 충돌 장소는 담기에서 빠져요.</p>':'')+
@@ -830,7 +841,7 @@ function hbSeasonalMarkup(view){
       '<p>이 지역 조회 자료로는 '+safe(season.label)+' 코스 후보를 만들지 못했어요. 조건을 자동으로 완화하지 않았어요.</p>')+featuredNote;
   const shown=view.rows.shown.slice(0,6);
   const placesMarkup='<h3>'+safe(season.label)+' 테마 추천 장소 <span class="hb-result-count">'+view.rows.shown.length+'곳</span></h3>'+
-    (shown.length?'<div class="grid">'+shown.map(row=>hbSeasonalPlaceCard(row,chosen)).join('')+'</div>'+
+    (shown.length?'<div class="grid">'+shown.map(row=>hbSeasonalPlaceCard(row,chosen,view.weatherSignal)).join('')+'</div>'+
       (view.rows.shown.length>shown.length?'<p class="muted">나머지 '+(view.rows.shown.length-shown.length)+'곳은 아래 전체 목록에서 확인할 수 있어요.</p>':''):
       '<p>이 지역 조회 자료에서 '+safe(season.label)+' 테마와 맞는 장소를 찾지 못했어요. 조건을 자동으로 완화하지 않았어요. 아래 전체 목록에서 직접 확인해 주세요.</p>')+
     (view.rows.excluded.length?'<p class="muted">확인된 이동 조건 충돌로 계절 추천에서 제외한 장소 '+view.rows.excluded.length+'곳</p>':'');
@@ -886,11 +897,11 @@ function hbSeasonalBind(view,{serverState}){
   }
 }
 // Seasonal cards deliberately avoid .hb-recommend-card/data-hb-info: the main list owns those hooks.
-function hbSeasonalPlaceCard({p,e,basis},chosen){
+function hbSeasonalPlaceCard({p,e,basis},chosen,weatherSignal=null){
   const picked=chosen.includes(p.id);
   return '<article class="card hb-seasonal-card"><div class="hb-card-top"><span class="chip">'+hbPlaceCategory(p)+'</span><span class="hb-recommend-state">'+safe(hbRecommendationStatusText(e))+'</span></div>'+
     '<h3>'+safe(p.name)+'</h3>'+(p.address?'<p class="muted">'+safe(p.address)+'</p>':'')+
-    '<p class="hb-seasonal-tag">계절 근거: '+safe(hbSeasonalBasisLabels[basis])+'</p>'+
+    '<p class="hb-seasonal-tag">계절 근거: '+safe(hbSeasonalBasisLabels[basis])+'</p>'+hbWeatherPlaceNote(p,weatherSignal)+
     (hbVisibleGaps(e.gaps).length?'<p class="muted">'+safe(hbVisibleGaps(e.gaps).slice(0,2).join(' · '))+'</p>':'')+
     '<div class="actions"><a class="light" data-hb-season-open="'+safe(p.id)+'" href="'+safe(hbPlaceDetailPath(p.id))+'">상세 정보</a>'+
     '<button type="button" data-hb-pick="'+safe(p.id)+'" aria-pressed="'+picked+'">'+(picked?'선택 취소':'일정에 담기')+'</button></div></article>';
@@ -994,3 +1005,74 @@ function hbVisibleGaps(gaps){
   return (Array.isArray(gaps)?gaps:[]).filter(x=>typeof x==='string'&&!/미확인|미지원|미선택|자료\s*없음|확인되지\s*않|확인\s*안\s*됨/.test(x));
 }
 // END HB_TRIP_DATA_CURATION
+
+// BEGIN HB_WEATHER_SUGGEST
+// 날씨 기반 여행지 제안 (사용자 원래 의도, DECISIONS 2026-11-26): 여행 날짜·지역 예보로 장소 순서·강조를 조정한다.
+// 실내/야외 분류는 앱에 이미 들어온 장소 자료(관광공사 콘텐츠 유형·분류 코드·장소 이름)만 쓴다.
+// 분류는 "어떤 시설로 분류된 곳"이라는 사실만 말하며 이동 안전·현장 상태를 뜻하지 않는다. 근거가 없으면 null.
+const HB_WEATHER_INDOOR_NAMES=[
+ [/박물관|미술관|전시관|기념관|과학관|디자인플라자|갤러리/,'실내 전시 시설'],
+ [/도서관|평생학습관/,'실내 도서관·학습 시설'],
+ [/공연장|극장|아트센터|예술의전당/,'실내 공연 시설'],
+ [/수련관|체험관|문화센터|문화회관|아쿠아리움/,'실내 체험·문화 시설']
+];
+const HB_WEATHER_OUTDOOR_NAMES=[
+ [/공원|정원|수목원|숲|둘레길|산책로/,'야외 공원·산책 장소'],
+ [/궁궐|궁$|한옥마을|성곽|산성|유적지/,'야외 궁궐·역사 장소'],
+ [/호수|저수지|습지|계곡|폭포|해수욕장|해변/,'야외 자연 장소']
+];
+/** {kind:'indoor'|'outdoor'|null,label,basis}. Food is never weather-classified here. */
+function hbWeatherPlaceClass(p){
+ if(!p||p.kind==='food'||typeof p.name!=='string'||!p.name.trim())return {kind:null,label:'',basis:null};
+ const name=p.name.replace(/\[[^\]]*\]/g,'').replace(/\s+/g,'');
+ const indoor=HB_WEATHER_INDOOR_NAMES.find(([re])=>re.test(name));
+ const outdoor=HB_WEATHER_OUTDOOR_NAMES.find(([re])=>re.test(name));
+ const culture=p.kind==='culture'||String(p.contentTypeId??'')==='14'||p.providerCategoryCode==='A0206';
+ const nature=['A0101','A0102'].includes(p.providerCategoryCode);
+ if(indoor&&!outdoor)return {kind:'indoor',label:indoor[1],basis:culture?'official_category':'name_keyword'};
+ if(culture&&!outdoor)return {kind:'indoor',label:'실내 문화시설',basis:'official_category'};
+ if(outdoor&&!indoor&&!culture)return {kind:'outdoor',label:outdoor[1],basis:'name_keyword'};
+ if(nature&&!indoor&&!culture)return {kind:'outdoor',label:'야외 자연 장소',basis:'official_category'};
+ return {kind:null,label:'',basis:null};
+}
+/** Higher first. Only adverse/pleasant signals change order; unclassified places are never promoted. */
+function hbWeatherPlaceRank(p,signal){
+ const kind=hbWeatherPlaceClass(p).kind;
+ if(signal?.mode==='adverse')return kind==='indoor'?2:kind==='outdoor'?0:1;
+ if(signal?.mode==='pleasant')return kind==='outdoor'?1:0;
+ return 0;
+}
+function hbWeatherPlaceNote(p,signal){
+ const c=hbWeatherPlaceClass(p);
+ if(!c.kind||!signal?.label)return '';
+ if(signal.mode==='adverse'&&c.kind==='indoor')
+  return '<p class="hb-weather-fit" data-hb-weather-fit="indoor">'+safe(signal.label+' · '+c.label+'로 분류된 곳')+'</p>'+(signal.source?'<p class="muted hb-weather-source">'+safe(signal.source)+'</p>':'');
+ if(signal.mode==='adverse'&&c.kind==='outdoor')
+  return '<p class="muted" data-hb-weather-fit="outdoor-later">'+safe(c.label+' · 날씨가 나은 시간대 방문을 제안해요')+'</p>';
+ if(signal.mode==='pleasant'&&c.kind==='outdoor')
+  return '<p class="hb-weather-fit" data-hb-weather-fit="outdoor">'+safe(signal.label+' · '+c.label+'로 분류된 곳')+'</p>'+(signal.source?'<p class="muted hb-weather-source">'+safe(signal.source)+'</p>':'');
+ return '';
+}
+function hbWeatherSuggestBanner(signal){
+ if(signal?.mode==='adverse')return '<section class="panel hb-weather-suggest" data-hb-weather-mode="adverse" aria-labelledby="hb-weather-suggest-title"><h2 id="hb-weather-suggest-title">날씨에 맞춘 여행지 제안</h2>'+
+  '<p><strong>'+safe(signal.label)+'</strong> · 실내 시설로 분류된 곳을 먼저 보여 드려요. 야외 장소는 뒤에 두었어요.</p>'+(signal.source?'<p class="muted">'+safe(signal.source)+'</p>':'')+'</section>';
+ if(signal?.mode==='pleasant')return '<section class="panel hb-weather-suggest" data-hb-weather-mode="pleasant" aria-labelledby="hb-weather-suggest-title"><h2 id="hb-weather-suggest-title">날씨에 맞춘 여행지 제안</h2>'+
+  '<p><strong>'+safe(signal.label)+'</strong> · 공원·정원·궁궐 같은 야외 장소를 먼저 보여 드려요.</p>'+(signal.source?'<p class="muted">'+safe(signal.source)+'</p>':'')+'</section>';
+ if(signal?.mode==='none'&&signal.reason==='out_of_range')return '<p class="muted hb-weather-suggest" data-hb-weather-mode="later">여행일이 가까워지면 날씨를 반영해 다시 제안해요.</p>';
+ return '';
+}
+let hbWeatherBrowseFingerprint='';
+function hbWeatherBrowseSignal(){
+ if(typeof hbWeatherSignal!=='function'||typeof forecast==='undefined'||typeof currentWeatherKey!=='function')
+  return {mode:'none',reason:'unavailable',label:'',source:'',hours:new Map(),fingerprint:'none|unavailable||'};
+ return hbWeatherSignal(forecast,currentWeatherKey(),{start:s.hbPlanStart,end:s.hbPlanEnd});
+}
+function hbWeatherBrowseNeedsRefresh(){return hbWeatherBrowseSignal().fingerprint!==hbWeatherBrowseFingerprint}
+function hbWeatherCourseNote(stops,signal){
+ if(!['adverse','pleasant'].includes(signal?.mode)||!Array.isArray(stops))return '';
+ const count=kind=>stops.filter(x=>hbWeatherPlaceClass(x.p).kind===kind).length;
+ const indoor=count('indoor'),outdoor=count('outdoor');
+ const parts=[indoor?'실내 시설로 분류된 곳 '+indoor+'곳':'',outdoor?'야외 장소 '+outdoor+'곳':''].filter(Boolean);
+ return parts.length?'<p class="muted" data-hb-weather-course>'+safe(signal.label+' · '+parts.join(' · '))+'</p>':'';
+}
+// END HB_WEATHER_SUGGEST

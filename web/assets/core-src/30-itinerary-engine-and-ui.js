@@ -607,6 +607,214 @@ function hbVisiblePlanWarnings(list,someConfirmed=false){
    (someConfirmed?'일부 자동차 이동시간을 네이버 경로로 반영했어요. 나머지 이동시간은 예상이에요.':HB_PLACEHOLDER_TRAVEL_NOTE):w)
   .filter(w=>!hidden.test(w));
 }
+// BEGIN HB_WEATHER_DRAFT
+// 날씨를 반영한 일정 초안 (사용자 원래 의도: 비교 화면이 아니라 시스템이 먼저 제안, DECISIONS 2026-11-26).
+// 기존 시간 칸·식사·휴식·보호(완료·필수·예약) 일정은 그대로 두고, 관광지가 어느 시간 칸에 들어갈지만 바꾼다.
+// 야외로 분류된 곳의 강수·기온 부담 시간이 실제로 줄어들 때만 제안한다. 안전이나 현장 상태를 판단하지 않는다.
+function hbWeatherStopsKey(stops){
+ return JSON.stringify((Array.isArray(stops)?stops:[]).map(x=>[x?.placeId||x?.kind||'',x?.plannedArrival||x?.time||'',Number(x?.stayMinutes)||0]));
+}
+function hbWeatherStopLocked(stop){return !!(stop&&(stop.done||stop.completed||stop.must||stop.mustVisit||stop.reserved||stop.booked))}
+function hbWeatherIsSight(stop){return !!(stop&&stop.placeId&&!stop.isPlaceholder&&!['food','rest'].includes(stop.kind))}
+function hbWeatherStopHours(start,stay,hours){
+ const out=[];
+ if(start===null||!Number.isFinite(stay)||stay<=0||!(hours instanceof Map))return out;
+ for(let t=Math.floor(start/60)*60;t<start+stay;t+=60){const h=hours.get(t);if(h)out.push(h)}
+ return out;
+}
+function hbWeatherStopsSpan(stops){
+ let lo=null,hi=null;
+ for(const x of Array.isArray(stops)?stops:[]){
+  const at=hbDraftMinute(x?.plannedArrival||x?.time);if(at===null)continue;
+  lo=lo===null?at:Math.min(lo,at);hi=Math.max(hi??0,at+(Number(x.stayMinutes)||0));
+ }
+ return lo===null?{}:{start:hbClock(lo),end:hbClock(Math.min(1439,hi))};
+}
+function hbWeatherPermutations(list){
+ if(list.length<=1)return [list.slice()];
+ const out=[];
+ list.forEach((item,i)=>{for(const rest of hbWeatherPermutations([...list.slice(0,i),...list.slice(i+1)]))out.push([item,...rest])});
+ return out;
+}
+/** Returns {stops,before,after} or null when no outdoor exposure is removed. Input stops are never mutated. */
+function hbWeatherReorderStops(stops,{classOf,signal,isLocked=hbWeatherStopLocked}={}){
+ const hours=signal?.hours;
+ if(!Array.isArray(stops)||!(hours instanceof Map)||!hours.size||typeof classOf!=='function')return null;
+ const bad=h=>!!(h.wet||h.hot||h.cold);
+ if(![...hours.values()].some(bad))return null;
+ const limit=typeof HB_WEATHER_SUGGEST_RULE!=='undefined'?HB_WEATHER_SUGGEST_RULE.maxReorderStops:6;
+ const movable=[];
+ stops.forEach((x,i)=>{if(hbWeatherIsSight(x)&&!isLocked(x))movable.push(i)});
+ if(movable.length<2||movable.length>limit)return null;
+ const kinds=new Map(movable.map(i=>[i,classOf(stops[i])]));
+ if(![...kinds.values()].includes('outdoor'))return null;
+ const startOf=x=>hbDraftMinute(x?.plannedArrival||x?.time);
+ if(movable.some(i=>startOf(stops[i])===null))return null;
+ const build=assign=>{
+  const next=stops.map(x=>({...x}));
+  let changed=false;
+  assign.forEach((from,k)=>{
+   const target=movable[k],slot=stops[target];
+   if(from!==target)changed=true;
+   next[target]={...stops[from],time:slot.time,plannedArrival:slot.plannedArrival,transitionBufferMinutes:slot.transitionBufferMinutes,travelTimeStatus:slot.travelTimeStatus,position:slot.position};
+  });
+  // Same rule as a manual swap: previously confirmed origin/destination legs no longer apply.
+  if(changed)for(const stop of next)if(stop.travelTimeStatus==='estimated'||stop.travelFromId){
+   stop.transitionBufferMinutes=25;stop.travelTimeStatus='unknown';
+   delete stop.travelTimeMinutes;delete stop.travelSource;delete stop.travelCheckedAt;delete stop.travelFromId;delete stop.travelToId;
+  }
+  for(let i=0;i<next.length;i++){
+   const at=startOf(next[i]),stay=Number(next[i].stayMinutes);
+   if(at===null||!Number.isFinite(stay)||stay<0||at+stay>1439)return null;
+   if(i){const prev=next[i-1],p=startOf(prev);if(p+Number(prev.stayMinutes||0)+Number(next[i].transitionBufferMinutes||0)>at)return null;}
+  }
+  return next;
+ };
+ const score=(assign,next)=>{
+  let outdoorBad=0,indoorBad=0,pop=0,moved=0;
+  assign.forEach((from,k)=>{
+   const stop=next[movable[k]],hs=hbWeatherStopHours(startOf(stop),Number(stop.stayMinutes),hours),kind=kinds.get(from);
+   if(kind==='outdoor'){outdoorBad+=hs.filter(bad).length;pop+=hs.reduce((n,h)=>n+h.pop,0)}
+   if(kind==='indoor')indoorBad+=hs.filter(bad).length;
+   if(from!==movable[k])moved++;
+  });
+  return {outdoorBad,indoorBad,pop,moved};
+ };
+ const baseStops=build(movable);
+ if(!baseStops)return null;
+ const before=score(movable,baseStops);
+ const better=(v,b)=>v.outdoorBad!==b.outdoorBad?v.outdoorBad<b.outdoorBad:v.indoorBad!==b.indoorBad?v.indoorBad>b.indoorBad:
+  v.pop!==b.pop?v.pop<b.pop:v.moved<b.moved;
+ let best=null;
+ for(const assign of hbWeatherPermutations(movable)){
+  const next=build(assign);if(!next)continue;
+  const v=score(assign,next);
+  if(!best||better(v,best.v))best={assign,next,v};
+ }
+ if(!best||best.v.outdoorBad>=before.outdoorBad)return null;
+ return {stops:best.next,before,after:best.v};
+}
+/** One-line reason for the summary above the itinerary. Wording is a weather fact, never a safety claim. */
+function hbWeatherDraftReason(signal,stops,classOf){
+ const hours=signal?.hours instanceof Map?signal.hours:new Map(),bad=h=>!!(h.wet||h.hot||h.cold);
+ const band=typeof hbWeatherBand==='function'?hbWeatherBand:m=>m<720?'오전':'오후';
+ const counts=new Map(),indoorBands=new Set();
+ for(const stop of Array.isArray(stops)?stops:[]){
+  if(!hbWeatherIsSight(stop))continue;
+  const hs=hbWeatherStopHours(hbDraftMinute(stop.plannedArrival||stop.time),Number(stop.stayMinutes),hours).filter(bad);
+  for(const h of hs){counts.set(band(h.minute),(counts.get(band(h.minute))||0)+1);if(classOf(stop)==='indoor')indoorBands.add(band(h.minute))}
+ }
+ if(!counts.size)for(const h of hours.values())if(bad(h))counts.set(band(h.minute),(counts.get(band(h.minute))||0)+1);
+ const main=[...counts].sort((a,b)=>b[1]-a[1])[0]?.[0]||'';
+ const sample=[...hours.values()].filter(h=>bad(h)&&band(h.minute)===main);
+ const wetTypes=typeof HB_WEATHER_SUGGEST_RULE!=='undefined'?HB_WEATHER_SUGGEST_RULE.wetTypes:['비','비 또는 눈','눈','소나기'];
+ const word=sample.some(h=>h.wet)?(sample.find(h=>wetTypes.includes(h.type))?.type||'강수')+' 예보':sample.some(h=>h.hot)?'더위 부담':'추위 부담';
+ const particle=/부담$/.test(word)?'으로':'로';
+ const indoor=indoorBands.has(main);
+ return {band:main,word,indoor,
+  applied:indoor?main+' '+word+particle+' 실내 일정을 '+main+'에 배치했어요.':main+' '+word+particle+' 야외 일정을 날씨가 나은 시간대로 옮겼어요.',
+  proposal:indoor?main+' '+word+'에 맞춰 실내 일정을 '+main+'에 둔 대체안이에요.':main+' '+word+'에 맞춰 야외 일정을 날씨가 나은 시간대로 옮긴 대체안이에요.'};
+}
+function hbWeatherStopClassifier(){
+ const list=typeof places!=='undefined'&&Array.isArray(places)?places:[];
+ return stop=>typeof hbWeatherPlaceClass==='function'?hbWeatherPlaceClass(list.find(p=>p&&p.id===stop?.placeId)||{name:stop?.name,kind:stop?.kind}).kind:null;
+}
+/** Default draft for a new plan: weather-ordered when it removes outdoor exposure; the original is kept for 되돌리기. */
+function hbWeatherDraftForNewPlan(stops,state){
+ if(typeof hbWeatherSignal!=='function'||typeof forecast==='undefined')return null;
+ const signal=hbWeatherSignal(forecast,JSON.stringify([state.region,state.date]),hbWeatherStopsSpan(stops));
+ const chosen=Array.isArray(state.chosen)?state.chosen:[];
+ const must=(Array.isArray(state.hbMustVisitIds)?state.hbMustVisitIds:[]).filter(id=>chosen.includes(id));
+ const classOf=hbWeatherStopClassifier();
+ const result=hbWeatherReorderStops(stops,{classOf,signal,isLocked:x=>hbWeatherStopLocked(x)||must.includes(x.placeId)});
+ if(!result)return null;
+ return {region:state.region,date:state.date,message:hbWeatherDraftReason(signal,result.stops,classOf).applied,source:signal.source||'',
+  originalStops:stops,weatherStops:result.stops,createdAt:new Date().toISOString()};
+}
+let hbPlanWeatherMessage='';
+function hbPlanWeatherView(){
+ const stops=Array.isArray(s.stops)?s.stops:[];
+ if(!stops.length)return {kind:'none'};
+ const {region,date}=hbPlanContext(s);
+ const d=s.hbWeatherDraft;
+ const draft=d&&typeof d==='object'&&d.region===region&&d.date===date&&Array.isArray(d.originalStops)&&Array.isArray(d.weatherStops)?d:null;
+ const current=hbWeatherStopsKey(stops);
+ if(draft&&current===hbWeatherStopsKey(draft.weatherStops))return {kind:'applied',draft};
+ if(draft&&current===hbWeatherStopsKey(draft.originalStops))return {kind:'original',draft};
+ // F14-01: a saved plan whose latest forecast now has rain/heat/cold burden gets an alternative, applied only on approval.
+ if(typeof hbWeatherSignal!=='function'||typeof forecast==='undefined'||typeof currentWeatherKey!=='function')return {kind:'none'};
+ const key=JSON.stringify([region,date]);
+ if(currentWeatherKey()!==key)return {kind:'none'};
+ const signal=hbWeatherSignal(forecast,key,hbWeatherStopsSpan(stops));
+ if(signal.mode!=='adverse')return {kind:'none'};
+ const classOf=hbWeatherStopClassifier();
+ const result=hbWeatherReorderStops(stops,{classOf,signal});
+ if(!result)return {kind:'none'};
+ const dismissKey=signal.fingerprint+'|'+current;
+ if(s.hbWeatherDismissed===dismissKey)return {kind:'none'};
+ return {kind:'proposal',result,signal,reason:hbWeatherDraftReason(signal,result.stops,classOf),dismissKey,signature:hbTripSignature(s),region,date};
+}
+function hbPlanWeatherMarkup(view){
+ const message=hbPlanWeatherMessage;hbPlanWeatherMessage='';
+ const status='<p id="hb-plan-weather-status" role="status" aria-live="polite">'+safe(message)+'</p>';
+ const head=title=>'<section class="panel hb-plan-weather" data-hb-plan-weather="'+safe(view.kind)+'" aria-labelledby="hb-plan-weather-title"><h3 id="hb-plan-weather-title">'+title+'</h3>';
+ if(view.kind==='applied')return head('날씨를 반영한 일정 초안')+'<p>'+safe(view.draft.message)+'</p>'+(view.draft.source?'<p class="muted">'+safe(view.draft.source)+'</p>':'')+
+  '<div class="actions"><button type="button" class="light" id="hb-weather-draft-revert">원래 순서로 되돌리기</button></div>'+status+'</section>';
+ if(view.kind==='original')return head('날씨를 반영한 순서 제안')+'<p>원래 고른 순서로 보여 드려요. 날씨를 반영한 순서로 다시 바꿀 수 있어요.</p>'+(view.draft.source?'<p class="muted">'+safe(view.draft.source)+'</p>':'')+
+  '<div class="actions"><button type="button" class="light" id="hb-weather-draft-reapply">날씨를 반영한 순서로 바꾸기</button></div>'+status+'</section>';
+ if(view.kind==='proposal'){
+  const now=Array.isArray(s.stops)?s.stops:[],next=view.result.stops;
+  const row=(stop,i,mark)=>'<li>'+safe(stop.plannedArrival||stop.time||'')+' · '+safe(stop.name||'장소')+(mark&&now[i]?.placeId!==stop.placeId?' <strong>(바뀜)</strong>':'')+(hbWeatherStopLocked(stop)?' (보호 일정)':'')+'</li>';
+  return head('날씨에 맞춘 대체 일정')+'<p><strong>'+safe(view.signal.label)+'</strong> · '+safe(view.reason.proposal)+' 적용하기 전까지 지금 일정은 그대로예요.</p>'+
+   (view.signal.source?'<p class="muted">'+safe(view.signal.source)+'</p>':'')+
+   '<div class="hb-replan-compare"><div><h4>지금 일정</h4><ol>'+now.map((x,i)=>row(x,i,false)).join('')+'</ol></div><div><h4>날씨 반영 대체안</h4><ol>'+next.map((x,i)=>row(x,i,true)).join('')+'</ol></div></div>'+
+   '<div class="actions"><button type="button" id="hb-weather-alt-apply">대체 일정 적용</button><button type="button" class="light" id="hb-weather-alt-keep">지금 일정 유지</button></div>'+status+'</section>';
+ }
+ return message?status:'';
+}
+function hbPlanWeatherBind(view){
+ const bind=(id,fn)=>{const node=document.getElementById?.(id);if(node)node.onclick=fn;};
+ const finish=(text,focusId)=>{hbPlanWeatherMessage=text;plan();document.getElementById?.(focusId)?.focus?.();};
+ const switchTo=(target,text,focusId)=>{
+  const current=Array.isArray(s.stops)?s.stops:[];
+  // Protected stops (완료·필수·예약) must keep the same place at the same time.
+  for(const stop of current.filter(hbWeatherStopLocked)){
+   const same=target.find(x=>x.placeId&&x.placeId===stop.placeId);
+   if(!same||(same.plannedArrival||same.time)!==(stop.plannedArrival||stop.time)){
+    hbPlanWeatherMessage='완료·필수·예약 표시가 있는 일정의 시간이 바뀌어 순서를 바꾸지 않았어요. 지금 일정을 유지해요.';hbPlanWeatherRefresh();return;
+   }
+  }
+  const flags=['done','completed','must','mustVisit','reserved','booked'];
+  const next=target.map(x=>{const cur=current.find(c=>c.placeId&&c.placeId===x.placeId),out={...x};if(cur)for(const f of flags){if(f in cur)out[f]=cur[f];else delete out[f];}return out;});
+  if(!hbSaveTripStops(next,null)){hbPlanWeatherMessage='저장하지 못했어요. 지금 일정을 유지해요.';hbPlanWeatherRefresh();return;}
+  finish(text,focusId);
+ };
+ if(view.kind==='applied')bind('hb-weather-draft-revert',()=>switchTo(view.draft.originalStops,'원래 고른 순서로 되돌렸어요.','hb-weather-draft-reapply'));
+ if(view.kind==='original')bind('hb-weather-draft-reapply',()=>switchTo(view.draft.weatherStops,'날씨를 반영한 순서로 바꿨어요.','hb-weather-draft-revert'));
+ if(view.kind==='proposal'){
+  bind('hb-weather-alt-apply',()=>{
+   if(hbTripSignature(s)!==view.signature||!hbSavedTripMatches(view.signature)){hbPlanWeatherMessage='다른 화면에서 일정이 바뀌었어요. 지금 일정을 유지해요.';hbPlanWeatherRefresh();return;}
+   const previous=s;
+   s={...s,stops:view.result.stops,hbReplanUndo:null,hbWeatherDraft:{region:view.region,date:view.date,message:view.reason.applied,source:view.signal.source||'',
+    originalStops:previous.stops,weatherStops:view.result.stops,createdAt:new Date().toISOString()}};
+   try{save()}catch{s=previous;hbPlanWeatherMessage='저장하지 못했어요. 지금 일정을 유지해요.';hbPlanWeatherRefresh();return;}
+   finish('대체 일정을 적용했어요. 원래 순서로 되돌릴 수 있어요.','hb-weather-draft-revert');
+  });
+  bind('hb-weather-alt-keep',()=>{
+   const previous=s.hbWeatherDismissed;s.hbWeatherDismissed=view.dismissKey;
+   try{save()}catch{s.hbWeatherDismissed=previous;}
+   hbPlanWeatherMessage='지금 일정을 그대로 유지해요.';hbPlanWeatherRefresh();
+  });
+ }
+}
+function hbPlanWeatherRefresh(){
+ const slot=document.querySelector?.('[data-hb-plan-weather-slot]');
+ if(!slot)return;
+ const view=hbPlanWeatherView();
+ slot.innerHTML=hbPlanWeatherMarkup(view);
+ hbPlanWeatherBind(view);
+}
+// END HB_WEATHER_DRAFT
 function hbApplyScheduleFromSelection(){
  const beforeRefresh=s;
  s=hbRefreshAutomaticDate(s);
@@ -632,6 +840,9 @@ function hbApplyScheduleFromSelection(){
  plan.warnings.unshift(...home.warnings);
  // A first-visit start derived from the home departure is not a user window.
  if(home.homeDeparture)plan.summary.windowStart=null;
+ // Weather-ordered default draft (HB_WEATHER_DRAFT); the original order stays available for 되돌리기.
+ const weatherDraft=hbWeatherDraftForNewPlan(plan.stops,s);
+ if(weatherDraft)plan.stops=weatherDraft.weatherStops;
  if(typeof hbWeatherRecommendation==='function'&&typeof forecast!=='undefined'){
   const weatherChoice=hbWeatherRecommendation(forecast,JSON.stringify([s.region,s.date]));
   if(['caution','adverse'].includes(weatherChoice.kind))plan.warnings.unshift(weatherChoice.message);
@@ -639,7 +850,7 @@ function hbApplyScheduleFromSelection(){
  if(Array.isArray(s.stops)&&s.stops.some(x=>x.done||x.must||x.reserved||x.booked)){alert('이미 완료·필수·예약 표시가 있는 일정이 있어 자동 재생성할 수 없어요. 기존 일정을 보호하려면 직접 확인하고 수정해 주세요.');return false;}
  if(Array.isArray(s.stops)&&s.stops.length&&!confirm('현재 일정 초안을 새로 구성할까요? 기존 시간표는 변경됩니다.'))return false;
  const previous=s;
- s={...s,stops:plan.stops,hbPlanWarnings:plan.warnings,hbPlanInfo:{...plan.summary,region:s.region,date:s.date,transport:s.hbTransport,homeDeparture:home.homeDeparture,homeReturn:home.homeReturn,weekday:typeof hbTravelWeekday==='function'?hbTravelWeekday(s.date)?.short||null:null,createdAt:new Date().toISOString()},hbReplanUndo:null};
+ s={...s,stops:plan.stops,hbPlanWarnings:plan.warnings,hbPlanInfo:{...plan.summary,region:s.region,date:s.date,transport:s.hbTransport,homeDeparture:home.homeDeparture,homeReturn:home.homeReturn,weekday:typeof hbTravelWeekday==='function'?hbTravelWeekday(s.date)?.short||null:null,createdAt:new Date().toISOString()},hbReplanUndo:null,hbWeatherDraft:weatherDraft,hbWeatherDismissed:null};
  try{save()}catch{ s=previous;alert('초안 저장에 실패했어요. 기존 일정을 유지해요.');return false;}
  go('/plan');return true;
 }
@@ -789,6 +1000,12 @@ function hbRenderTripEndpoints(generator,now){
  };
 }
 const HB_PLAN_GENERATOR_FORM=false;
+// Owner request 2026-11-26: the #/plan top panel (.hb-plan-tools) renders only the three view buttons
+// (일정 편집 · 부모님 큰 글씨로 보기 · 일정표 인쇄). Code is kept; these flags only stop rendering.
+// 출발지는 1단계(여행 정보)에서 입력하고, 저장된 출발지·귀가 계산 결과(s.hbTripEndpoints)는 그대로 유지된다.
+const HB_PLAN_PANEL_LOCAL_NOTICE='edit'; // 'always' | 'edit'(일정 편집 모드에서만) | 'never'
+const HB_PLAN_PANEL_TRAVEL_BASIS=false;  // '이동시간 · 네이버 자동차 경로 n구간 …' 요약 줄
+const HB_PLAN_PANEL_ENDPOINTS=false;     // '출발지·귀가 위치와 예상 시간' 섹션
 let hbPlanEditMode=false,hbPlanChecksOpen=false;
 function hbPlanViewEnhance(){
  const oldView=plan;
@@ -826,11 +1043,12 @@ function hbPlanViewEnhance(){
   liveNote.id='hb-plan-edit-feedback';liveNote.className='hb-plan-edit-feedback';
   liveNote.setAttribute('role','status');liveNote.setAttribute('aria-live','polite');
   el.querySelector('.hb-plan-generator').append(liveNote);
-  el.querySelector('.hb-plan-generator').insertAdjacentHTML('beforeend','<p class="hb-plan-local-notice">시간과 방문 순서를 직접 수정할 수 있어요. 수정 내용은 <strong>이 기기에만 저장</strong>되며 가족과 자동 동기화되지 않아요. 이동시간은 예상값일 수 있어요.</p>');
+  if(HB_PLAN_PANEL_LOCAL_NOTICE==='always'||HB_PLAN_PANEL_LOCAL_NOTICE==='edit'&&hbPlanEditMode)
+   el.querySelector('.hb-plan-generator').insertAdjacentHTML('beforeend','<p class="hb-plan-local-notice">시간과 방문 순서를 직접 수정할 수 있어요. 수정 내용은 <strong>이 기기에만 저장</strong>되며 가족과 자동 동기화되지 않아요. 이동시간은 예상값일 수 있어요.</p>');
   if(now.length){
    const basis=hbTravelBasisSummary(now);
-   generator.insertAdjacentHTML('beforeend','<p class="hb-plan-travel-basis" role="note"><strong>이동시간</strong> · 네이버 자동차 경로 '+basis.verified+'구간 · 예상 이동 '+basis.placeholder+'곳'+(basis.placeholder?' (합계 약 '+basis.placeholderMinutes+'분, 예상)':'')+(basis.stale?' · 다시 계산할 구간 '+basis.stale+'개':'')+'</p>');
-   hbRenderTripEndpoints(generator,now);
+   if(HB_PLAN_PANEL_TRAVEL_BASIS)generator.insertAdjacentHTML('beforeend','<p class="hb-plan-travel-basis" role="note"><strong>이동시간</strong> · 네이버 자동차 경로 '+basis.verified+'구간 · 예상 이동 '+basis.placeholder+'곳'+(basis.placeholder?' (합계 약 '+basis.placeholderMinutes+'분, 예상)':'')+(basis.stale?' · 다시 계산할 구간 '+basis.stale+'개':'')+'</p>');
+   if(HB_PLAN_PANEL_ENDPOINTS)hbRenderTripEndpoints(generator,now);
   }
   const routeStops=now.filter(stop=>stop.placeId&&!stop.isPlaceholder);
   const routeMode=hbRouteMode(s);
@@ -974,6 +1192,9 @@ function hbPlanViewEnhance(){
   if(routeNode)layout.append(routeNode);
   if(mapSlot)layout.append(mapSlot);
   for(const node of weatherNodes)layout.append(node);
+  // Weather summary line (HB_WEATHER_DRAFT): outside the tools panel, directly above the itinerary rows.
+  const firstRow=layout.querySelector?.('.hb-itinerary-row');
+  if(now.length&&firstRow?.insertAdjacentHTML){firstRow.insertAdjacentHTML('beforebegin','<div data-hb-plan-weather-slot></div>');hbPlanWeatherRefresh();}
   hbRenderPlanMap();
  };
 }

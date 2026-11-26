@@ -611,8 +611,11 @@ function browse(){
   if(ready)hbSeasonalEnsureFeatured(s.region);
   const curation=hbTripCuration(ready?hbTripCandidatePool(s.region):[],s.region,hbTripKeepIds(chosen,s.stops));
   const filtered=ready?hbSearchPlaces(curation.visible,filter,query):[];
+  // Weather suggestion (HB_WEATHER_SUGGEST): reorders within each accessibility group only.
+  const weatherSignal=hbWeatherBrowseSignal();
+  hbWeatherBrowseFingerprint=weatherSignal.fingerprint;
   const ranked=filtered.map(p=>({p,e:hbReconcileRecommendation(p,profile,serverState)}))
-    .sort((a,b)=>hbDiscoveryPriority(b.p.id,s.region)-hbDiscoveryPriority(a.p.id,s.region)||b.e.score-a.e.score||String(a.p.name||'').localeCompare(String(b.p.name||''),'ko'));
+    .sort((a,b)=>hbWeatherPlaceRank(b.p,weatherSignal)-hbWeatherPlaceRank(a.p,weatherSignal)||hbDiscoveryPriority(b.p.id,s.region)-hbDiscoveryPriority(a.p.id,s.region)||b.e.score-a.e.score||String(a.p.name||'').localeCompare(String(b.p.name||''),'ko'));
   const good=ranked.filter(x=>x.e.status==='eligible');
   const review=ranked.filter(x=>x.e.status==='needsReview');
   const excluded=ranked.filter(x=>x.e.status==='excluded');
@@ -627,7 +630,7 @@ function browse(){
     const description=hbRecommendationReasons[e.reason]||hbRecommendationReasons.missing_reason;
     return '<article class="card hb-recommend-card"><div class="hb-card-top"><span class="chip">'+hbPlaceCategory(p)+'</span><span class="hb-recommend-state">'+status+'</span></div>'+
       '<h3>'+safe(p.name)+'</h3>'+(p.address?'<p class="muted">'+safe(p.address)+'</p>':'')+
-      '<p class="muted">'+safe(description)+'</p>'+extra+
+      '<p class="muted">'+safe(description)+'</p>'+hbWeatherPlaceNote(p,weatherSignal)+extra+
       (e.scope?'<p>확인 범위: '+safe(e.scope)+'</p>':'')+
       (e.found.length?'<p>관련 편의시설 안내 (동선 검증과 별개): '+safe(e.found.join(', '))+'</p>':'')+
       (hbVisibleGaps(e.gaps).length?'<p class="muted">'+safe(hbVisibleGaps(e.gaps).slice(0,3).join(' · '))+'</p>':'')+
@@ -672,7 +675,7 @@ function browse(){
       '곳 · 조건 충돌 '+[...serverState.result.byId.values()].filter(x=>x.status==='excluded').length+'곳.':
     '이동 조건 확인 대기';
   const serverZero=serverState?.state==='ready'&&serverState.result.byId.size===0;
-  const seasonalView=hbSeasonalView({ready,profile,serverState,chosen,pool:curation.visible});
+  const seasonalView=hbSeasonalView({ready,profile,serverState,chosen,pool:curation.visible,weatherSignal});
   const tripSummary=hbTripResultSummary({ready,curation,good,review,excluded,serverState,travel});
   const retry=serverState?.state==='error'?'<button type="button" id="hb-recommend-retry" class="light">서버 추천 다시 확인</button>':'';
   el.innerHTML='<h1>여행 장소 찾기</h1>'+hbDiscoveryPendingMarkup()+prefs()+
@@ -682,6 +685,7 @@ function browse(){
     (serverZero?'<p class="muted">서버 추천 결과 0건이에요. 아래에 서버에서 판정하지 않은 장소가 있더라도 조건 일치로 간주하지 않아요.</p>':'')+
     tripSummary+hbTripQuickConditions()+
     '<p class="muted">현장 동선·영업시간·실제 보행 거리는 별도로 확인해 주세요.</p></section>'+
+    (ready?hbWeatherSuggestBanner(weatherSignal):'')+
     hbSeasonalMarkup(seasonalView)+
     (typeof weatherCard==='function'?weatherCard():'')+
     '<form class="row" role="search" id="hb-browse-search"><div class="field"><label for="hb-place-search">장소 이름 또는 주소</label><input type="search" id="hb-place-search" maxlength="100" value="'+safe(query)+'"></div>'+
@@ -885,16 +889,23 @@ function hbSeasonalClearMap(){
   if(typeof hbSeasonalMapDispose==='function')hbSeasonalMapDispose();
   hbSeasonalMapDispose=null;
 }
-function hbSeasonalView({ready,profile,serverState,chosen,pool}){
+function hbSeasonalView({ready,profile,serverState,chosen,pool,weatherSignal=null}){
   const season=hbTravelSeason(s.date);
   const region=s.region;
   if(!ready)return {season,region,ready:false,courses:[],rows:{shown:[],excluded:[]},hidden:0,featured:null};
   const evaluate=p=>hbReconcileRecommendation(p,profile,serverState);
   const rows=hbSeasonalPlaces(pool,season.season,region,evaluate);
   const editorial=hbSeasonalEditorialCourses(season.season,region,pool,evaluate);
-  const courses=[...editorial.filter(c=>c.complete),...hbSeasonalComposedCourses(rows.shown,editorial)];
+  let courses=[...editorial.filter(c=>c.complete),...hbSeasonalComposedCourses(rows.shown,editorial)];
+  if(['adverse','pleasant'].includes(weatherSignal?.mode)){
+    // Weather suggestion: status stays first; weather-fit places/courses move up (stable sort).
+    const rank=p=>hbWeatherPlaceRank(p,weatherSignal);
+    rows.shown.sort((a,b)=>hbSeasonalStatusRank[b.e.status]-hbSeasonalStatusRank[a.e.status]||rank(b.p)-rank(a.p)||hbSeasonalSort(a,b));
+    const fit=c=>c.stops.reduce((sum,x)=>sum+rank(x.p),0)/Math.max(1,c.stops.length);
+    courses=courses.map((c,i)=>({c,i})).sort((a,b)=>fit(b.c)-fit(a.c)||a.i-b.i).map(x=>x.c);
+  }
   return {season,region,ready:true,courses,rows,hidden:editorial.filter(c=>!c.complete).length,
-    featured:hbSeasonalFeatured.get(region)?.state||null,chosen};
+    featured:hbSeasonalFeatured.get(region)?.state||null,chosen,weatherSignal};
 }
 function hbSeasonalMarkup(view){
   const {season}=view;
@@ -915,7 +926,7 @@ function hbSeasonalMarkup(view){
     return '<article class="hb-seasonal-course" data-hb-season-course="'+safe(c.id)+'">'+
       '<p class="hb-discovery-kicker">'+(c.kind==='editorial'?'함께봄 편집 코스 · '+safe(view.region)+' · '+safe(season.label):'조건 기반 자동 묶음 · '+safe(c.district))+'</p>'+
       '<h4>'+safe(c.title)+'</h4><p class="muted">'+(c.kind==='editorial'?safe(c.description)+'. 방문 순서 아이디어예요.':'같은 시·군·구 주소의 계절 테마 장소 '+c.stops.length+'곳이에요. 방문 순서는 정하지 않았어요.')+'</p>'+
-      '<p class="hb-seasonal-summary">조건 일치 '+counts.eligible+' · 확인 필요 '+counts.needsReview+' · 조건 충돌 '+counts.excluded+'</p>'+
+      '<p class="hb-seasonal-summary">조건 일치 '+counts.eligible+' · 확인 필요 '+counts.needsReview+' · 조건 충돌 '+counts.excluded+'</p>'+hbWeatherCourseNote(c.stops,view.weatherSignal)+
       '<'+List+' class="hb-seasonal-stops">'+c.stops.map(({p,e})=>'<li><a data-hb-season-open="'+safe(p.id)+'" href="'+safe(hbPlaceDetailPath(p.id))+'">'+safe(p.name)+'</a> <span class="hb-recommend-state">'+safe(hbRecommendationStatusText(e))+'</span>'+
         (e.status==='excluded'?' <span class="muted">이 장소는 담지 않아요.</span>':hbVisibleGaps(e.gaps).length?' <span class="muted">'+safe(hbVisibleGaps(e.gaps)[0])+'</span>':'')+'</li>').join('')+'</'+List+'>'+
       (counts.excluded?'<p class="warn">확인된 이동 조건 충돌 장소가 포함돼 있어요. 충돌 장소는 담기에서 빠져요.</p>':'')+
@@ -931,7 +942,7 @@ function hbSeasonalMarkup(view){
       '<p>이 지역 조회 자료로는 '+safe(season.label)+' 코스 후보를 만들지 못했어요. 조건을 자동으로 완화하지 않았어요.</p>')+featuredNote;
   const shown=view.rows.shown.slice(0,6);
   const placesMarkup='<h3>'+safe(season.label)+' 테마 추천 장소 <span class="hb-result-count">'+view.rows.shown.length+'곳</span></h3>'+
-    (shown.length?'<div class="grid">'+shown.map(row=>hbSeasonalPlaceCard(row,chosen)).join('')+'</div>'+
+    (shown.length?'<div class="grid">'+shown.map(row=>hbSeasonalPlaceCard(row,chosen,view.weatherSignal)).join('')+'</div>'+
       (view.rows.shown.length>shown.length?'<p class="muted">나머지 '+(view.rows.shown.length-shown.length)+'곳은 아래 전체 목록에서 확인할 수 있어요.</p>':''):
       '<p>이 지역 조회 자료에서 '+safe(season.label)+' 테마와 맞는 장소를 찾지 못했어요. 조건을 자동으로 완화하지 않았어요. 아래 전체 목록에서 직접 확인해 주세요.</p>')+
     (view.rows.excluded.length?'<p class="muted">확인된 이동 조건 충돌로 계절 추천에서 제외한 장소 '+view.rows.excluded.length+'곳</p>':'');
@@ -987,11 +998,11 @@ function hbSeasonalBind(view,{serverState}){
   }
 }
 // Seasonal cards deliberately avoid .hb-recommend-card/data-hb-info: the main list owns those hooks.
-function hbSeasonalPlaceCard({p,e,basis},chosen){
+function hbSeasonalPlaceCard({p,e,basis},chosen,weatherSignal=null){
   const picked=chosen.includes(p.id);
   return '<article class="card hb-seasonal-card"><div class="hb-card-top"><span class="chip">'+hbPlaceCategory(p)+'</span><span class="hb-recommend-state">'+safe(hbRecommendationStatusText(e))+'</span></div>'+
     '<h3>'+safe(p.name)+'</h3>'+(p.address?'<p class="muted">'+safe(p.address)+'</p>':'')+
-    '<p class="hb-seasonal-tag">계절 근거: '+safe(hbSeasonalBasisLabels[basis])+'</p>'+
+    '<p class="hb-seasonal-tag">계절 근거: '+safe(hbSeasonalBasisLabels[basis])+'</p>'+hbWeatherPlaceNote(p,weatherSignal)+
     (hbVisibleGaps(e.gaps).length?'<p class="muted">'+safe(hbVisibleGaps(e.gaps).slice(0,2).join(' · '))+'</p>':'')+
     '<div class="actions"><a class="light" data-hb-season-open="'+safe(p.id)+'" href="'+safe(hbPlaceDetailPath(p.id))+'">상세 정보</a>'+
     '<button type="button" data-hb-pick="'+safe(p.id)+'" aria-pressed="'+picked+'">'+(picked?'선택 취소':'일정에 담기')+'</button></div></article>';
@@ -1095,6 +1106,77 @@ function hbVisibleGaps(gaps){
   return (Array.isArray(gaps)?gaps:[]).filter(x=>typeof x==='string'&&!/미확인|미지원|미선택|자료\s*없음|확인되지\s*않|확인\s*안\s*됨/.test(x));
 }
 // END HB_TRIP_DATA_CURATION
+
+// BEGIN HB_WEATHER_SUGGEST
+// 날씨 기반 여행지 제안 (사용자 원래 의도, DECISIONS 2026-11-26): 여행 날짜·지역 예보로 장소 순서·강조를 조정한다.
+// 실내/야외 분류는 앱에 이미 들어온 장소 자료(관광공사 콘텐츠 유형·분류 코드·장소 이름)만 쓴다.
+// 분류는 "어떤 시설로 분류된 곳"이라는 사실만 말하며 이동 안전·현장 상태를 뜻하지 않는다. 근거가 없으면 null.
+const HB_WEATHER_INDOOR_NAMES=[
+ [/박물관|미술관|전시관|기념관|과학관|디자인플라자|갤러리/,'실내 전시 시설'],
+ [/도서관|평생학습관/,'실내 도서관·학습 시설'],
+ [/공연장|극장|아트센터|예술의전당/,'실내 공연 시설'],
+ [/수련관|체험관|문화센터|문화회관|아쿠아리움/,'실내 체험·문화 시설']
+];
+const HB_WEATHER_OUTDOOR_NAMES=[
+ [/공원|정원|수목원|숲|둘레길|산책로/,'야외 공원·산책 장소'],
+ [/궁궐|궁$|한옥마을|성곽|산성|유적지/,'야외 궁궐·역사 장소'],
+ [/호수|저수지|습지|계곡|폭포|해수욕장|해변/,'야외 자연 장소']
+];
+/** {kind:'indoor'|'outdoor'|null,label,basis}. Food is never weather-classified here. */
+function hbWeatherPlaceClass(p){
+ if(!p||p.kind==='food'||typeof p.name!=='string'||!p.name.trim())return {kind:null,label:'',basis:null};
+ const name=p.name.replace(/\[[^\]]*\]/g,'').replace(/\s+/g,'');
+ const indoor=HB_WEATHER_INDOOR_NAMES.find(([re])=>re.test(name));
+ const outdoor=HB_WEATHER_OUTDOOR_NAMES.find(([re])=>re.test(name));
+ const culture=p.kind==='culture'||String(p.contentTypeId??'')==='14'||p.providerCategoryCode==='A0206';
+ const nature=['A0101','A0102'].includes(p.providerCategoryCode);
+ if(indoor&&!outdoor)return {kind:'indoor',label:indoor[1],basis:culture?'official_category':'name_keyword'};
+ if(culture&&!outdoor)return {kind:'indoor',label:'실내 문화시설',basis:'official_category'};
+ if(outdoor&&!indoor&&!culture)return {kind:'outdoor',label:outdoor[1],basis:'name_keyword'};
+ if(nature&&!indoor&&!culture)return {kind:'outdoor',label:'야외 자연 장소',basis:'official_category'};
+ return {kind:null,label:'',basis:null};
+}
+/** Higher first. Only adverse/pleasant signals change order; unclassified places are never promoted. */
+function hbWeatherPlaceRank(p,signal){
+ const kind=hbWeatherPlaceClass(p).kind;
+ if(signal?.mode==='adverse')return kind==='indoor'?2:kind==='outdoor'?0:1;
+ if(signal?.mode==='pleasant')return kind==='outdoor'?1:0;
+ return 0;
+}
+function hbWeatherPlaceNote(p,signal){
+ const c=hbWeatherPlaceClass(p);
+ if(!c.kind||!signal?.label)return '';
+ if(signal.mode==='adverse'&&c.kind==='indoor')
+  return '<p class="hb-weather-fit" data-hb-weather-fit="indoor">'+safe(signal.label+' · '+c.label+'로 분류된 곳')+'</p>'+(signal.source?'<p class="muted hb-weather-source">'+safe(signal.source)+'</p>':'');
+ if(signal.mode==='adverse'&&c.kind==='outdoor')
+  return '<p class="muted" data-hb-weather-fit="outdoor-later">'+safe(c.label+' · 날씨가 나은 시간대 방문을 제안해요')+'</p>';
+ if(signal.mode==='pleasant'&&c.kind==='outdoor')
+  return '<p class="hb-weather-fit" data-hb-weather-fit="outdoor">'+safe(signal.label+' · '+c.label+'로 분류된 곳')+'</p>'+(signal.source?'<p class="muted hb-weather-source">'+safe(signal.source)+'</p>':'');
+ return '';
+}
+function hbWeatherSuggestBanner(signal){
+ if(signal?.mode==='adverse')return '<section class="panel hb-weather-suggest" data-hb-weather-mode="adverse" aria-labelledby="hb-weather-suggest-title"><h2 id="hb-weather-suggest-title">날씨에 맞춘 여행지 제안</h2>'+
+  '<p><strong>'+safe(signal.label)+'</strong> · 실내 시설로 분류된 곳을 먼저 보여 드려요. 야외 장소는 뒤에 두었어요.</p>'+(signal.source?'<p class="muted">'+safe(signal.source)+'</p>':'')+'</section>';
+ if(signal?.mode==='pleasant')return '<section class="panel hb-weather-suggest" data-hb-weather-mode="pleasant" aria-labelledby="hb-weather-suggest-title"><h2 id="hb-weather-suggest-title">날씨에 맞춘 여행지 제안</h2>'+
+  '<p><strong>'+safe(signal.label)+'</strong> · 공원·정원·궁궐 같은 야외 장소를 먼저 보여 드려요.</p>'+(signal.source?'<p class="muted">'+safe(signal.source)+'</p>':'')+'</section>';
+ if(signal?.mode==='none'&&signal.reason==='out_of_range')return '<p class="muted hb-weather-suggest" data-hb-weather-mode="later">여행일이 가까워지면 날씨를 반영해 다시 제안해요.</p>';
+ return '';
+}
+let hbWeatherBrowseFingerprint='';
+function hbWeatherBrowseSignal(){
+ if(typeof hbWeatherSignal!=='function'||typeof forecast==='undefined'||typeof currentWeatherKey!=='function')
+  return {mode:'none',reason:'unavailable',label:'',source:'',hours:new Map(),fingerprint:'none|unavailable||'};
+ return hbWeatherSignal(forecast,currentWeatherKey(),{start:s.hbPlanStart,end:s.hbPlanEnd});
+}
+function hbWeatherBrowseNeedsRefresh(){return hbWeatherBrowseSignal().fingerprint!==hbWeatherBrowseFingerprint}
+function hbWeatherCourseNote(stops,signal){
+ if(!['adverse','pleasant'].includes(signal?.mode)||!Array.isArray(stops))return '';
+ const count=kind=>stops.filter(x=>hbWeatherPlaceClass(x.p).kind===kind).length;
+ const indoor=count('indoor'),outdoor=count('outdoor');
+ const parts=[indoor?'실내 시설로 분류된 곳 '+indoor+'곳':'',outdoor?'야외 장소 '+outdoor+'곳':''].filter(Boolean);
+ return parts.length?'<p class="muted" data-hb-weather-course>'+safe(signal.label+' · '+parts.join(' · '))+'</p>':'';
+}
+// END HB_WEATHER_SUGGEST
 function hbDecodePlaceId(value){
  try{return decodeURIComponent(value)}catch{return null}
 }
@@ -2324,6 +2406,214 @@ function hbVisiblePlanWarnings(list,someConfirmed=false){
    (someConfirmed?'일부 자동차 이동시간을 네이버 경로로 반영했어요. 나머지 이동시간은 예상이에요.':HB_PLACEHOLDER_TRAVEL_NOTE):w)
   .filter(w=>!hidden.test(w));
 }
+// BEGIN HB_WEATHER_DRAFT
+// 날씨를 반영한 일정 초안 (사용자 원래 의도: 비교 화면이 아니라 시스템이 먼저 제안, DECISIONS 2026-11-26).
+// 기존 시간 칸·식사·휴식·보호(완료·필수·예약) 일정은 그대로 두고, 관광지가 어느 시간 칸에 들어갈지만 바꾼다.
+// 야외로 분류된 곳의 강수·기온 부담 시간이 실제로 줄어들 때만 제안한다. 안전이나 현장 상태를 판단하지 않는다.
+function hbWeatherStopsKey(stops){
+ return JSON.stringify((Array.isArray(stops)?stops:[]).map(x=>[x?.placeId||x?.kind||'',x?.plannedArrival||x?.time||'',Number(x?.stayMinutes)||0]));
+}
+function hbWeatherStopLocked(stop){return !!(stop&&(stop.done||stop.completed||stop.must||stop.mustVisit||stop.reserved||stop.booked))}
+function hbWeatherIsSight(stop){return !!(stop&&stop.placeId&&!stop.isPlaceholder&&!['food','rest'].includes(stop.kind))}
+function hbWeatherStopHours(start,stay,hours){
+ const out=[];
+ if(start===null||!Number.isFinite(stay)||stay<=0||!(hours instanceof Map))return out;
+ for(let t=Math.floor(start/60)*60;t<start+stay;t+=60){const h=hours.get(t);if(h)out.push(h)}
+ return out;
+}
+function hbWeatherStopsSpan(stops){
+ let lo=null,hi=null;
+ for(const x of Array.isArray(stops)?stops:[]){
+  const at=hbDraftMinute(x?.plannedArrival||x?.time);if(at===null)continue;
+  lo=lo===null?at:Math.min(lo,at);hi=Math.max(hi??0,at+(Number(x.stayMinutes)||0));
+ }
+ return lo===null?{}:{start:hbClock(lo),end:hbClock(Math.min(1439,hi))};
+}
+function hbWeatherPermutations(list){
+ if(list.length<=1)return [list.slice()];
+ const out=[];
+ list.forEach((item,i)=>{for(const rest of hbWeatherPermutations([...list.slice(0,i),...list.slice(i+1)]))out.push([item,...rest])});
+ return out;
+}
+/** Returns {stops,before,after} or null when no outdoor exposure is removed. Input stops are never mutated. */
+function hbWeatherReorderStops(stops,{classOf,signal,isLocked=hbWeatherStopLocked}={}){
+ const hours=signal?.hours;
+ if(!Array.isArray(stops)||!(hours instanceof Map)||!hours.size||typeof classOf!=='function')return null;
+ const bad=h=>!!(h.wet||h.hot||h.cold);
+ if(![...hours.values()].some(bad))return null;
+ const limit=typeof HB_WEATHER_SUGGEST_RULE!=='undefined'?HB_WEATHER_SUGGEST_RULE.maxReorderStops:6;
+ const movable=[];
+ stops.forEach((x,i)=>{if(hbWeatherIsSight(x)&&!isLocked(x))movable.push(i)});
+ if(movable.length<2||movable.length>limit)return null;
+ const kinds=new Map(movable.map(i=>[i,classOf(stops[i])]));
+ if(![...kinds.values()].includes('outdoor'))return null;
+ const startOf=x=>hbDraftMinute(x?.plannedArrival||x?.time);
+ if(movable.some(i=>startOf(stops[i])===null))return null;
+ const build=assign=>{
+  const next=stops.map(x=>({...x}));
+  let changed=false;
+  assign.forEach((from,k)=>{
+   const target=movable[k],slot=stops[target];
+   if(from!==target)changed=true;
+   next[target]={...stops[from],time:slot.time,plannedArrival:slot.plannedArrival,transitionBufferMinutes:slot.transitionBufferMinutes,travelTimeStatus:slot.travelTimeStatus,position:slot.position};
+  });
+  // Same rule as a manual swap: previously confirmed origin/destination legs no longer apply.
+  if(changed)for(const stop of next)if(stop.travelTimeStatus==='estimated'||stop.travelFromId){
+   stop.transitionBufferMinutes=25;stop.travelTimeStatus='unknown';
+   delete stop.travelTimeMinutes;delete stop.travelSource;delete stop.travelCheckedAt;delete stop.travelFromId;delete stop.travelToId;
+  }
+  for(let i=0;i<next.length;i++){
+   const at=startOf(next[i]),stay=Number(next[i].stayMinutes);
+   if(at===null||!Number.isFinite(stay)||stay<0||at+stay>1439)return null;
+   if(i){const prev=next[i-1],p=startOf(prev);if(p+Number(prev.stayMinutes||0)+Number(next[i].transitionBufferMinutes||0)>at)return null;}
+  }
+  return next;
+ };
+ const score=(assign,next)=>{
+  let outdoorBad=0,indoorBad=0,pop=0,moved=0;
+  assign.forEach((from,k)=>{
+   const stop=next[movable[k]],hs=hbWeatherStopHours(startOf(stop),Number(stop.stayMinutes),hours),kind=kinds.get(from);
+   if(kind==='outdoor'){outdoorBad+=hs.filter(bad).length;pop+=hs.reduce((n,h)=>n+h.pop,0)}
+   if(kind==='indoor')indoorBad+=hs.filter(bad).length;
+   if(from!==movable[k])moved++;
+  });
+  return {outdoorBad,indoorBad,pop,moved};
+ };
+ const baseStops=build(movable);
+ if(!baseStops)return null;
+ const before=score(movable,baseStops);
+ const better=(v,b)=>v.outdoorBad!==b.outdoorBad?v.outdoorBad<b.outdoorBad:v.indoorBad!==b.indoorBad?v.indoorBad>b.indoorBad:
+  v.pop!==b.pop?v.pop<b.pop:v.moved<b.moved;
+ let best=null;
+ for(const assign of hbWeatherPermutations(movable)){
+  const next=build(assign);if(!next)continue;
+  const v=score(assign,next);
+  if(!best||better(v,best.v))best={assign,next,v};
+ }
+ if(!best||best.v.outdoorBad>=before.outdoorBad)return null;
+ return {stops:best.next,before,after:best.v};
+}
+/** One-line reason for the summary above the itinerary. Wording is a weather fact, never a safety claim. */
+function hbWeatherDraftReason(signal,stops,classOf){
+ const hours=signal?.hours instanceof Map?signal.hours:new Map(),bad=h=>!!(h.wet||h.hot||h.cold);
+ const band=typeof hbWeatherBand==='function'?hbWeatherBand:m=>m<720?'오전':'오후';
+ const counts=new Map(),indoorBands=new Set();
+ for(const stop of Array.isArray(stops)?stops:[]){
+  if(!hbWeatherIsSight(stop))continue;
+  const hs=hbWeatherStopHours(hbDraftMinute(stop.plannedArrival||stop.time),Number(stop.stayMinutes),hours).filter(bad);
+  for(const h of hs){counts.set(band(h.minute),(counts.get(band(h.minute))||0)+1);if(classOf(stop)==='indoor')indoorBands.add(band(h.minute))}
+ }
+ if(!counts.size)for(const h of hours.values())if(bad(h))counts.set(band(h.minute),(counts.get(band(h.minute))||0)+1);
+ const main=[...counts].sort((a,b)=>b[1]-a[1])[0]?.[0]||'';
+ const sample=[...hours.values()].filter(h=>bad(h)&&band(h.minute)===main);
+ const wetTypes=typeof HB_WEATHER_SUGGEST_RULE!=='undefined'?HB_WEATHER_SUGGEST_RULE.wetTypes:['비','비 또는 눈','눈','소나기'];
+ const word=sample.some(h=>h.wet)?(sample.find(h=>wetTypes.includes(h.type))?.type||'강수')+' 예보':sample.some(h=>h.hot)?'더위 부담':'추위 부담';
+ const particle=/부담$/.test(word)?'으로':'로';
+ const indoor=indoorBands.has(main);
+ return {band:main,word,indoor,
+  applied:indoor?main+' '+word+particle+' 실내 일정을 '+main+'에 배치했어요.':main+' '+word+particle+' 야외 일정을 날씨가 나은 시간대로 옮겼어요.',
+  proposal:indoor?main+' '+word+'에 맞춰 실내 일정을 '+main+'에 둔 대체안이에요.':main+' '+word+'에 맞춰 야외 일정을 날씨가 나은 시간대로 옮긴 대체안이에요.'};
+}
+function hbWeatherStopClassifier(){
+ const list=typeof places!=='undefined'&&Array.isArray(places)?places:[];
+ return stop=>typeof hbWeatherPlaceClass==='function'?hbWeatherPlaceClass(list.find(p=>p&&p.id===stop?.placeId)||{name:stop?.name,kind:stop?.kind}).kind:null;
+}
+/** Default draft for a new plan: weather-ordered when it removes outdoor exposure; the original is kept for 되돌리기. */
+function hbWeatherDraftForNewPlan(stops,state){
+ if(typeof hbWeatherSignal!=='function'||typeof forecast==='undefined')return null;
+ const signal=hbWeatherSignal(forecast,JSON.stringify([state.region,state.date]),hbWeatherStopsSpan(stops));
+ const chosen=Array.isArray(state.chosen)?state.chosen:[];
+ const must=(Array.isArray(state.hbMustVisitIds)?state.hbMustVisitIds:[]).filter(id=>chosen.includes(id));
+ const classOf=hbWeatherStopClassifier();
+ const result=hbWeatherReorderStops(stops,{classOf,signal,isLocked:x=>hbWeatherStopLocked(x)||must.includes(x.placeId)});
+ if(!result)return null;
+ return {region:state.region,date:state.date,message:hbWeatherDraftReason(signal,result.stops,classOf).applied,source:signal.source||'',
+  originalStops:stops,weatherStops:result.stops,createdAt:new Date().toISOString()};
+}
+let hbPlanWeatherMessage='';
+function hbPlanWeatherView(){
+ const stops=Array.isArray(s.stops)?s.stops:[];
+ if(!stops.length)return {kind:'none'};
+ const {region,date}=hbPlanContext(s);
+ const d=s.hbWeatherDraft;
+ const draft=d&&typeof d==='object'&&d.region===region&&d.date===date&&Array.isArray(d.originalStops)&&Array.isArray(d.weatherStops)?d:null;
+ const current=hbWeatherStopsKey(stops);
+ if(draft&&current===hbWeatherStopsKey(draft.weatherStops))return {kind:'applied',draft};
+ if(draft&&current===hbWeatherStopsKey(draft.originalStops))return {kind:'original',draft};
+ // F14-01: a saved plan whose latest forecast now has rain/heat/cold burden gets an alternative, applied only on approval.
+ if(typeof hbWeatherSignal!=='function'||typeof forecast==='undefined'||typeof currentWeatherKey!=='function')return {kind:'none'};
+ const key=JSON.stringify([region,date]);
+ if(currentWeatherKey()!==key)return {kind:'none'};
+ const signal=hbWeatherSignal(forecast,key,hbWeatherStopsSpan(stops));
+ if(signal.mode!=='adverse')return {kind:'none'};
+ const classOf=hbWeatherStopClassifier();
+ const result=hbWeatherReorderStops(stops,{classOf,signal});
+ if(!result)return {kind:'none'};
+ const dismissKey=signal.fingerprint+'|'+current;
+ if(s.hbWeatherDismissed===dismissKey)return {kind:'none'};
+ return {kind:'proposal',result,signal,reason:hbWeatherDraftReason(signal,result.stops,classOf),dismissKey,signature:hbTripSignature(s),region,date};
+}
+function hbPlanWeatherMarkup(view){
+ const message=hbPlanWeatherMessage;hbPlanWeatherMessage='';
+ const status='<p id="hb-plan-weather-status" role="status" aria-live="polite">'+safe(message)+'</p>';
+ const head=title=>'<section class="panel hb-plan-weather" data-hb-plan-weather="'+safe(view.kind)+'" aria-labelledby="hb-plan-weather-title"><h3 id="hb-plan-weather-title">'+title+'</h3>';
+ if(view.kind==='applied')return head('날씨를 반영한 일정 초안')+'<p>'+safe(view.draft.message)+'</p>'+(view.draft.source?'<p class="muted">'+safe(view.draft.source)+'</p>':'')+
+  '<div class="actions"><button type="button" class="light" id="hb-weather-draft-revert">원래 순서로 되돌리기</button></div>'+status+'</section>';
+ if(view.kind==='original')return head('날씨를 반영한 순서 제안')+'<p>원래 고른 순서로 보여 드려요. 날씨를 반영한 순서로 다시 바꿀 수 있어요.</p>'+(view.draft.source?'<p class="muted">'+safe(view.draft.source)+'</p>':'')+
+  '<div class="actions"><button type="button" class="light" id="hb-weather-draft-reapply">날씨를 반영한 순서로 바꾸기</button></div>'+status+'</section>';
+ if(view.kind==='proposal'){
+  const now=Array.isArray(s.stops)?s.stops:[],next=view.result.stops;
+  const row=(stop,i,mark)=>'<li>'+safe(stop.plannedArrival||stop.time||'')+' · '+safe(stop.name||'장소')+(mark&&now[i]?.placeId!==stop.placeId?' <strong>(바뀜)</strong>':'')+(hbWeatherStopLocked(stop)?' (보호 일정)':'')+'</li>';
+  return head('날씨에 맞춘 대체 일정')+'<p><strong>'+safe(view.signal.label)+'</strong> · '+safe(view.reason.proposal)+' 적용하기 전까지 지금 일정은 그대로예요.</p>'+
+   (view.signal.source?'<p class="muted">'+safe(view.signal.source)+'</p>':'')+
+   '<div class="hb-replan-compare"><div><h4>지금 일정</h4><ol>'+now.map((x,i)=>row(x,i,false)).join('')+'</ol></div><div><h4>날씨 반영 대체안</h4><ol>'+next.map((x,i)=>row(x,i,true)).join('')+'</ol></div></div>'+
+   '<div class="actions"><button type="button" id="hb-weather-alt-apply">대체 일정 적용</button><button type="button" class="light" id="hb-weather-alt-keep">지금 일정 유지</button></div>'+status+'</section>';
+ }
+ return message?status:'';
+}
+function hbPlanWeatherBind(view){
+ const bind=(id,fn)=>{const node=document.getElementById?.(id);if(node)node.onclick=fn;};
+ const finish=(text,focusId)=>{hbPlanWeatherMessage=text;plan();document.getElementById?.(focusId)?.focus?.();};
+ const switchTo=(target,text,focusId)=>{
+  const current=Array.isArray(s.stops)?s.stops:[];
+  // Protected stops (완료·필수·예약) must keep the same place at the same time.
+  for(const stop of current.filter(hbWeatherStopLocked)){
+   const same=target.find(x=>x.placeId&&x.placeId===stop.placeId);
+   if(!same||(same.plannedArrival||same.time)!==(stop.plannedArrival||stop.time)){
+    hbPlanWeatherMessage='완료·필수·예약 표시가 있는 일정의 시간이 바뀌어 순서를 바꾸지 않았어요. 지금 일정을 유지해요.';hbPlanWeatherRefresh();return;
+   }
+  }
+  const flags=['done','completed','must','mustVisit','reserved','booked'];
+  const next=target.map(x=>{const cur=current.find(c=>c.placeId&&c.placeId===x.placeId),out={...x};if(cur)for(const f of flags){if(f in cur)out[f]=cur[f];else delete out[f];}return out;});
+  if(!hbSaveTripStops(next,null)){hbPlanWeatherMessage='저장하지 못했어요. 지금 일정을 유지해요.';hbPlanWeatherRefresh();return;}
+  finish(text,focusId);
+ };
+ if(view.kind==='applied')bind('hb-weather-draft-revert',()=>switchTo(view.draft.originalStops,'원래 고른 순서로 되돌렸어요.','hb-weather-draft-reapply'));
+ if(view.kind==='original')bind('hb-weather-draft-reapply',()=>switchTo(view.draft.weatherStops,'날씨를 반영한 순서로 바꿨어요.','hb-weather-draft-revert'));
+ if(view.kind==='proposal'){
+  bind('hb-weather-alt-apply',()=>{
+   if(hbTripSignature(s)!==view.signature||!hbSavedTripMatches(view.signature)){hbPlanWeatherMessage='다른 화면에서 일정이 바뀌었어요. 지금 일정을 유지해요.';hbPlanWeatherRefresh();return;}
+   const previous=s;
+   s={...s,stops:view.result.stops,hbReplanUndo:null,hbWeatherDraft:{region:view.region,date:view.date,message:view.reason.applied,source:view.signal.source||'',
+    originalStops:previous.stops,weatherStops:view.result.stops,createdAt:new Date().toISOString()}};
+   try{save()}catch{s=previous;hbPlanWeatherMessage='저장하지 못했어요. 지금 일정을 유지해요.';hbPlanWeatherRefresh();return;}
+   finish('대체 일정을 적용했어요. 원래 순서로 되돌릴 수 있어요.','hb-weather-draft-revert');
+  });
+  bind('hb-weather-alt-keep',()=>{
+   const previous=s.hbWeatherDismissed;s.hbWeatherDismissed=view.dismissKey;
+   try{save()}catch{s.hbWeatherDismissed=previous;}
+   hbPlanWeatherMessage='지금 일정을 그대로 유지해요.';hbPlanWeatherRefresh();
+  });
+ }
+}
+function hbPlanWeatherRefresh(){
+ const slot=document.querySelector?.('[data-hb-plan-weather-slot]');
+ if(!slot)return;
+ const view=hbPlanWeatherView();
+ slot.innerHTML=hbPlanWeatherMarkup(view);
+ hbPlanWeatherBind(view);
+}
+// END HB_WEATHER_DRAFT
 function hbApplyScheduleFromSelection(){
  const beforeRefresh=s;
  s=hbRefreshAutomaticDate(s);
@@ -2349,6 +2639,9 @@ function hbApplyScheduleFromSelection(){
  plan.warnings.unshift(...home.warnings);
  // A first-visit start derived from the home departure is not a user window.
  if(home.homeDeparture)plan.summary.windowStart=null;
+ // Weather-ordered default draft (HB_WEATHER_DRAFT); the original order stays available for 되돌리기.
+ const weatherDraft=hbWeatherDraftForNewPlan(plan.stops,s);
+ if(weatherDraft)plan.stops=weatherDraft.weatherStops;
  if(typeof hbWeatherRecommendation==='function'&&typeof forecast!=='undefined'){
   const weatherChoice=hbWeatherRecommendation(forecast,JSON.stringify([s.region,s.date]));
   if(['caution','adverse'].includes(weatherChoice.kind))plan.warnings.unshift(weatherChoice.message);
@@ -2356,7 +2649,7 @@ function hbApplyScheduleFromSelection(){
  if(Array.isArray(s.stops)&&s.stops.some(x=>x.done||x.must||x.reserved||x.booked)){alert('이미 완료·필수·예약 표시가 있는 일정이 있어 자동 재생성할 수 없어요. 기존 일정을 보호하려면 직접 확인하고 수정해 주세요.');return false;}
  if(Array.isArray(s.stops)&&s.stops.length&&!confirm('현재 일정 초안을 새로 구성할까요? 기존 시간표는 변경됩니다.'))return false;
  const previous=s;
- s={...s,stops:plan.stops,hbPlanWarnings:plan.warnings,hbPlanInfo:{...plan.summary,region:s.region,date:s.date,transport:s.hbTransport,homeDeparture:home.homeDeparture,homeReturn:home.homeReturn,weekday:typeof hbTravelWeekday==='function'?hbTravelWeekday(s.date)?.short||null:null,createdAt:new Date().toISOString()},hbReplanUndo:null};
+ s={...s,stops:plan.stops,hbPlanWarnings:plan.warnings,hbPlanInfo:{...plan.summary,region:s.region,date:s.date,transport:s.hbTransport,homeDeparture:home.homeDeparture,homeReturn:home.homeReturn,weekday:typeof hbTravelWeekday==='function'?hbTravelWeekday(s.date)?.short||null:null,createdAt:new Date().toISOString()},hbReplanUndo:null,hbWeatherDraft:weatherDraft,hbWeatherDismissed:null};
  try{save()}catch{ s=previous;alert('초안 저장에 실패했어요. 기존 일정을 유지해요.');return false;}
  go('/plan');return true;
 }
@@ -2506,6 +2799,12 @@ function hbRenderTripEndpoints(generator,now){
  };
 }
 const HB_PLAN_GENERATOR_FORM=false;
+// Owner request 2026-11-26: the #/plan top panel (.hb-plan-tools) renders only the three view buttons
+// (일정 편집 · 부모님 큰 글씨로 보기 · 일정표 인쇄). Code is kept; these flags only stop rendering.
+// 출발지는 1단계(여행 정보)에서 입력하고, 저장된 출발지·귀가 계산 결과(s.hbTripEndpoints)는 그대로 유지된다.
+const HB_PLAN_PANEL_LOCAL_NOTICE='edit'; // 'always' | 'edit'(일정 편집 모드에서만) | 'never'
+const HB_PLAN_PANEL_TRAVEL_BASIS=false;  // '이동시간 · 네이버 자동차 경로 n구간 …' 요약 줄
+const HB_PLAN_PANEL_ENDPOINTS=false;     // '출발지·귀가 위치와 예상 시간' 섹션
 let hbPlanEditMode=false,hbPlanChecksOpen=false;
 function hbPlanViewEnhance(){
  const oldView=plan;
@@ -2543,11 +2842,12 @@ function hbPlanViewEnhance(){
   liveNote.id='hb-plan-edit-feedback';liveNote.className='hb-plan-edit-feedback';
   liveNote.setAttribute('role','status');liveNote.setAttribute('aria-live','polite');
   el.querySelector('.hb-plan-generator').append(liveNote);
-  el.querySelector('.hb-plan-generator').insertAdjacentHTML('beforeend','<p class="hb-plan-local-notice">시간과 방문 순서를 직접 수정할 수 있어요. 수정 내용은 <strong>이 기기에만 저장</strong>되며 가족과 자동 동기화되지 않아요. 이동시간은 예상값일 수 있어요.</p>');
+  if(HB_PLAN_PANEL_LOCAL_NOTICE==='always'||HB_PLAN_PANEL_LOCAL_NOTICE==='edit'&&hbPlanEditMode)
+   el.querySelector('.hb-plan-generator').insertAdjacentHTML('beforeend','<p class="hb-plan-local-notice">시간과 방문 순서를 직접 수정할 수 있어요. 수정 내용은 <strong>이 기기에만 저장</strong>되며 가족과 자동 동기화되지 않아요. 이동시간은 예상값일 수 있어요.</p>');
   if(now.length){
    const basis=hbTravelBasisSummary(now);
-   generator.insertAdjacentHTML('beforeend','<p class="hb-plan-travel-basis" role="note"><strong>이동시간</strong> · 네이버 자동차 경로 '+basis.verified+'구간 · 예상 이동 '+basis.placeholder+'곳'+(basis.placeholder?' (합계 약 '+basis.placeholderMinutes+'분, 예상)':'')+(basis.stale?' · 다시 계산할 구간 '+basis.stale+'개':'')+'</p>');
-   hbRenderTripEndpoints(generator,now);
+   if(HB_PLAN_PANEL_TRAVEL_BASIS)generator.insertAdjacentHTML('beforeend','<p class="hb-plan-travel-basis" role="note"><strong>이동시간</strong> · 네이버 자동차 경로 '+basis.verified+'구간 · 예상 이동 '+basis.placeholder+'곳'+(basis.placeholder?' (합계 약 '+basis.placeholderMinutes+'분, 예상)':'')+(basis.stale?' · 다시 계산할 구간 '+basis.stale+'개':'')+'</p>');
+   if(HB_PLAN_PANEL_ENDPOINTS)hbRenderTripEndpoints(generator,now);
   }
   const routeStops=now.filter(stop=>stop.placeId&&!stop.isPlaceholder);
   const routeMode=hbRouteMode(s);
@@ -2691,6 +2991,9 @@ function hbPlanViewEnhance(){
   if(routeNode)layout.append(routeNode);
   if(mapSlot)layout.append(mapSlot);
   for(const node of weatherNodes)layout.append(node);
+  // Weather summary line (HB_WEATHER_DRAFT): outside the tools panel, directly above the itinerary rows.
+  const firstRow=layout.querySelector?.('.hb-itinerary-row');
+  if(now.length&&firstRow?.insertAdjacentHTML){firstRow.insertAdjacentHTML('beforebegin','<div data-hb-plan-weather-slot></div>');hbPlanWeatherRefresh();}
   hbRenderPlanMap();
  };
 }
@@ -3188,13 +3491,14 @@ function hbWeatherRecommendation(snapshot,key){
     return {kind:'caution',message:'기상특보가 확인됐어요. 날짜 변경이나 이동을 줄인 코스를 먼저 검토해 주세요. 실내라고 안전이 보장되는 것은 아니에요.'};
   if(snapshot.state!=='available')return {kind:'unknown',message:'확인된 여행일 예보가 없어 날씨 기반 추천을 보류해요. 일반 여행지 탐색은 계속할 수 있어요.'};
   const f=snapshot.data||{};
-  const precipitation=['비','비 또는 눈','눈','소나기'].includes(f.precipitationType);
-  const probability=typeof f.precipitationProbabilityPercent==='number'&&f.precipitationProbabilityPercent>=60&&f.precipitationProbabilityPercent<=100;
+  const R=HB_WEATHER_SUGGEST_RULE;
+  const precipitation=R.wetTypes.includes(f.precipitationType);
+  const probability=typeof f.precipitationProbabilityPercent==='number'&&f.precipitationProbabilityPercent>=R.wetProbabilityPercent&&f.precipitationProbabilityPercent<=100;
   const temperature=typeof f.temperatureC==='number'&&Number.isFinite(f.temperatureC)?f.temperatureC:null;
-  const hourlyBurden=Array.isArray(f.hourly)&&f.hourly.some(v=>['비','비 또는 눈','눈','소나기'].includes(v.precipitationType)||
-    typeof v.precipitationProbabilityPercent==='number'&&v.precipitationProbabilityPercent>=60&&v.precipitationProbabilityPercent<=100||
-    typeof v.temperatureC==='number'&&(v.temperatureC>=30||v.temperatureC<=-5));
-  if(precipitation||probability||temperature!==null&&(temperature>=30||temperature<=-5)||hourlyBurden){
+  const hourlyBurden=Array.isArray(f.hourly)&&f.hourly.some(v=>R.wetTypes.includes(v.precipitationType)||
+    typeof v.precipitationProbabilityPercent==='number'&&v.precipitationProbabilityPercent>=R.wetProbabilityPercent&&v.precipitationProbabilityPercent<=100||
+    typeof v.temperatureC==='number'&&(v.temperatureC>=R.hotTemperatureC||v.temperatureC<=R.coldTemperatureC));
+  if(precipitation||probability||temperature!==null&&(temperature>=R.hotTemperatureC||temperature<=R.coldTemperatureC)||hourlyBurden){
     return {kind:'adverse',message:'여행일 예보의 일부 시간대에 강수 또는 기온 부담 신호가 있어요. '+(HB_WEATHER_CATEGORY_COMPARE_ENABLED?'문화시설 후보, 휴식이 포함된 짧은 코스, 날짜 변경을 비교해 보세요. 시설의 실내 여부와 실제 운영은 별도 확인이 필요해요.':'휴식이 포함된 짧은 코스나 날짜 변경을 검토해 보세요. 실제 운영과 이동 여건은 별도 확인이 필요해요.')};
   }
   return {kind:'regular',message:(HB_WEATHER_CATEGORY_COMPARE_ENABLED?'대표 예보를 참고해 일반 여행지와 문화시설 후보를 비교할 수 있어요. ':'대표 예보를 참고했어요. ')+'하루 전체 날씨나 특보 미발효를 보장하지 않아요.'};
@@ -3202,6 +3506,91 @@ function hbWeatherRecommendation(snapshot,key){
 // 2026-11-26 사용자 결정: 의도(날씨 기반 일정·여행지 제안)와 다른 화면 진입을 끈다. 모듈·바인딩은 보존하며 true로 되돌릴 수 있다.
 const HB_WEATHER_CATEGORY_COMPARE_ENABLED=false; // '문화시설 후보 보기'·'전체 후보 비교'
 const HB_WEATHER_TIME_COMPARE_ENABLED=false; // '시간대별 날씨와 일정 비교'
+// BEGIN HB_WEATHER_SUGGEST_SIGNAL
+// 날씨 기반 여행지·일정 제안의 판단 기준값을 이 한 곳에 모은다 (hbWeatherRecommendation도 같은 값을 쓴다).
+// 임시 기준 (2026-11-26): 함께봄 제품 판단용 잠정값이며 기상청 공식 기준이나 안전 기준이 아니다.
+// 실사용 피드백·QA 후 조정한다. 값을 바꾸면 tests/weather_suggestions.test.cjs 경계 시험도 함께 고친다.
+const HB_WEATHER_SUGGEST_RULE=Object.freeze({
+ wetProbabilityPercent:60,   // 시간대 강수확률이 이 값 이상이면 강수 시간대로 본다
+ dryProbabilityPercent:30,   // '맑고 온화' 판단은 모든 시간대 강수확률이 이 값 이하일 때만
+ hotTemperatureC:30,         // 이 값 이상이면 더위 부담 시간대
+ coldTemperatureC:-5,        // 이 값 이하이면 추위 부담 시간대
+ mildMinTemperatureC:10,     // '맑고 온화' 기온 하한 (모든 시간대)
+ mildMaxTemperatureC:27,     // '맑고 온화' 기온 상한 (모든 시간대)
+ wetTypes:Object.freeze(['비','비 또는 눈','눈','소나기']),
+ defaultWindow:Object.freeze({start:'09:00',end:'18:00'}), // 여행 시간이 없을 때 장소 순서 판단에 쓰는 시간대
+ maxReorderStops:6           // 순서 제안에서 함께 비교하는 관광지 수 상한 (6! = 720가지)
+});
+function hbWeatherBand(minute){return minute<360?'새벽':minute<720?'오전':minute<1080?'오후':'저녁'}
+function hbWeatherClockMinute(value){
+ const m=/^([01]\d|2[0-3]):([0-5]\d)$/.exec(String(value||''));
+ return m?Number(m[1])*60+Number(m[2]):null;
+}
+/** Forecast/alert snapshot -> one suggestion signal. mode: adverse | pleasant | neutral | none.
+ * 'none' means no weather-based change (pending, out of range, error, stale). Never a safety claim. */
+function hbWeatherSignal(snapshot,key,window={}){
+ const R=HB_WEATHER_SUGGEST_RULE;
+ const result=(mode,reason,extra={})=>{
+  const out={mode,reason,label:'',source:'',hours:new Map(),hazards:[],...extra};
+  out.fingerprint=[out.mode,out.reason,out.label,out.source].join('|');
+  return out;
+ };
+ if(!snapshot||snapshot.key!==key)return result('none','pending');
+ let date='';try{date=String(JSON.parse(key)[1]||'')}catch{date=''}
+ const clock=v=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(v)?v.slice(11,16):'';
+ const a=snapshot.alerts;
+ const hazards=a?.status==='active'&&Array.isArray(a.active)?[...new Set(a.active.map(x=>String(x?.hazard||'')+String(x?.severity||'')).filter(x=>x.trim()))]:[];
+ const f=snapshot.state==='available'&&snapshot.data&&typeof snapshot.data==='object'?snapshot.data:null;
+ if(!hazards.length&&!f)return result('none',snapshot.state==='no_forecast'?'out_of_range':snapshot.state==='loading'?'pending':'unavailable');
+ const hours=new Map();
+ for(const v of f&&Array.isArray(f.hourly)?f.hourly:[]){
+  if(typeof v?.at!=='string'||(date&&!v.at.startsWith(date+'T'))||!/T(?:[01]\d|2[0-3]):00:00\+09:00$/.test(v.at))continue;
+  const pop=v.precipitationProbabilityPercent,temp=v.temperatureC,wetType=R.wetTypes.includes(v.precipitationType);
+  if(!Number.isFinite(pop)||pop<0||pop>100||!Number.isFinite(temp)||(!wetType&&v.precipitationType!=='없음'))continue;
+  const minute=Number(v.at.slice(11,13))*60;
+  hours.set(minute,{minute,pop,temp,type:v.precipitationType,wet:wetType||pop>=R.wetProbabilityPercent,hot:temp>=R.hotTemperatureC,cold:temp<=R.coldTemperatureC});
+ }
+ const start=hbWeatherClockMinute(window?.start)??hbWeatherClockMinute(R.defaultWindow.start);
+ let end=hbWeatherClockMinute(window?.end)??hbWeatherClockMinute(R.defaultWindow.end);
+ if(end<=start)end=Math.min(1440,start+540);
+ const inWindow=[...hours.values()].filter(h=>h.minute+60>start&&h.minute<end);
+ let slots=inWindow.length?inWindow:[...hours.values()];
+ if(!slots.length&&f){
+  // Representative value only (no hourly slots): never invented as an hourly series.
+  const pop=f.precipitationProbabilityPercent,temp=f.temperatureC,wetType=R.wetTypes.includes(f.precipitationType);
+  const p=Number.isFinite(pop)&&pop>=0&&pop<=100?pop:null,t=Number.isFinite(temp)?temp:null;
+  if(p!==null||t!==null||wetType)slots=[{minute:null,pop:p,temp:t,type:f.precipitationType,wet:wetType||p!==null&&p>=R.wetProbabilityPercent,
+   hot:t!==null&&t>=R.hotTemperatureC,cold:t!==null&&t<=R.coldTemperatureC,representative:true}];
+ }
+ const reasons=[];
+ if(hazards.length)reasons.push(hazards.slice(0,2).join('·')+' 발효');
+ const wet=slots.filter(h=>h.wet),hot=slots.filter(h=>h.hot),cold=slots.filter(h=>h.cold);
+ if(wet.length){
+  const peak=wet.reduce((m,h)=>(h.pop??-1)>(m.pop??-1)?h:m,wet[0]);
+  const type=wet.find(h=>R.wetTypes.includes(h.type))?.type;
+  const detail=peak.pop===null?'':'('+(peak.minute===null?'':hbWeatherBand(peak.minute)+' ')+'강수확률 '+peak.pop+'%)';
+  reasons.push((type||'강수')+' 예보'+detail);
+ }
+ if(hot.length)reasons.push('더위 부담(최고 '+Math.max(...hot.map(h=>h.temp))+'℃)');
+ if(cold.length)reasons.push('추위 부담(최저 '+Math.min(...cold.map(h=>h.temp))+'℃)');
+ const forecastSource=f?('기상청 단기예보'+(clock(f.issuedAt)?' · '+clock(f.issuedAt)+' 발표':'')):'';
+ const alertSource=hazards.length?'기상청 기상특보'+(clock(a.effectiveAt)?' · '+clock(a.effectiveAt)+' 발효':''):'';
+ if(reasons.length)return result('adverse','weather_burden',{label:reasons.slice(0,2).join(' · '),
+  source:[alertSource,wet.length||hot.length||cold.length?forecastSource:''].filter(Boolean).join(' · ')||forecastSource,hours,hazards});
+ const hourly=slots.filter(h=>!h.representative);
+ if(hourly.length&&hourly.every(h=>h.pop<=R.dryProbabilityPercent&&h.temp>=R.mildMinTemperatureC&&h.temp<=R.mildMaxTemperatureC)){
+  const lo=Math.min(...hourly.map(h=>h.temp)),hi=Math.max(...hourly.map(h=>h.temp)),pop=Math.max(...hourly.map(h=>h.pop));
+  return result('pleasant','mild_dry',{label:(f.summary==='맑음'?'맑고 온화한 날씨':'비 소식 없는 온화한 날씨')+'(강수확률 '+pop+'% 이하 · '+(lo===hi?lo:lo+'~'+hi)+'℃)',source:forecastSource,hours});
+ }
+ return result('neutral','no_burden',{source:forecastSource,hours});
+}
+/** After a forecast update, redraw only views whose weather suggestion actually changes. */
+function hbWeatherSuggestRefresh(){
+ const at=path();
+ if(at==='/places'&&typeof hbWeatherBrowseNeedsRefresh==='function'&&hbWeatherBrowseNeedsRefresh())browse();
+ else if(at==='/plan'&&typeof hbPlanWeatherRefresh==='function')hbPlanWeatherRefresh();
+}
+// END HB_WEATHER_SUGGEST_SIGNAL
 function hbWeatherOptionsMarkup(){
  const rec=hbWeatherRecommendation(forecast,currentWeatherKey());
  const browsing=path()==='/places';
@@ -3282,6 +3671,7 @@ async function getWeather() {
      document.querySelectorAll('[data-hb-weather]').forEach(node=>{node.textContent=weatherText();node.setAttribute?.('data-hb-weather-art',hbWeatherArtKind());});
      const options=document.querySelector?.('[data-hb-weather-options]');
      if(options){options.innerHTML=hbWeatherOptionsMarkup();hbBindWeatherOptions();}
+     hbWeatherSuggestRefresh();
     }
   };
   const {region,date}=weatherScope();

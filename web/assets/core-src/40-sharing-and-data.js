@@ -491,13 +491,14 @@ function hbWeatherRecommendation(snapshot,key){
     return {kind:'caution',message:'기상특보가 확인됐어요. 날짜 변경이나 이동을 줄인 코스를 먼저 검토해 주세요. 실내라고 안전이 보장되는 것은 아니에요.'};
   if(snapshot.state!=='available')return {kind:'unknown',message:'확인된 여행일 예보가 없어 날씨 기반 추천을 보류해요. 일반 여행지 탐색은 계속할 수 있어요.'};
   const f=snapshot.data||{};
-  const precipitation=['비','비 또는 눈','눈','소나기'].includes(f.precipitationType);
-  const probability=typeof f.precipitationProbabilityPercent==='number'&&f.precipitationProbabilityPercent>=60&&f.precipitationProbabilityPercent<=100;
+  const R=HB_WEATHER_SUGGEST_RULE;
+  const precipitation=R.wetTypes.includes(f.precipitationType);
+  const probability=typeof f.precipitationProbabilityPercent==='number'&&f.precipitationProbabilityPercent>=R.wetProbabilityPercent&&f.precipitationProbabilityPercent<=100;
   const temperature=typeof f.temperatureC==='number'&&Number.isFinite(f.temperatureC)?f.temperatureC:null;
-  const hourlyBurden=Array.isArray(f.hourly)&&f.hourly.some(v=>['비','비 또는 눈','눈','소나기'].includes(v.precipitationType)||
-    typeof v.precipitationProbabilityPercent==='number'&&v.precipitationProbabilityPercent>=60&&v.precipitationProbabilityPercent<=100||
-    typeof v.temperatureC==='number'&&(v.temperatureC>=30||v.temperatureC<=-5));
-  if(precipitation||probability||temperature!==null&&(temperature>=30||temperature<=-5)||hourlyBurden){
+  const hourlyBurden=Array.isArray(f.hourly)&&f.hourly.some(v=>R.wetTypes.includes(v.precipitationType)||
+    typeof v.precipitationProbabilityPercent==='number'&&v.precipitationProbabilityPercent>=R.wetProbabilityPercent&&v.precipitationProbabilityPercent<=100||
+    typeof v.temperatureC==='number'&&(v.temperatureC>=R.hotTemperatureC||v.temperatureC<=R.coldTemperatureC));
+  if(precipitation||probability||temperature!==null&&(temperature>=R.hotTemperatureC||temperature<=R.coldTemperatureC)||hourlyBurden){
     return {kind:'adverse',message:'여행일 예보의 일부 시간대에 강수 또는 기온 부담 신호가 있어요. '+(HB_WEATHER_CATEGORY_COMPARE_ENABLED?'문화시설 후보, 휴식이 포함된 짧은 코스, 날짜 변경을 비교해 보세요. 시설의 실내 여부와 실제 운영은 별도 확인이 필요해요.':'휴식이 포함된 짧은 코스나 날짜 변경을 검토해 보세요. 실제 운영과 이동 여건은 별도 확인이 필요해요.')};
   }
   return {kind:'regular',message:(HB_WEATHER_CATEGORY_COMPARE_ENABLED?'대표 예보를 참고해 일반 여행지와 문화시설 후보를 비교할 수 있어요. ':'대표 예보를 참고했어요. ')+'하루 전체 날씨나 특보 미발효를 보장하지 않아요.'};
@@ -505,6 +506,91 @@ function hbWeatherRecommendation(snapshot,key){
 // 2026-11-26 사용자 결정: 의도(날씨 기반 일정·여행지 제안)와 다른 화면 진입을 끈다. 모듈·바인딩은 보존하며 true로 되돌릴 수 있다.
 const HB_WEATHER_CATEGORY_COMPARE_ENABLED=false; // '문화시설 후보 보기'·'전체 후보 비교'
 const HB_WEATHER_TIME_COMPARE_ENABLED=false; // '시간대별 날씨와 일정 비교'
+// BEGIN HB_WEATHER_SUGGEST_SIGNAL
+// 날씨 기반 여행지·일정 제안의 판단 기준값을 이 한 곳에 모은다 (hbWeatherRecommendation도 같은 값을 쓴다).
+// 임시 기준 (2026-11-26): 함께봄 제품 판단용 잠정값이며 기상청 공식 기준이나 안전 기준이 아니다.
+// 실사용 피드백·QA 후 조정한다. 값을 바꾸면 tests/weather_suggestions.test.cjs 경계 시험도 함께 고친다.
+const HB_WEATHER_SUGGEST_RULE=Object.freeze({
+ wetProbabilityPercent:60,   // 시간대 강수확률이 이 값 이상이면 강수 시간대로 본다
+ dryProbabilityPercent:30,   // '맑고 온화' 판단은 모든 시간대 강수확률이 이 값 이하일 때만
+ hotTemperatureC:30,         // 이 값 이상이면 더위 부담 시간대
+ coldTemperatureC:-5,        // 이 값 이하이면 추위 부담 시간대
+ mildMinTemperatureC:10,     // '맑고 온화' 기온 하한 (모든 시간대)
+ mildMaxTemperatureC:27,     // '맑고 온화' 기온 상한 (모든 시간대)
+ wetTypes:Object.freeze(['비','비 또는 눈','눈','소나기']),
+ defaultWindow:Object.freeze({start:'09:00',end:'18:00'}), // 여행 시간이 없을 때 장소 순서 판단에 쓰는 시간대
+ maxReorderStops:6           // 순서 제안에서 함께 비교하는 관광지 수 상한 (6! = 720가지)
+});
+function hbWeatherBand(minute){return minute<360?'새벽':minute<720?'오전':minute<1080?'오후':'저녁'}
+function hbWeatherClockMinute(value){
+ const m=/^([01]\d|2[0-3]):([0-5]\d)$/.exec(String(value||''));
+ return m?Number(m[1])*60+Number(m[2]):null;
+}
+/** Forecast/alert snapshot -> one suggestion signal. mode: adverse | pleasant | neutral | none.
+ * 'none' means no weather-based change (pending, out of range, error, stale). Never a safety claim. */
+function hbWeatherSignal(snapshot,key,window={}){
+ const R=HB_WEATHER_SUGGEST_RULE;
+ const result=(mode,reason,extra={})=>{
+  const out={mode,reason,label:'',source:'',hours:new Map(),hazards:[],...extra};
+  out.fingerprint=[out.mode,out.reason,out.label,out.source].join('|');
+  return out;
+ };
+ if(!snapshot||snapshot.key!==key)return result('none','pending');
+ let date='';try{date=String(JSON.parse(key)[1]||'')}catch{date=''}
+ const clock=v=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(v)?v.slice(11,16):'';
+ const a=snapshot.alerts;
+ const hazards=a?.status==='active'&&Array.isArray(a.active)?[...new Set(a.active.map(x=>String(x?.hazard||'')+String(x?.severity||'')).filter(x=>x.trim()))]:[];
+ const f=snapshot.state==='available'&&snapshot.data&&typeof snapshot.data==='object'?snapshot.data:null;
+ if(!hazards.length&&!f)return result('none',snapshot.state==='no_forecast'?'out_of_range':snapshot.state==='loading'?'pending':'unavailable');
+ const hours=new Map();
+ for(const v of f&&Array.isArray(f.hourly)?f.hourly:[]){
+  if(typeof v?.at!=='string'||(date&&!v.at.startsWith(date+'T'))||!/T(?:[01]\d|2[0-3]):00:00\+09:00$/.test(v.at))continue;
+  const pop=v.precipitationProbabilityPercent,temp=v.temperatureC,wetType=R.wetTypes.includes(v.precipitationType);
+  if(!Number.isFinite(pop)||pop<0||pop>100||!Number.isFinite(temp)||(!wetType&&v.precipitationType!=='없음'))continue;
+  const minute=Number(v.at.slice(11,13))*60;
+  hours.set(minute,{minute,pop,temp,type:v.precipitationType,wet:wetType||pop>=R.wetProbabilityPercent,hot:temp>=R.hotTemperatureC,cold:temp<=R.coldTemperatureC});
+ }
+ const start=hbWeatherClockMinute(window?.start)??hbWeatherClockMinute(R.defaultWindow.start);
+ let end=hbWeatherClockMinute(window?.end)??hbWeatherClockMinute(R.defaultWindow.end);
+ if(end<=start)end=Math.min(1440,start+540);
+ const inWindow=[...hours.values()].filter(h=>h.minute+60>start&&h.minute<end);
+ let slots=inWindow.length?inWindow:[...hours.values()];
+ if(!slots.length&&f){
+  // Representative value only (no hourly slots): never invented as an hourly series.
+  const pop=f.precipitationProbabilityPercent,temp=f.temperatureC,wetType=R.wetTypes.includes(f.precipitationType);
+  const p=Number.isFinite(pop)&&pop>=0&&pop<=100?pop:null,t=Number.isFinite(temp)?temp:null;
+  if(p!==null||t!==null||wetType)slots=[{minute:null,pop:p,temp:t,type:f.precipitationType,wet:wetType||p!==null&&p>=R.wetProbabilityPercent,
+   hot:t!==null&&t>=R.hotTemperatureC,cold:t!==null&&t<=R.coldTemperatureC,representative:true}];
+ }
+ const reasons=[];
+ if(hazards.length)reasons.push(hazards.slice(0,2).join('·')+' 발효');
+ const wet=slots.filter(h=>h.wet),hot=slots.filter(h=>h.hot),cold=slots.filter(h=>h.cold);
+ if(wet.length){
+  const peak=wet.reduce((m,h)=>(h.pop??-1)>(m.pop??-1)?h:m,wet[0]);
+  const type=wet.find(h=>R.wetTypes.includes(h.type))?.type;
+  const detail=peak.pop===null?'':'('+(peak.minute===null?'':hbWeatherBand(peak.minute)+' ')+'강수확률 '+peak.pop+'%)';
+  reasons.push((type||'강수')+' 예보'+detail);
+ }
+ if(hot.length)reasons.push('더위 부담(최고 '+Math.max(...hot.map(h=>h.temp))+'℃)');
+ if(cold.length)reasons.push('추위 부담(최저 '+Math.min(...cold.map(h=>h.temp))+'℃)');
+ const forecastSource=f?('기상청 단기예보'+(clock(f.issuedAt)?' · '+clock(f.issuedAt)+' 발표':'')):'';
+ const alertSource=hazards.length?'기상청 기상특보'+(clock(a.effectiveAt)?' · '+clock(a.effectiveAt)+' 발효':''):'';
+ if(reasons.length)return result('adverse','weather_burden',{label:reasons.slice(0,2).join(' · '),
+  source:[alertSource,wet.length||hot.length||cold.length?forecastSource:''].filter(Boolean).join(' · ')||forecastSource,hours,hazards});
+ const hourly=slots.filter(h=>!h.representative);
+ if(hourly.length&&hourly.every(h=>h.pop<=R.dryProbabilityPercent&&h.temp>=R.mildMinTemperatureC&&h.temp<=R.mildMaxTemperatureC)){
+  const lo=Math.min(...hourly.map(h=>h.temp)),hi=Math.max(...hourly.map(h=>h.temp)),pop=Math.max(...hourly.map(h=>h.pop));
+  return result('pleasant','mild_dry',{label:(f.summary==='맑음'?'맑고 온화한 날씨':'비 소식 없는 온화한 날씨')+'(강수확률 '+pop+'% 이하 · '+(lo===hi?lo:lo+'~'+hi)+'℃)',source:forecastSource,hours});
+ }
+ return result('neutral','no_burden',{source:forecastSource,hours});
+}
+/** After a forecast update, redraw only views whose weather suggestion actually changes. */
+function hbWeatherSuggestRefresh(){
+ const at=path();
+ if(at==='/places'&&typeof hbWeatherBrowseNeedsRefresh==='function'&&hbWeatherBrowseNeedsRefresh())browse();
+ else if(at==='/plan'&&typeof hbPlanWeatherRefresh==='function')hbPlanWeatherRefresh();
+}
+// END HB_WEATHER_SUGGEST_SIGNAL
 function hbWeatherOptionsMarkup(){
  const rec=hbWeatherRecommendation(forecast,currentWeatherKey());
  const browsing=path()==='/places';
@@ -585,6 +671,7 @@ async function getWeather() {
      document.querySelectorAll('[data-hb-weather]').forEach(node=>{node.textContent=weatherText();node.setAttribute?.('data-hb-weather-art',hbWeatherArtKind());});
      const options=document.querySelector?.('[data-hb-weather-options]');
      if(options){options.innerHTML=hbWeatherOptionsMarkup();hbBindWeatherOptions();}
+     hbWeatherSuggestRefresh();
     }
   };
   const {region,date}=weatherScope();

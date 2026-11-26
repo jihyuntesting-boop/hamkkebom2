@@ -41,3 +41,6 @@
 .hb-curation-note{font-weight:700}
 .hb-quick-conditions{display:grid;gap:8px;margin-top:16px;min-width:0}
 .hb-quick-conditions h3{margin:0}
+/* 날씨 기반 여행지·일정 제안 (HB_WEATHER_SUGGEST / HB_WEATHER_DRAFT) */
+.hb-weather-fit{font-weight:700}
+.hb-weather-suggest h2,.hb-plan-weather h3{margin-top:0}
