@@ -594,7 +594,7 @@ function browse(){
     '<button type="submit" id="hb-place-search-submit">검색</button>'+(query?'<button type="button" class="light" id="hb-search-reset">검색 지우기</button>':'')+'</form>'+
     '<div class="hb-filter-bar" role="group" aria-label="장소 필터">'+[['all','전체'],['spot','관광지'],['culture','문화시설'],['food','식당'],['access','편의시설 안내 있음']].map(([id,label])=>
     '<button type="button" data-hb-filter="'+id+'" class="light '+(filter===id?'hb-filter-active':'')+'" aria-pressed="'+String(filter===id)+'">'+label+'</button>').join('')+'</div>'+
-    '<p class="muted">조건을 자동으로 완화해 추천하지 않아요. 편의시설 존재만으로 휠체어 동선을 보장하지 않아요.</p>'+foodNote+
+    foodNote+
     '<p role="status">'+(ready?ranked.length+'곳이 현재 검색·분류에 표시돼요.':'')+'</p><div id="hb-place-results" aria-busy="'+loading+'">'+results+'</div>';
   hbDiscoveryBindPending(browse);bindPrefs();
   const trayList=el.querySelector('.hb-selection-list');
@@ -832,7 +832,6 @@ function hbSeasonalMarkup(view){
       '<'+List+' class="hb-seasonal-stops">'+c.stops.map(({p,e})=>'<li><a data-hb-season-open="'+safe(p.id)+'" href="'+safe(hbPlaceDetailPath(p.id))+'">'+safe(p.name)+'</a> <span class="hb-recommend-state">'+safe(hbRecommendationStatusText(e))+'</span>'+
         (e.status==='excluded'?' <span class="muted">이 장소는 담지 않아요.</span>':hbVisibleGaps(e.gaps).length?' <span class="muted">'+safe(hbVisibleGaps(e.gaps)[0])+'</span>':'')+'</li>').join('')+'</'+List+'>'+
       (counts.excluded?'<p class="warn">확인된 이동 조건 충돌 장소가 포함돼 있어요. 충돌 장소는 담기에서 빠져요.</p>':'')+
-      '<p class="muted">장소 간 이동시간·경로·보행 난이도는 계산하지 않았어요. 일정 만들기에서 확인해 주세요. 보행 안전을 보장하지 않아요.</p>'+
       '<div class="actions"><button type="button" class="light" data-hb-season-map="'+safe(c.id)+'" aria-expanded="'+String(hbSeasonalMapOpen===c.id)+'">지도에서 위치 보기</button>'+
       '<button type="button" data-hb-season-course-pick="'+safe(c.id)+'"'+(remaining.length?'':' disabled')+'>'+label+'</button></div>'+
       '<div class="hb-seasonal-course-map" data-hb-season-map-host="'+safe(c.id)+'"'+(hbSeasonalMapOpen===c.id?'':' hidden')+'></div></article>';
@@ -848,8 +847,7 @@ function hbSeasonalMarkup(view){
       (view.rows.shown.length>shown.length?'<p class="muted">나머지 '+(view.rows.shown.length-shown.length)+'곳은 아래 전체 목록에서 확인할 수 있어요.</p>':''):
       '<p>이 지역 조회 자료에서 '+safe(season.label)+' 테마와 맞는 장소를 찾지 못했어요. 조건을 자동으로 완화하지 않았어요. 아래 전체 목록에서 직접 확인해 주세요.</p>')+
     (view.rows.excluded.length?'<p class="muted">확인된 이동 조건 충돌로 계절 추천에서 제외한 장소 '+view.rows.excluded.length+'곳</p>':'');
-  return head+courses+placesMarkup+'<p role="status" id="hb-seasonal-status">'+safe(hbSeasonalMessage)+'</p>'+
-    '<p class="muted">‘방문 전 확인’ 장소는 계단·연속 보행시간·동선을 방문 전에 직접 확인해 주세요. 이동 안전을 보장하지 않아요.</p></section>';
+  return head+courses+placesMarkup+'<p role="status" id="hb-seasonal-status">'+safe(hbSeasonalMessage)+'</p></section>';
 }
 function hbSeasonalBind(view,{serverState}){
   hbSeasonalMessage='';
