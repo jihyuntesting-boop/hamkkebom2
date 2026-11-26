@@ -189,7 +189,7 @@ function createCatalog({fetcher=globalThis.fetch,env=process.env,now=Date.now,ti
     const partial=failed.length>0||missingRows.length>0;
     const mode=valid.length&&fallback.length===valid.length?'snapshot':'live';
     return {mode,source:'한국관광공사 TourAPI',selection:'editorial-shortlist-confirmed-exact-title',
-      note:'편집 선정 목록이며 공식 인기순위 아님. 직선거리이며 자동차 이동거리는 미확인. 접근성은 별도 확인 필요.',
+      note:'편집 선정 목록이며 공식 인기순위 아님. 직선거리이며 자동차 이동거리는 미확인.',
       radiusKm:RADIUS_KM,requested:relevant.length,validated:places.length,failedQueries:failed.filter(r=>!r.skipped).length,
       center,distanceType:'straight_line',meta:{dataStatus:partial?'partial':'ok',partial,sourceUpdatedAt:null,fetchedAt,
         coverage:['서울','경기'].filter(r=>!query.region||r===query.region).map(region=>({region,mode,count:valid.filter(r=>r.candidate.region===region).length})),

@@ -84,10 +84,8 @@ function hbArrivalMarkup(place, guide, facts){
   '<h2 id="hb-detail-access-title">도착 안내</h2>'+
   location('주차',guide?.arrival)+location('입구',guide?.entrance)+
   hbArrivalMapLink(place,guide)+
-  (hasRoute?'':'<p class="warn">주차장에서 입구까지 계단 없는 길은 확인이 필요해요.</p>')+
   (restroom?.location&&restroomSource&&!['자료가 서로 달라요','이용 제한 자료가 있어요'].includes(restroomStatus)?
    '<h3>장애인 화장실</h3><p>'+safe(restroom.location)+'</p>'+
-   '<p class="muted">화장실까지 계단 없는 길은 확인이 필요해요.</p>'+
    '<a class="hb-access-map-source" href="'+safe(restroomSource)+'" target="_blank" rel="noopener noreferrer">화장실 안내 출처</a>':'')+
   '</section>'+(showGuide?hbAccessMapMarkup(guide):'');
 }
@@ -346,7 +344,7 @@ function detail(id){
   (!regionAllowed?'<p class="warn">현재 일정 작성은 선택한 서울·경기 지역에서 지원해요. 다른 지역은 상세정보를 살펴볼 수 있어요.</p>':'')+
   hbArrivalMarkup(place,guide,facts)+
   (assessment.status==='excluded'?'<p class="warn">선택한 계단 이용 조건과 검증된 이동 동선이 충돌해요.</p>':
-   assessment.conflict?'<p class="warn">출처의 설명이 달라요. 방문 전에 직접 확인해 주세요.</p>':'')+
+   assessment.conflict?'<p class="warn">출처의 설명이 달라요.</p>':'')+
   specs.map(([title,topics,check])=>{
    const related=facts.filter(fact=>hbDetailTopics(fact).some(topic=>topics.includes(topic)));
    if(!related.length)return '';
@@ -474,7 +472,7 @@ function hbReplanMapStops(items,proposal,result,alternative){
    const inserted=alternativeId&&stop.id===alternativeId;
    const status=inserted?(alternative.rest?'휴식 후보':'대체 후보'):'유지';
    return {...stop,mapLabel:status+' '+(index+1),
-    mapNote:inserted?'변경 후 일정에 추가할 '+status+'예요. 이동시간·당일 운영·현장 접근은 확인이 필요해요.':
+    mapNote:inserted?'변경 후 일정에 추가할 '+status+'예요.':
      '변경 후 일정에 유지되는 방문지예요.'};
   }),
   ...proposal.removed.map(stop=>({...stop,mapLabel:'제외',
@@ -527,7 +525,7 @@ function plan(){
  const {region,date}=hbPlanContext(s);
  const undo=s.hbReplanUndo&&hbValidReplanStops(s.hbReplanUndo.before)&&s.hbReplanUndo.date===date&&s.hbReplanUndo.region===region&&s.hbReplanUndo.after===JSON.stringify(stops);
  hbDropPlanMap();
- el.innerHTML='<h1>가족 여행 일정</h1><p>'+safe(region)+' · '+safe(date)+'</p><div id="hb-plan-map-slot"></div>'+(typeof weatherCard==='function'?weatherCard(region,date):'')+'<p class="warn">방문 시간은 예상 계획이에요. 자동차 이동시간을 확인하면 일정에 반영할 수 있어요.</p>'+(stops.length?stops.map((x,i)=>'<article class="panel hb-itinerary-row" data-hb-stop-kind="'+safe(['food','rest','spot','travel','move','transport'].includes(x.kind)?x.kind:'unknown')+'"><div><h3>'+safe(x.time||'시간 미정')+' · '+safe(x.name||'장소명 미확인')+'</h3><p class="muted">교통편 및 체류시간 별도 확인</p></div><div class="hb-itinerary-flags"><label><input type="checkbox" data-done="'+i+'" '+(hbCompleted(x)?'checked':'')+'> 완료</label><label><input type="checkbox" data-must="'+i+'" '+(hbMustVisit(x)?'checked':'')+'> 필수</label><label><input type="checkbox" data-reserved="'+i+'" '+(x.reserved||x.booked?'checked':'')+'> 예약됨</label><button type="button" class="light" data-remove="'+i+'" '+(hbProtected(x)?'disabled':'')+'>삭제</button></div></article>').join(''):panel('일정이 비어 있어요','추천 장소를 먼저 담아 주세요.'))+(undo?panel('최근 일정 변경','<p>부모님 컨디션에 따라 이 기기에서 수정한 일정이에요.</p><button type="button" class="light" id="hb-rpl-undo">이전 일정 되돌리기</button>'):'')+'<div class="actions">'+button('add','장소 더 담기',true)+button('fatigue','컨디션에 맞게 일정 조정')+button('share','가족에게 공유')+'</div>';
+ el.innerHTML='<h1>가족 여행 일정</h1><p>'+safe(region)+' · '+safe(date)+'</p><div id="hb-plan-map-slot"></div>'+(typeof weatherCard==='function'?weatherCard(region,date):'')+'<p class="warn">방문 시간은 예상 계획이에요. 자동차 이동시간을 확인하면 일정에 반영할 수 있어요.</p>'+(stops.length?stops.map((x,i)=>'<article class="panel hb-itinerary-row" data-hb-stop-kind="'+safe(['food','rest','spot','travel','move','transport'].includes(x.kind)?x.kind:'unknown')+'"><div><h3>'+safe(x.time||'시간 미정')+' · '+safe(x.name||'장소명 미확인')+'</h3></div><div class="hb-itinerary-flags"><label><input type="checkbox" data-done="'+i+'" '+(hbCompleted(x)?'checked':'')+'> 완료</label><label><input type="checkbox" data-must="'+i+'" '+(hbMustVisit(x)?'checked':'')+'> 필수</label><label><input type="checkbox" data-reserved="'+i+'" '+(x.reserved||x.booked?'checked':'')+'> 예약됨</label><button type="button" class="light" data-remove="'+i+'" '+(hbProtected(x)?'disabled':'')+'>삭제</button></div></article>').join(''):panel('일정이 비어 있어요','추천 장소를 먼저 담아 주세요.'))+(undo?panel('최근 일정 변경','<p>부모님 컨디션에 따라 이 기기에서 수정한 일정이에요.</p><button type="button" class="light" id="hb-rpl-undo">이전 일정 되돌리기</button>'):'')+'<div class="actions">'+button('add','장소 더 담기',true)+button('fatigue','컨디션에 맞게 일정 조정')+button('share','가족에게 공유')+'</div>';
  document.getElementById('add').onclick=()=>go('/places');document.getElementById('fatigue').onclick=()=>go('/travel');document.getElementById('share').onclick=()=>go('/share/create');
  document.querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{let i=+b.dataset.remove;if(hbProtected(s.stops[i]))return;
   const stops=s.stops.filter((_,index)=>index!==i).map((stop,index)=>({...stop,position:index+1}));
@@ -609,7 +607,7 @@ function travel(){
      ' · 직선거리 약 '+km.toFixed(1)+'km</label><br>'+safe(note)+
      (source?' <a href="'+safe(source)+'" target="_blank" rel="noopener noreferrer">출처</a>':'')+'</p>').join('')+'</fieldset>':
     level!=='low'&&proposal.removed.length?'<p>확인된 대안 없음. 방문을 줄이거나 쉬기·숙소 복귀·귀가를 검토해 주세요.</p>':'')+
-   '<p class="warn">완료·필수·예약 일정은 보호돼요. 대안까지의 이동시간과 당일 운영 여부는 방문 전 확인해 주세요.</p>'+
+   '<p class="warn">완료·필수·예약 일정은 보호돼요.</p>'+
    '<div class="actions"><button type="button" class="light" id="hb-rpl-cancel">취소</button>'+
    (proposal.removed.length?'<button type="button" id="hb-rpl-confirm">이 변경안 적용</button>':'<p>현재 일정을 유지해요.</p>')+
    '</div></section>';

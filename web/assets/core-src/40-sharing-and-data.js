@@ -150,7 +150,7 @@ function hbShareReadOnlyStop(stop) {
     + '<time datetime="' + safe(stop.time) + '">' + safe(stop.time) + '</time> '
     + '<strong style="overflow-wrap:anywhere">' + safe(stop.name) + '</strong>'
     + (stop.address ? '<p style="overflow-wrap:anywhere">공개 장소 주소: ' + safe(stop.address) + '</p>'
-      : '<p class="muted">주소 정보 없음 · 출발 전 확인 필요</p>')
+      : '<p class="muted">주소 정보 없음</p>')
     + (stop.notice ? '<p>공유된 현장 주의사항 (방문 전 재확인): ' + safe(stop.notice) + '</p>' : '')
     + (mapUrl ? '<p><a href="' + safe(mapUrl) + '" target="_blank" rel="noopener noreferrer" style="overflow-wrap:anywhere">네이버지도에서 장소 확인</a></p>' : '')
     + '</li>';
@@ -175,7 +175,6 @@ function shared(code) {
       + '<ol id="hb-shared-fallback-list" style="max-width:100%;font-size:1.05em;line-height:1.7;padding-inline-start:1.7em">'
       + names + '</ol></section>'
       + (sharedAt ? '<div id="hb-shared-map-slot" aria-label="공유 일정 지도"></div>' : '')
-      + '<p class="warn">출발 전 도로, 이동시간, 주차장·입구·계단·편의시설을 직접 확인해 주세요. 여기 없는 현장 안내는 확인되지 않은 정보예요.</p>'
       + '<p><a id="hb-own-trip" href="#/new">새 여행 만들기 (원본과 별개)</a></p></section>';
     const ownTrip=document.getElementById('hb-own-trip');
     if(ownTrip)ownTrip.onclick=event=>{event.preventDefault();hbEnsureOwnerState('/new');hbBeginNewTravel();if(!hbIsShareReceiver(path())&&hbPlacesLoadedRegion!==s.region)load();};
@@ -272,7 +271,7 @@ function hbDiscoveryAudienceMatch(cohorts,age,sex,region,records){
  return ranked.length?{cohort,values,ranked}:null;
 }
 function hbDiscoveryAudienceNote(age,sex){
- return age==='all'&&sex==='all'?'함께봄 편집 추천 · 공식 인기 순위가 아니에요.':
+ return age==='all'&&sex==='all'?'함께봄 편집 추천':
  '선택한 연령대·성별의 실제 방문 통계는 아직 연결되지 않았어요. 아래는 연령·성별과 무관한 함께봄 편집 추천이에요.';
 }
 function hbDiscoveryClearMap(){if(hbDiscoveryMapDispose)hbDiscoveryMapDispose();hbDiscoveryMapDispose=null;}
@@ -289,7 +288,7 @@ function hbDiscoveryStartCourse(course,stops){
 function hbDiscoveryPendingMarkup(){
  if(!hbDiscoveryPending)return '';
  const p=hbDiscoveryPending;
- return '<section class="panel hb-discovery-handoff"><h2>추천 코스에서 가져온 방문 후보</h2><p>'+safe(p.title)+' · '+safe(p.names.join(' → '))+'</p><p class="muted">여행 지역을 '+safe(p.region)+'으로 선택하고 이동 조건을 확인해 주세요. 기존 일정과 선택 장소는 자동으로 변경하지 않아요. 조건 확인 후 장소별로 직접 담을 수 있어요.</p><button type="button" class="light" id="hb-discovery-clear">코스 후보 연결 해제</button></section>';
+ return '<section class="panel hb-discovery-handoff"><h2>추천 코스에서 가져온 방문 후보</h2><p>'+safe(p.title)+' · '+safe(p.names.join(' → '))+'</p><p class="muted">여행 지역을 '+safe(p.region)+'으로 선택하고 이동 조건을 확인해 주세요. 조건 확인 후 장소별로 직접 담을 수 있어요.</p><button type="button" class="light" id="hb-discovery-clear">코스 후보 연결 해제</button></section>';
 }
 function hbDiscoveryBindPending(redraw){
  const clear=document.getElementById('hb-discovery-clear');
@@ -311,10 +310,10 @@ function hbDiscoveryDraw(focus){
  const thisSeason=hbDiscoveryCurrentSeason(Number(new Intl.DateTimeFormat('en',{month:'numeric',timeZone:'Asia/Seoul'}).format(new Date())));
  const seasonal=hbDiscoveryVisibleCourses(d.records,d.region,d.theme,thisSeason);
  const cards=ordered.slice(0,24).map(p=>'<article class="card hb-discovery-card"><h3>'+safe(p.name)+'</h3>'+(p.address?'<p class="muted">'+safe(p.address)+'</p>':'')+'<p>'+safe(hbPlaceCategory(p))+' · 방문 전 이동 조건 확인</p>'+(audience?'<p>방문 집중률 '+safe(audience.values.get(p.id))+(audience.cohort.unit==='percent'?'%':' (지수)')+'</p>':'')+'<a data-hb-info="'+safe(p.id)+'" data-discovery-open="'+safe(p.id)+'" href="'+safe(hbPlaceDetailPath(p.id))+'">장소 상세 보기</a></article>').join('');
- const courseCard=({course:c,stops})=>'<article class="panel hb-discovery-course" data-discovery-course="'+c.id+'"><p class="hb-discovery-kicker">'+safe(c.region+' · '+c.seasons.map(hbDiscoverySeasonLabel).join('·'))+' · 편집 제안</p><h3>'+safe(c.title)+'</h3><p>'+safe(c.description)+'</p><ol>'+stops.map(p=>'<li><a data-discovery-open="'+safe(p.id)+'" href="'+safe(hbPlaceDetailPath(p.id))+'">'+safe(p.name)+'</a></li>').join('')+'</ol><p class="muted">방문 순서 아이디어예요. 실제 이동시간·보행 난이도·운영시간·식사 장소는 여행 만들기에서 확인해 주세요.</p><div class="actions"><button class="light" type="button" data-discovery-map="'+c.id+'" aria-expanded="false">코스 지도 보기</button><button type="button" data-discovery-start="'+c.id+'">이 코스로 여행 만들기</button></div><div class="hb-discovery-course-map" data-discovery-map-host="'+c.id+'" hidden></div></article>';
- const seasonalIntro=seasonal.length&&d.season==='all'?'<section class="hb-discovery-seasonal"><h2>이번 계절의 여행 아이디어 · '+safe(hbDiscoverySeasonLabel(thisSeason))+'</h2><p>함께봄 편집 제안이에요. 날씨·개화·혼잡·운영 상태는 방문 전에 확인해 주세요. 계절별 방문 순위가 아니에요.</p><div class="hb-discovery-season-links">'+seasonal.map(({course:c})=>'<a href="#/discover" data-discovery-season-jump="'+c.id+'">'+safe(c.title)+'</a>').join('')+'</div></section>':'';
+ const courseCard=({course:c,stops})=>'<article class="panel hb-discovery-course" data-discovery-course="'+c.id+'"><p class="hb-discovery-kicker">'+safe(c.region+' · '+c.seasons.map(hbDiscoverySeasonLabel).join('·'))+' · 편집 제안</p><h3>'+safe(c.title)+'</h3><p>'+safe(c.description)+'</p><ol>'+stops.map(p=>'<li><a data-discovery-open="'+safe(p.id)+'" href="'+safe(hbPlaceDetailPath(p.id))+'">'+safe(p.name)+'</a></li>').join('')+'</ol><p class="muted">방문 순서 아이디어예요.</p><div class="actions"><button class="light" type="button" data-discovery-map="'+c.id+'" aria-expanded="false">코스 지도 보기</button><button type="button" data-discovery-start="'+c.id+'">이 코스로 여행 만들기</button></div><div class="hb-discovery-course-map" data-discovery-map-host="'+c.id+'" hidden></div></article>';
+ const seasonalIntro=seasonal.length&&d.season==='all'?'<section class="hb-discovery-seasonal"><h2>이번 계절의 여행 아이디어 · '+safe(hbDiscoverySeasonLabel(thisSeason))+'</h2><p>함께봄 편집 제안이에요.</p><div class="hb-discovery-season-links">'+seasonal.map(({course:c})=>'<a href="#/discover" data-discovery-season-jump="'+c.id+'">'+safe(c.title)+'</a>').join('')+'</div></section>':'';
  const course= d.status==='loading'?'':'<section class="hb-discovery-section"><h2>함께봄이 제안하는 여행 코스</h2>'+chips('season',hbDiscoverySeasons)+'<p class="muted">계절은 편집 테마예요. 현재 확인한 관광 데이터와 일치하는 장소가 모두 있는 코스만 표시해요.</p>'+(courses.length?'<div class="hb-discovery-course-grid">'+courses.map(courseCard).join('')+'</div>':'<p>현재 조회 자료에서 이 지역·테마·계절의 완성된 추천 코스를 찾지 못했어요.</p>')+'</section>';
- const status=d.status==='loading'?'여행지 콘텐츠를 불러오는 중이에요.':d.status==='error'?'여행지 자료를 불러오지 못했어요.':d.partial?'일부 자료만 조회됐어요. 지역별 전체 목록이나 인기 순위는 아니에요.':available.length?'현재 조회 자료 '+available.length+'곳 · 일부 편집 후보':'현재 조회 자료에 이 테마의 장소가 없어요.';
+ const status=d.status==='loading'?'여행지 콘텐츠를 불러오는 중이에요.':d.status==='error'?'여행지 자료를 불러오지 못했어요.':d.partial?'일부 자료만 조회됐어요.':available.length?'현재 조회 자료 '+available.length+'곳 · 일부 편집 후보':'현재 조회 자료에 이 테마의 장소가 없어요.';
  el.innerHTML='<div class="hb-discovery"><section class="hb-discovery-hero"><p class="hb-discovery-kicker">여행 아이디어</p><h1>부모님과 어디로 떠나볼까요?</h1><p>사진과 여행지, 코스를 둘러보고 마음에 드는 곳을 발견해 보세요.</p><a href="#/">지도에서 여행지 탐색</a></section>'+(hbDiscoveryFiltersVisible?'<section class="hb-discovery-filter" aria-label="콘텐츠 필터"><h2>관심 있는 여행을 둘러보세요</h2>'+chips('age',[['all','모든 연령'],['40','40대'],['50','50대'],['60','60대'],['70plus','70대 이상']])+chips('sex',[['all','전체 성별'],['female','어머니'],['male','아버지']])+'<p class="muted" role="status">'+safe(audience?'한국관광 데이터랩 · '+audience.cohort.periodStart+'~'+audience.cohort.periodEnd+' · 현재 조회 장소 중 방문 집중률 기준 (방문자 수·만족도 순위 아님)':hbDiscoveryAudienceNote(d.age,d.sex))+'</p>'+(audience?'<p><a href="https://datalab.visitkorea.or.kr/datalab/portal/loc/getTourDataFormView2.do" target="_blank" rel="noopener noreferrer">통계 출처</a> · '+safe(audience.cohort.methodology)+'</p>':'')+'<label for="hb-discovery-region">여행 지역</label><select id="hb-discovery-region">'+hbDiscoveryRegions.map(([id,label])=>'<option value="'+id+'"'+(d.region===id?' selected':'')+'>'+safe(label)+'</option>').join('')+'</select><h3>취향에 따라 떠나는 여행</h3>'+chips('theme',hbDiscoveryThemes)+'</section>':'')+seasonalIntro+course+'<section class="hb-discovery-section"><h2>'+(audience?'선택 조건의 방문 집중률':'둘러보기 좋은 여행지')+'</h2><p role="'+(d.status==='error'?'alert':'status')+'">'+safe(status)+'</p>'+(d.status==='error'||d.partial?'<button type="button" class="light" id="hb-discovery-retry">다시 불러오기</button>':'')+(cards?'<div class="grid hb-discovery-grid">'+cards+'</div>':'')+'</section><section class="panel"><h2>우리 가족 여행을 계획해 볼까요?</h2><p>여행 날짜와 부모님의 실제 이동 조건을 반영한 일정은 여행 만들기에서 준비할 수 있어요.</p><a href="#/new">여행 만들기</a></section></div>';
  el.querySelectorAll('[data-discovery-filter]').forEach(b=>b.onclick=()=>{const k=b.dataset.discoveryFilter,v=b.dataset.discoveryValue;d[k]=v;if(k==='theme')hbDiscoveryLoad([k,v]);else hbDiscoveryDraw([k,v]);});
  const region=el.querySelector('#hb-discovery-region');if(region)region.onchange=e=>{d.region=e.target.value;hbDiscoveryLoad('region');};
@@ -417,7 +416,7 @@ async function load(){
    const linked=catalogById.get(place.id);
    add({...place,kind:place.kind||'spot',accessFacts:[],accessStatus:'unknown',
     ...(linked?{imageUrl:linked.imageUrl,imageLicense:linked.imageLicense,imageSource:linked.imageSource}:{}),
-    reason:'서울 대표 관광지예요. 접근성 및 보행 동선은 방문 전 확인이 필요해요.'});
+    reason:'서울 대표 관광지예요.'});
   }
   catalogPlaces.forEach(add);
   data.places.forEach(add);
@@ -499,7 +498,7 @@ function hbWeatherRecommendation(snapshot,key){
     typeof v.precipitationProbabilityPercent==='number'&&v.precipitationProbabilityPercent>=R.wetProbabilityPercent&&v.precipitationProbabilityPercent<=100||
     typeof v.temperatureC==='number'&&(v.temperatureC>=R.hotTemperatureC||v.temperatureC<=R.coldTemperatureC));
   if(precipitation||probability||temperature!==null&&(temperature>=R.hotTemperatureC||temperature<=R.coldTemperatureC)||hourlyBurden){
-    return {kind:'adverse',message:'여행일 예보의 일부 시간대에 강수 또는 기온 부담 신호가 있어요. '+(HB_WEATHER_CATEGORY_COMPARE_ENABLED?'문화시설 후보, 휴식이 포함된 짧은 코스, 날짜 변경을 비교해 보세요. 시설의 실내 여부와 실제 운영은 별도 확인이 필요해요.':'휴식이 포함된 짧은 코스나 날짜 변경을 검토해 보세요.')};
+    return {kind:'adverse',message:'여행일 예보의 일부 시간대에 강수 또는 기온 부담 신호가 있어요. '+(HB_WEATHER_CATEGORY_COMPARE_ENABLED?'문화시설 후보, 휴식이 포함된 짧은 코스, 날짜 변경을 비교해 보세요.':'휴식이 포함된 짧은 코스나 날짜 변경을 검토해 보세요.')};
   }
   // 2026-11-26 사용자 지시: '대표 예보를 참고했어요 · 보장하지 않아요' 안내는 숨긴다(비교 화면을 켤 때만 비교 안내).
   return {kind:'regular',message:HB_WEATHER_CATEGORY_COMPARE_ENABLED?'일반 여행지와 문화시설 후보를 비교할 수 있어요.':''};

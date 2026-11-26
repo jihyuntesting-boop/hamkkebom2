@@ -37,7 +37,7 @@ function requestLocation(){
     fetchNearby(37.5665,126.978,false);
   };
   if(!navigator.geolocation){
-    fallback('기기 위치를 사용할 수 없어 지도 기본 중심(서울 시청)을 표시해요. 출발지가 아니에요.');
+    fallback('기기 위치를 사용할 수 없어 지도 기본 중심(서울 시청)을 표시해요.');
     return;
   }
   try{
@@ -45,21 +45,21 @@ function requestLocation(){
       if(request!==nearbyRequestId)return;
       const lat=position?.coords?.latitude,lng=position?.coords?.longitude;
       if(!hbValidMapPoint(lat,lng)){
-        fallback('현재 위치 좌표를 확인할 수 없어 지도 기본 중심(서울 시청)을 표시해요. 출발지가 아니에요.');
+        fallback('현재 위치 좌표를 확인할 수 없어 지도 기본 중심(서울 시청)을 표시해요.');
         return;
       }
       nearbyMode='내 현재 위치 기준';
       fetchNearby(lat,lng,true);
     },error=>{
       const messages={
-        1:'위치 권한이 꺼져 있어 지도 기본 중심(서울 시청)을 표시해요. 출발지가 아니에요.',
-        2:'현재 위치를 확인할 수 없어 지도 기본 중심(서울 시청)을 표시해요. 출발지가 아니에요.',
-        3:'위치 확인이 오래 걸려 지도 기본 중심(서울 시청)을 표시해요. 출발지가 아니에요.'
+        1:'위치 권한이 꺼져 있어 지도 기본 중심(서울 시청)을 표시해요.',
+        2:'현재 위치를 확인할 수 없어 지도 기본 중심(서울 시청)을 표시해요.',
+        3:'위치 확인이 오래 걸려 지도 기본 중심(서울 시청)을 표시해요.'
       };
       fallback(messages[error?.code]||messages[2]);
     },{enableHighAccuracy:false,timeout:9000,maximumAge:180000});
   }catch{
-    fallback('위치를 확인할 수 없어 지도 기본 중심(서울 시청)을 표시해요. 출발지가 아니에요.');
+    fallback('위치를 확인할 수 없어 지도 기본 중심(서울 시청)을 표시해요.');
   }
 }
 function leaflet(){if(window.L)return Promise.resolve(window.L);if(leafletPromise)return leafletPromise;leafletPromise=new Promise((resolve,reject)=>{let css=document.createElement('link');css.rel='stylesheet';css.href='https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css';document.head.appendChild(css);let js=document.createElement('script');js.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';js.integrity='sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=';js.crossOrigin='';js.onload=()=>resolve(window.L);js.onerror=()=>reject(Error('지도 라이브러리를 불러올 수 없어'));document.head.appendChild(js)});return leafletPromise}
@@ -612,7 +612,7 @@ async function fetchNearby(lat,lng,isUser,centerLabel,refreshFeatured=true){
     const items=d.places.filter(p=>p&& (category==='all'||category==='food'&&p.kind==='food'||category==='spot'&&['spot','culture'].includes(p.kind)));
     if(!items.length&&d.meta?.failures?.length)throw Error('partial empty response');
     nearbyItems=items;nearbyResultCategory=category;nearbyResultMeta=d.meta||null;nearbyResultCenterLabel=nearbyCenterLabel;
-    if(!items.length)nearbyError=d.meta?.partial?'일부 자료에서 장소를 찾지 못했어요. 전체 장소가 없다는 뜻은 아니에요.':'이 반경에서 조회된 장소가 없어요';
+    if(!items.length)nearbyError=d.meta?.partial?'일부 자료에서 장소를 찾지 못했어요.':'이 반경에서 조회된 장소가 없어요';
   }catch(e){
     if(n!==nearbyRequestId)return;
     nearbyError='주변 장소를 불러오지 못했어요. 위치를 다시 선택해 주세요.';

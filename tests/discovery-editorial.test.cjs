@@ -9,7 +9,7 @@ const a={id:'tour-126508',kind:'spot',name:'경복궁',areaCode:'1'};
 const b={id:'tour-126537',kind:'spot',name:'북촌한옥마을',areaCode:'1'};
 test('deduplication and theme classification',()=>{assert.deepEqual(h.hbDiscoveryRecords([a,a,b,{id:'bad'}]),[a,b]);assert.equal(h.hbDiscoveryThemeMatch(a,'culture'),true);assert.equal(h.hbDiscoveryThemeMatch(a,'food'),false);});
 test('course requires both actual IDs in matching region and theme',()=>{assert.deepEqual(h.hbDiscoveryCourseStops([a,b],'all','all'),[a,b]);assert.deepEqual(h.hbDiscoveryCourseStops([a],'all','all'),[]);assert.deepEqual(h.hbDiscoveryCourseStops([a,b],'31','all'),[]);assert.deepEqual(h.hbDiscoveryCourseStops([a,b],'all','food'),[]);});
-test('no invented demographic popularity',()=>{assert.match(h.hbDiscoveryAudienceNote('60','female'),/아직 연결되지/);assert.match(h.hbDiscoveryAudienceNote('all','all'),/공식 인기 순위가 아니/);assert.equal(h.hbDiscoveryPriority(a.id,'서울'),0);});
+test('no invented demographic popularity',()=>{assert.match(h.hbDiscoveryAudienceNote('60','female'),/아직 연결되지/);assert.equal(h.hbDiscoveryAudienceNote('all','all'),'함께봄 편집 추천');assert.equal(h.hbDiscoveryPriority(a.id,'서울'),0);});
 
 test('approved exact cohort only; no invented aggregation or ambiguous period',()=>{
  const c={rightsStatus:'approved',rightsEvidence:'fixture only',sourceUrl:'https://datalab.visitkorea.or.kr/datalab/portal/loc/getTourDataFormView2.do',age:'60',sex:'female',region:'1',periodStart:'2026-01',periodEnd:'2026-02',metric:'visit_concentration',unit:'percent',methodology:'fixture',rows:[{id:a.id,value:12},{id:b.id,value:30}]};

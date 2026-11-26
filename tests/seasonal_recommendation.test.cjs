@@ -336,7 +336,7 @@ test("server-unassessed place shows its verdict badge without the separate-check
   assert.doesNotMatch(h.html,/서버 추천 판정 대상에 없어요|접근성을 별도로 확인해 주세요/);
   assert.doesNotMatch(card,/<p class="muted"><\/p>/);
   assert.match(source,/server_not_assessed:'',/);
-  assert.match(list,/계단·연속 보행시간·이동 동선은 방문 전에 직접 확인해 주세요/,"other reasons are unchanged");
+  assert.doesNotMatch(list,/계단·연속 보행시간·이동 동선은 방문 전에 직접 확인해 주세요/,"2026-11-26: reason disclaimers hidden too");
   assert.doesNotMatch(source,/실제 보행 거리와 계단 여부는 장소별 확인이 필요해요/);
   assert.match(source,/<h2 tabindex="-1">2\. 이동 조건<\/h2><p class="muted">필수 항목이에요\.<\/p>/,"step 2 keeps the required-field hint");
 });

@@ -58,9 +58,9 @@
   for(const f of data.accessFacts||[])remember(f.sourceUrl,f.sourceName,f.collectedAt);
   const statuses=Object.values(data.accessibility?.attributes||{}).map(x=>x.status);
   const warnings=[];
-  if(statuses.includes('conflicting')||data.accessStatus==='conflicting')warnings.push('접근성 자료가 서로 달라요. 방문 전에 직접 확인해 주세요.');
-  if(statuses.includes('stale')||data.accessStatus==='stale')warnings.push('오래된 시설 정보가 있어요. 방문 전에 최신 상태를 확인해 주세요.');
-  if(Object.values(data.fields||{}).some(f=>f?.additionalReports?.length||f?.state==='conflicting'))warnings.push('운영·시설 자료의 설명이 서로 달라요. 자세한 자료를 함께 확인해 주세요.');
+  if(statuses.includes('conflicting')||data.accessStatus==='conflicting')warnings.push('접근성 자료가 서로 달라요.');
+  if(statuses.includes('stale')||data.accessStatus==='stale')warnings.push('오래된 시설 정보가 있어요.');
+  if(Object.values(data.fields||{}).some(f=>f?.additionalReports?.length||f?.state==='conflicting'))warnings.push('운영·시설 자료의 설명이 서로 달라요.');
   const seen=new Set();
   const points=(data.facilities||[]).filter(f=>validPoint(f)&&kinds[f.kind]&&typeof f.id==='string'&&!seen.has(f.id)&&(seen.add(f.id),true));
   const approved=photo&&photo.placeId===data.id&&photo.imagePath==='/images/places/'+data.id+'.webp'&&/^tour-\d{1,12}$/.test(data.id)&&txt(photo.credit)&&txt(photo.license)&&txt(photo.verifiedAt);
@@ -114,7 +114,7 @@
   }
   let dispose,refresh=()=>{};
   if(model.points.length){
-   const mapSection=node('section');mapSection.append(node('h3','주변 시설 지도'),node('p','가까운 시설도 관광지 소속이나 이동 가능한 경로로 확인된 것은 아니에요.'));
+   const mapSection=node('section');mapSection.append(node('h3','주변 시설 지도'));
    const map=node('div',null,{width:'100%',minHeight:typeof mapAdapter==='function'?'240px':'0'});
    const list=node('div',null,{display:'grid',gap:'8px'}),sheet=node('section',null,{padding:'var(--hb-space-3, 12px)',background:'var(--hb-quiet)',borderRadius:'var(--hb-radius, 12px)'});
    sheet.setAttribute('aria-label','선택한 시설 정보');sheet.hidden=true;

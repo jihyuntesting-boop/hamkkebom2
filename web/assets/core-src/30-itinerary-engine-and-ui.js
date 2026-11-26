@@ -1116,7 +1116,7 @@ let hbPlanEditMode=false,hbPlanChecksOpen=false;
 // HB_AI_SUMMARY_START — 가족 공유용 일정 설명(선택). 일정표에 이미 있는 자료만 서버로 보낸다.
 // 서버는 안전 보장 표현·자료에 없는 숫자가 든 문장을 빼고 돌려준다. 실패하면 영역을 숨긴다.
 let hbAiSummaryCache=null;
-const HB_AI_SUMMARY_FOOTER='※ 함께봄 일정 자료로 만든 설명이에요. 방문 전에 한 번 더 확인해 주세요.';
+// 2026-11-26 사용자 결정: 설명 끝의 '방문 전에 한 번 더 확인해 주세요' 안내 줄은 붙이지 않는다.
 function hbAiItineraryFacts(stops,state,list){
  const items=Array.isArray(stops)?stops:[],st=state||{};
  const byId=new Map((Array.isArray(list)?list:[]).filter(p=>p&&typeof p.id==='string').map(p=>[p.id,p]));
@@ -1169,7 +1169,7 @@ function hbAiMountSummary(root,stops){
    if(!box.isConnected)return;
    make.disabled=false;make.removeAttribute('aria-busy');
    if(!data||data.status!=='ok'||!Array.isArray(data.lines)||!data.lines.length){hbAiDisable();return}
-   const text=data.lines.filter(x=>typeof x==='string').join('\n')+'\n'+HB_AI_SUMMARY_FOOTER;
+   const text=data.lines.filter(x=>typeof x==='string').join('\n');
    hbAiSummaryCache={key,text};
    out.innerHTML=hbAiSummaryResultMarkup(text);hbAiBindSummaryCopy(box);
    box.querySelector('#hb-ai-summary-text')?.focus();
@@ -1195,7 +1195,7 @@ function hbPlanViewEnhance(){
   const checksHtml=displayWarnings.length?'<details class="hb-plan-warnings"'+(hbPlanChecksOpen?' open':'')+'><summary>방문 전 확인할 점 <span class="hb-plan-check-count">'+displayWarnings.length+'개</span></summary><ul>'+displayWarnings.map(w=>'<li>'+safe(w)+'</li>').join('')+'</ul></details>':'';
   // Owner request 2026-11-26: the "하루 여행 일정 자동 구성" form is not rendered on the plan
   // page. The code is kept behind HB_PLAN_GENERATOR_FORM; the view controls stay.
-  const html=!HB_PLAN_GENERATOR_FORM?'<section class="panel hb-plan-generator hb-plan-tools" aria-label="일정표 도구">'+checksHtml+'</section>':'<section class="panel hb-plan-generator"><h2>하루 여행 일정 자동 구성</h2><p>고른 장소를 개수 제한 없이 시간대에 맞는 식사·휴식 시간과 함께 배치하고, 정한 시간 안에 들어가지 않으면 예상 초과 시간을 알려 드려요. 전체 동선은 <strong>사용자가 확인할 초안</strong>이에요. 일부 자동차 이동 구간만 별도로 확인·반영할 수 있어요.</p><label for="hb-plan-start">첫 방문지 시작 희망 시간 (선택)</label> <input type="time" id="hb-plan-start" value="'+safe(selection)+'"> <label for="hb-plan-end">종료 희망 시간 (선택)</label> <input type="time" id="hb-plan-end" value="'+safe(endSelection)+'"> <button type="button" id="hb-plan-regenerate">선택한 장소로 일정 재구성</button>'+(s.hbDuration==='overnight'?'<p class="warn">숙박 여행을 선택했지만 현재는 첫날 하루 일정만 구성돼요.</p>':'')+checksHtml+'</section>';
+  const html=!HB_PLAN_GENERATOR_FORM?'<section class="panel hb-plan-generator hb-plan-tools" aria-label="일정표 도구">'+checksHtml+'</section>':'<section class="panel hb-plan-generator"><h2>하루 여행 일정 자동 구성</h2><p>고른 장소를 개수 제한 없이 시간대에 맞는 식사·휴식 시간과 함께 배치하고, 정한 시간 안에 들어가지 않으면 예상 초과 시간을 알려 드려요.</p><label for="hb-plan-start">첫 방문지 시작 희망 시간 (선택)</label> <input type="time" id="hb-plan-start" value="'+safe(selection)+'"> <label for="hb-plan-end">종료 희망 시간 (선택)</label> <input type="time" id="hb-plan-end" value="'+safe(endSelection)+'"> <button type="button" id="hb-plan-regenerate">선택한 장소로 일정 재구성</button>'+(s.hbDuration==='overnight'?'<p class="warn">숙박 여행을 선택했지만 현재는 첫날 하루 일정만 구성돼요.</p>':'')+checksHtml+'</section>';
   el.insertAdjacentHTML(now.length?'beforeend':'afterbegin',html);
   const generator=el.querySelector('.hb-plan-generator');
   generator.insertAdjacentHTML('afterbegin','<div class="hb-plan-view-controls" aria-label="일정표 표시 방식">'+(now.length?'<button type="button" id="hb-edit-toggle" class="light" aria-pressed="'+String(hbPlanEditMode)+'">'+(hbPlanEditMode?'편집 끝내기':'일정 편집')+'</button>':'')+'<button type="button" id="hb-large-toggle" class="light" aria-pressed="'+String(!!s.hbLargePlanMode)+'">'+(s.hbLargePlanMode?'일반 글씨로 보기':'부모님 큰 글씨로 보기')+'</button><button type="button" id="hb-print-itinerary" class="light">일정표 인쇄</button></div>');

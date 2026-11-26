@@ -58,7 +58,7 @@ test('published arrival guides show only evidence-backed connections and restroo
   assert.match(markup,/네이버 지도에서 주차장 찾기/);
   assert.ok(markup.includes(encodeURIComponent(guide.arrival.mapQuery)));
   assert.equal(markup.includes('hb-access-map-linked'),connected,id);
-  assert.equal(markup.includes('주차장에서 입구까지 계단 없는 길은 확인이 필요해요.'),!connected,id);
+  assert.equal(markup.includes('계단 없는 길은 확인이 필요해요'),false,id); // 2026-11-26 사용자 결정: 안내 비노출
   assert.equal(markup.includes('<h3>장애인 화장실</h3>'),Boolean(restroom),id);
   if(restroom)assert.ok(markup.includes(restroom));
   if(id==='tour-129703')assert.match(markup,/bg_byfloor_img_1\.png/);
@@ -73,7 +73,7 @@ test('missing or conflicting evidence removes unsupported arrival controls',()=>
   ...guide.facts,{topic:'stairs',status:'conflicting'},{topic:'toilet',status:'conflicting'}
  ]);
  assert.doesNotMatch(conflict,/hb-access-map-stops|장애인 화장실/);
- assert.match(conflict,/계단 없는 길은 확인이 필요해요/);
+ assert.doesNotMatch(conflict,/계단 없는 길은 확인이 필요해요/);
  const generic=context.hbArrivalMarkup({name:'다른 장소',address:'서울'},null,[]);
  assert.match(generic,/네이버 지도에서 장소 찾기/);
  assert.doesNotMatch(generic,/주차장 찾기|hb-access-map-stops|장애인 화장실/);

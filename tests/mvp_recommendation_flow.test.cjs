@@ -222,7 +222,7 @@ test("conflicting or stale catalog evidence downgrades a contrary server decisio
       response:{eligible:[{id,reason:"documented_route"}],needsReview:[],excluded:[]}});
     h.run();await h.flush();
     assert.doesNotMatch(h.html,/서버 기준 조건 일치/);
-    assert.match(h.html,accessStatus==="conflicting"?/자료 상충/:/오래되어/);
+    assert.match(h.html,accessStatus==="conflicting"?/자료 상충/:/접근성 자료가 오래됐어요/);
   }
 });
 test("food preference application requires explicit supported preference codes",async()=>{
