@@ -30,6 +30,7 @@
   --hb-success-ink: #35663D;
   --hb-radius: 12px;
   --hb-touch: 48px;
+  --hb-control: 52px;      /* one height for inputs, selects and the buttons beside them */
   --hb-text-xs: .875rem;   /* 14px: smallest allowed text */
   --hb-text-sm: .9375rem;  /* 15px */
   --hb-text-md: 1rem;      /* 16px: body */
@@ -567,7 +568,7 @@ header .hb-brand-home:focus-visible {
 
 /* Buttons: one size everywhere (was 46/47/48/58px and 15/16px).
    Map SDK controls inside the map containers are left alone. */
-main button:not(#nearby-map *):not(#hb-trip-map *) {
+main button:not(#nearby-map *):not(#hb-trip-map *):not(.hb-step-link) {
   min-height: var(--hb-touch) !important;
   padding: 10px 16px !important;
   font-size: var(--hb-text-md) !important;
@@ -1084,4 +1085,48 @@ main { padding-inline: clamp(16px, 3vw, 32px); }
   white-space:normal; overflow-wrap:anywhere; text-decoration:underline; text-underline-offset:2px;
  }
  #app :is(.hb-home-photo-gallery,#nearby-list) .hb-place-photo:not(.hb-detail-photo) .hb-photo-credit:is(:hover,:focus-visible)::before { content:none; }
+}
+
+/* Same-row height and alignment (QA 2026-11-26 A-1..A-6, measured with getBoundingClientRect
+   at 375/1280/1366/1440). Touch targets are never reduced: shorter items are raised to match.
+   Map SDK internals, the senior large-type plan and print keep their own rules. */
+@media screen {
+ /* A-2/A-3: inputs and selects share one height (date/time no longer 54, select no longer 53). */
+ #app :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):not([type="hidden"]),select):where(:not(#nearby-map *):not(#hb-trip-map *):not(.hb-large-plan *)) {
+  box-sizing:border-box; height:var(--hb-control); min-height:var(--hb-control); padding-block:0;
+ }
+ /* Buttons that sit in a field row (step 1, place search, plan stop editor) are raised to the
+    control height (48 -> 52). Selector out-ranks the shared main button rule above. */
+ #app :is(.row, .hb-stop-actions) > button:not(#nearby-map *):not(#hb-trip-map *) { min-height:var(--hb-control) !important; }
+ /* Step 1: the button starts exactly one label line (+ label gap) below the row top. */
+ #app .row.hb-prefs-row > button { margin-top:calc(var(--hb-text-md) * var(--hb-leading-label) + var(--hb-space-2)); }
+
+ /* A-5: the stepper button lives inside the pill; no second border, radius or fill. */
+ #app ol.hb-progress li { align-items:stretch; }
+ #app ol.hb-progress .hb-step-link:not(#nearby-map *) {
+  min-height:var(--hb-touch); padding:4px 14px 4px 6px !important; border:0 !important;
+  border-radius:inherit !important; background:transparent !important; box-shadow:none !important;
+  color:inherit !important; font-size:inherit; line-height:var(--hb-leading-label);
+ }
+ #app ol.hb-progress .hb-step-link:not(#nearby-map *):hover { background:transparent !important; }
+
+ /* A-6: text-only choices keep room for the corner check mark; centred illustrated
+    choices keep symmetric padding (the mark sits above the centred art). */
+ #app .hb-choice-grid > button.hb-choice:not(:has(> .hb-art-slot)):not(#nearby-map *) { padding-inline-end:32px !important; }
+
+ /* A-1: card grids keep equal row heights and put the action group at the bottom. */
+ #app :is(#nearby-list .grid, .hb-discovery-grid) > .card { display:flex; flex-direction:column; }
+ #app :is(#nearby-list .grid, .hb-discovery-grid) > .card > .chip { align-self:flex-start; }
+ #app #nearby-list .grid > .card > .actions { margin-top:auto; padding-top:var(--hb-space-5); }
+ #app .hb-discovery-grid > .card > a:last-child { margin-top:auto; align-self:flex-start; }
+ #app .hb-discovery-grid > .card > p:nth-last-child(2) { margin-bottom:var(--hb-space-3); }
+}
+@media screen and (max-width: 560px) {
+ /* A-4: three steps always fit one line on phones (number above the label). */
+ #app ol.hb-progress { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:var(--hb-space-2); }
+ #app ol.hb-progress li { min-width:0; border-radius:var(--hb-radius); }
+ #app ol.hb-progress .hb-step-link:not(#nearby-map *) {
+  flex-direction:column; justify-content:center; gap:2px; padding:6px 4px !important;
+  text-align:center; word-break:keep-all; overflow-wrap:anywhere;
+ }
 }

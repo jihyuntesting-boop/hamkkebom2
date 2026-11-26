@@ -370,7 +370,12 @@ body :is(button, a, input, select, textarea, summary, [tabindex]):focus-visible 
   border: 2px solid var(--hb-brand) !important;
   box-shadow: inset 0 0 0 1px var(--hb-brand) !important;
 }
-.hb-choice.chosen::after { content: " ✓"; font-weight: 800; }
+/* The check mark sits in the corner, out of flow: choosing a card never changes its row height. */
+.hb-choice { position: relative; }
+.hb-choice.chosen::after {
+  content: "✓"; content: "✓" / ""; position: absolute; top: 8px; right: 10px;
+  font-weight: 800; line-height: 1;
+}
 
 /* UI-03 — recommendation states and selected places, without inventing map data. */
 .hb-profile-summary, .hb-plan-generator {
