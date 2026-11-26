@@ -488,7 +488,7 @@ function hbWeatherRecommendation(snapshot,key){
   if(!snapshot||snapshot.key!==key)return {kind:'unknown',message:'여행일 예보를 확인한 뒤 날씨에 맞는 선택지를 보여드려요.'};
   const a=snapshot.alerts;
   if(a?.status==='active'&&Array.isArray(a.active)&&a.active.length)
-    return {kind:'caution',message:'기상특보가 확인됐어요. 날짜 변경이나 이동을 줄인 코스를 먼저 검토해 주세요. 실내라고 안전이 보장되는 것은 아니에요.'};
+    return {kind:'caution',message:'기상특보가 확인됐어요. 날짜 변경이나 이동을 줄인 코스를 먼저 검토해 주세요.'};
   if(snapshot.state!=='available')return {kind:'unknown',message:'확인된 여행일 예보가 없어 날씨 기반 추천을 보류해요. 일반 여행지 탐색은 계속할 수 있어요.'};
   const f=snapshot.data||{};
   const R=HB_WEATHER_SUGGEST_RULE;

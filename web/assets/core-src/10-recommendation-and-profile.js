@@ -586,7 +586,7 @@ function browse(){
     '<section class="panel"><h2>이동 조건 추천 판정</h2><p id="hb-recommend-status" role="'+(serverState?.state==='error'?'alert':'status')+'">'+serverStatus+'</p>'+retry+
     (serverZero?'<p class="muted">서버 추천 결과 0건이에요. 아래에 서버에서 판정하지 않은 장소가 있더라도 조건 일치로 간주하지 않아요.</p>':'')+
     tripSummary+hbTripQuickConditions()+
-    '<p class="muted">현장 동선·영업시간·실제 보행 거리는 별도로 확인해 주세요.</p></section>'+
+    '</section>'+
     (ready?hbWeatherSuggestBanner(weatherSignal):'')+
     hbSeasonalMarkup(seasonalView)+
     (typeof weatherCard==='function'?weatherCard():'')+

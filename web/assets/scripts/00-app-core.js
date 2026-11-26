@@ -687,7 +687,7 @@ function browse(){
     '<section class="panel"><h2>이동 조건 추천 판정</h2><p id="hb-recommend-status" role="'+(serverState?.state==='error'?'alert':'status')+'">'+serverStatus+'</p>'+retry+
     (serverZero?'<p class="muted">서버 추천 결과 0건이에요. 아래에 서버에서 판정하지 않은 장소가 있더라도 조건 일치로 간주하지 않아요.</p>':'')+
     tripSummary+hbTripQuickConditions()+
-    '<p class="muted">현장 동선·영업시간·실제 보행 거리는 별도로 확인해 주세요.</p></section>'+
+    '</section>'+
     (ready?hbWeatherSuggestBanner(weatherSignal):'')+
     hbSeasonalMarkup(seasonalView)+
     (typeof weatherCard==='function'?weatherCard():'')+
@@ -2540,9 +2540,10 @@ function hbRouteMode(state){
 }
 // Saved drafts may hold older unconfirmed-information wording; show only
 // actionable lines and map the old placeholder-travel note to the current one.
+// 2026-11-26 사용자 결정: 저장된 특보 경고의 '실내라고 안전이 보장되는 것은 아니에요.' 문장만 빼고 나머지는 보여 준다.
 function hbVisiblePlanWarnings(list,someConfirmed=false){
  const hidden=/미확인|확인 전이에요|검증되지 않았|확인되지 않|지정된 상태가 아니에요|여전히 미확인/;
- return (Array.isArray(list)?list:[]).filter(w=>typeof w==='string').map(w=>
+ return (Array.isArray(list)?list:[]).filter(w=>typeof w==='string').map(w=>w.replace(/\s*실내라고 안전이 보장되는 것은 아니에요\./g,'').trim()).filter(Boolean).map(w=>
   w.startsWith('장소 간 이동은 실제 경로 소요시간이 아니라')||w===HB_PLACEHOLDER_TRAVEL_NOTE?
    (someConfirmed?'일부 자동차 이동시간을 네이버 경로로 반영했어요. 나머지 이동시간은 예상이에요.':HB_PLACEHOLDER_TRAVEL_NOTE):w)
   .filter(w=>!hidden.test(w));
@@ -3633,7 +3634,7 @@ function hbWeatherRecommendation(snapshot,key){
   if(!snapshot||snapshot.key!==key)return {kind:'unknown',message:'여행일 예보를 확인한 뒤 날씨에 맞는 선택지를 보여드려요.'};
   const a=snapshot.alerts;
   if(a?.status==='active'&&Array.isArray(a.active)&&a.active.length)
-    return {kind:'caution',message:'기상특보가 확인됐어요. 날짜 변경이나 이동을 줄인 코스를 먼저 검토해 주세요. 실내라고 안전이 보장되는 것은 아니에요.'};
+    return {kind:'caution',message:'기상특보가 확인됐어요. 날짜 변경이나 이동을 줄인 코스를 먼저 검토해 주세요.'};
   if(snapshot.state!=='available')return {kind:'unknown',message:'확인된 여행일 예보가 없어 날씨 기반 추천을 보류해요. 일반 여행지 탐색은 계속할 수 있어요.'};
   const f=snapshot.data||{};
   const R=HB_WEATHER_SUGGEST_RULE;

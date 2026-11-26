@@ -701,9 +701,10 @@ function hbRouteMode(state){
 }
 // Saved drafts may hold older unconfirmed-information wording; show only
 // actionable lines and map the old placeholder-travel note to the current one.
+// 2026-11-26 사용자 결정: 저장된 특보 경고의 '실내라고 안전이 보장되는 것은 아니에요.' 문장만 빼고 나머지는 보여 준다.
 function hbVisiblePlanWarnings(list,someConfirmed=false){
  const hidden=/미확인|확인 전이에요|검증되지 않았|확인되지 않|지정된 상태가 아니에요|여전히 미확인/;
- return (Array.isArray(list)?list:[]).filter(w=>typeof w==='string').map(w=>
+ return (Array.isArray(list)?list:[]).filter(w=>typeof w==='string').map(w=>w.replace(/\s*실내라고 안전이 보장되는 것은 아니에요\./g,'').trim()).filter(Boolean).map(w=>
   w.startsWith('장소 간 이동은 실제 경로 소요시간이 아니라')||w===HB_PLACEHOLDER_TRAVEL_NOTE?
    (someConfirmed?'일부 자동차 이동시간을 네이버 경로로 반영했어요. 나머지 이동시간은 예상이에요.':HB_PLACEHOLDER_TRAVEL_NOTE):w)
   .filter(w=>!hidden.test(w));
