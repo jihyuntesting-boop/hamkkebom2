@@ -409,6 +409,13 @@ function newPlan(){
 // 이 영역을 통째로 숨기고 기존 수동 입력을 그대로 쓴다(오류·미지원 문구를 보이지 않음).
 // AI 제안은 미리보기 후 사용자가 "이 조건으로 채우기"를 눌러야만 적용된다.
 let hbAiStatusPromise=null,hbAiOff=false,hbAiNotice='',hbAiDraftText='';
+// AI 전송 동의: 체크해야만 /api/ai-assist 로 문장을 보낸다. 동의 여부만 이 기기(localStorage)에 기억한다.
+const HB_AI_CONSENT_KEY='hamkkebom-consent-ai',HB_AI_SHARE_MARK='(AI 작성)';
+function hbAiConsentGiven(){try{return localStorage.getItem(HB_AI_CONSENT_KEY)==='1'}catch{return false}}
+function hbAiConsentSet(on){try{if(on)localStorage.setItem(HB_AI_CONSENT_KEY,'1');else localStorage.removeItem(HB_AI_CONSENT_KEY);return true}catch{return false}}
+// 모든 AI 결과에 같은 표시(배지 + 한 줄)를 붙인다. 공유·복사 글에는 끝에 (AI 작성)을 남긴다.
+function hbAiLabelMarkup(text){return '<p class="hb-ai-label"><span class="hb-ai-badge">AI 생성</span> <span class="hb-ai-label-text">'+safe(text)+'</span></p>'}
+function hbAiShareText(text){const t=String(text??'').trim();return !t||t.endsWith(HB_AI_SHARE_MARK)?t:t+'\n'+HB_AI_SHARE_MARK}
 function hbAiQueryStatus(fetchImpl){
  return Promise.resolve().then(()=>fetchImpl('/api/ai-assist',{headers:{Accept:'application/json'},
   signal:typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(4000):undefined}))
@@ -504,8 +511,10 @@ function hbAiApplySuggestion(suggestion){
 function hbAiParseMarkup(){
  return '<h2 id="hb-ai-title" tabindex="-1">말로 여행 조건 적기 (선택)</h2>'+
   (hbAiNotice?'<p class="hb-ai-notice" role="status">'+safe(hbAiNotice)+'</p>':'')+
-  '<p class="muted" id="hb-ai-help">예: 엄마가 무릎이 안 좋아서 계단 적고 화장실 가까운 곳, 이번 토요일 서울 근교. 적은 문장은 조건을 정리하는 데에만 AI(Anthropic Claude)로 보내고 저장하지 않아요. 이름이나 진단명은 적지 않아도 돼요.</p>'+
-  '<div class="field"><label for="hb-ai-text">원하는 여행을 한두 문장으로 적어 주세요</label><textarea id="hb-ai-text" rows="3" maxlength="300" aria-describedby="hb-ai-help hb-ai-count"></textarea><small id="hb-ai-count">0/300자</small></div>'+
+  '<p class="muted" id="hb-ai-help">예: 엄마가 무릎이 안 좋아서 계단 적고 화장실 가까운 곳, 이번 토요일 서울 근교. 적은 문장은 저장하지 않아요.</p>'+
+  '<div class="field"><label for="hb-ai-text">원하는 여행을 한두 문장으로 적어 주세요</label><textarea id="hb-ai-text" rows="3" maxlength="300" aria-describedby="hb-ai-help hb-ai-count hb-ai-consent-note"></textarea><small id="hb-ai-count">0/300자</small></div>'+
+  '<div class="hb-ai-consent"><p id="hb-ai-consent-note">입력한 문장은 조건 정리를 위해 AI(Anthropic Claude)로 전송돼요. 이름·연락처·주소는 적지 마세요</p>'+
+  '<label class="hb-ai-consent-check"><input type="checkbox" id="hb-ai-consent"'+(hbAiConsentGiven()?' checked':'')+'> 안내를 읽었고 AI 전송에 동의해요</label></div>'+
   '<div class="actions"><button type="button" id="hb-ai-fill">조건 채우기</button></div><div id="hb-ai-result" aria-live="polite"></div>';
 }
 function hbAiMountParse(slot){
@@ -515,12 +524,15 @@ function hbAiMountParse(slot){
   const announce=!!hbAiNotice;
   slot.innerHTML=hbAiParseMarkup();slot.hidden=false;hbAiNotice='';
   if(announce)slot.querySelector('#hb-ai-title')?.focus();
-  const text=slot.querySelector('#hb-ai-text'),fill=slot.querySelector('#hb-ai-fill'),out=slot.querySelector('#hb-ai-result'),count=slot.querySelector('#hb-ai-count');
+  const text=slot.querySelector('#hb-ai-text'),fill=slot.querySelector('#hb-ai-fill'),out=slot.querySelector('#hb-ai-result'),count=slot.querySelector('#hb-ai-count'),consent=slot.querySelector('#hb-ai-consent');
+  consent.onchange=()=>{hbAiConsentSet(consent.checked)};
   text.value=hbAiDraftText;count.textContent=text.value.length+'/300자';
   text.oninput=()=>{hbAiDraftText=text.value;count.textContent=text.value.length+'/300자'};
   fill.onclick=async()=>{
    const value=text.value.trim();
    if(!value){out.textContent='여행 조건을 한두 문장으로 적어 주세요.';text.focus();return}
+   if(!consent.checked){out.textContent='입력창 아래 안내를 읽고 AI 전송 동의에 체크해 주세요.';consent.focus();return}
+   hbAiConsentSet(true);
    fill.disabled=true;fill.setAttribute('aria-busy','true');out.textContent='조건을 정리하는 중이에요.';
    let data=null;
    try{data=await hbAiPost({action:'parse',text:value.slice(0,300)})}catch{data=null}
@@ -529,7 +541,7 @@ function hbAiMountParse(slot){
    if(!data||!['ok','empty'].includes(data.status)){hbAiDisable();document.getElementById('region')?.focus();return}
    const view=hbAiSuggestionPatch(data.suggestion,s);
    if(!view.rows.length){out.innerHTML='<p>문장에서 채울 조건을 찾지 못했어요. 아래에서 직접 골라 주세요.</p>';return}
-   out.innerHTML='<h3 id="hb-ai-preview-title" tabindex="-1">이렇게 채울까요?</h3><ul class="hb-ai-preview">'+
+   out.innerHTML='<h3 id="hb-ai-preview-title" tabindex="-1">이렇게 채울까요?</h3>'+hbAiLabelMarkup('AI가 입력한 문장을 정리한 제안이에요. 적용 전에 확인해 주세요')+'<ul class="hb-ai-preview">'+
     view.rows.map(r=>'<li><strong>'+safe(r.label)+'</strong> · '+safe(r.value)+'</li>').join('')+'</ul>'+
     (view.regionChange&&Array.isArray(s.chosen)&&s.chosen.length?'<p class="warn">여행 지역이 바뀌면 담은 장소 선택이 초기화돼요. 저장한 일정은 유지돼요.</p>':'')+
     '<p class="muted">적용하기 전에는 아무것도 바뀌지 않아요. 적용한 뒤에도 각 단계에서 고칠 수 있어요.</p>'+

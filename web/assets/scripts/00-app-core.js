@@ -510,6 +510,13 @@ function newPlan(){
 // 이 영역을 통째로 숨기고 기존 수동 입력을 그대로 쓴다(오류·미지원 문구를 보이지 않음).
 // AI 제안은 미리보기 후 사용자가 "이 조건으로 채우기"를 눌러야만 적용된다.
 let hbAiStatusPromise=null,hbAiOff=false,hbAiNotice='',hbAiDraftText='';
+// AI 전송 동의: 체크해야만 /api/ai-assist 로 문장을 보낸다. 동의 여부만 이 기기(localStorage)에 기억한다.
+const HB_AI_CONSENT_KEY='hamkkebom-consent-ai',HB_AI_SHARE_MARK='(AI 작성)';
+function hbAiConsentGiven(){try{return localStorage.getItem(HB_AI_CONSENT_KEY)==='1'}catch{return false}}
+function hbAiConsentSet(on){try{if(on)localStorage.setItem(HB_AI_CONSENT_KEY,'1');else localStorage.removeItem(HB_AI_CONSENT_KEY);return true}catch{return false}}
+// 모든 AI 결과에 같은 표시(배지 + 한 줄)를 붙인다. 공유·복사 글에는 끝에 (AI 작성)을 남긴다.
+function hbAiLabelMarkup(text){return '<p class="hb-ai-label"><span class="hb-ai-badge">AI 생성</span> <span class="hb-ai-label-text">'+safe(text)+'</span></p>'}
+function hbAiShareText(text){const t=String(text??'').trim();return !t||t.endsWith(HB_AI_SHARE_MARK)?t:t+'\n'+HB_AI_SHARE_MARK}
 function hbAiQueryStatus(fetchImpl){
  return Promise.resolve().then(()=>fetchImpl('/api/ai-assist',{headers:{Accept:'application/json'},
   signal:typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(4000):undefined}))
@@ -605,8 +612,10 @@ function hbAiApplySuggestion(suggestion){
 function hbAiParseMarkup(){
  return '<h2 id="hb-ai-title" tabindex="-1">말로 여행 조건 적기 (선택)</h2>'+
   (hbAiNotice?'<p class="hb-ai-notice" role="status">'+safe(hbAiNotice)+'</p>':'')+
-  '<p class="muted" id="hb-ai-help">예: 엄마가 무릎이 안 좋아서 계단 적고 화장실 가까운 곳, 이번 토요일 서울 근교. 적은 문장은 조건을 정리하는 데에만 AI(Anthropic Claude)로 보내고 저장하지 않아요. 이름이나 진단명은 적지 않아도 돼요.</p>'+
-  '<div class="field"><label for="hb-ai-text">원하는 여행을 한두 문장으로 적어 주세요</label><textarea id="hb-ai-text" rows="3" maxlength="300" aria-describedby="hb-ai-help hb-ai-count"></textarea><small id="hb-ai-count">0/300자</small></div>'+
+  '<p class="muted" id="hb-ai-help">예: 엄마가 무릎이 안 좋아서 계단 적고 화장실 가까운 곳, 이번 토요일 서울 근교. 적은 문장은 저장하지 않아요.</p>'+
+  '<div class="field"><label for="hb-ai-text">원하는 여행을 한두 문장으로 적어 주세요</label><textarea id="hb-ai-text" rows="3" maxlength="300" aria-describedby="hb-ai-help hb-ai-count hb-ai-consent-note"></textarea><small id="hb-ai-count">0/300자</small></div>'+
+  '<div class="hb-ai-consent"><p id="hb-ai-consent-note">입력한 문장은 조건 정리를 위해 AI(Anthropic Claude)로 전송돼요. 이름·연락처·주소는 적지 마세요</p>'+
+  '<label class="hb-ai-consent-check"><input type="checkbox" id="hb-ai-consent"'+(hbAiConsentGiven()?' checked':'')+'> 안내를 읽었고 AI 전송에 동의해요</label></div>'+
   '<div class="actions"><button type="button" id="hb-ai-fill">조건 채우기</button></div><div id="hb-ai-result" aria-live="polite"></div>';
 }
 function hbAiMountParse(slot){
@@ -616,12 +625,15 @@ function hbAiMountParse(slot){
   const announce=!!hbAiNotice;
   slot.innerHTML=hbAiParseMarkup();slot.hidden=false;hbAiNotice='';
   if(announce)slot.querySelector('#hb-ai-title')?.focus();
-  const text=slot.querySelector('#hb-ai-text'),fill=slot.querySelector('#hb-ai-fill'),out=slot.querySelector('#hb-ai-result'),count=slot.querySelector('#hb-ai-count');
+  const text=slot.querySelector('#hb-ai-text'),fill=slot.querySelector('#hb-ai-fill'),out=slot.querySelector('#hb-ai-result'),count=slot.querySelector('#hb-ai-count'),consent=slot.querySelector('#hb-ai-consent');
+  consent.onchange=()=>{hbAiConsentSet(consent.checked)};
   text.value=hbAiDraftText;count.textContent=text.value.length+'/300자';
   text.oninput=()=>{hbAiDraftText=text.value;count.textContent=text.value.length+'/300자'};
   fill.onclick=async()=>{
    const value=text.value.trim();
    if(!value){out.textContent='여행 조건을 한두 문장으로 적어 주세요.';text.focus();return}
+   if(!consent.checked){out.textContent='입력창 아래 안내를 읽고 AI 전송 동의에 체크해 주세요.';consent.focus();return}
+   hbAiConsentSet(true);
    fill.disabled=true;fill.setAttribute('aria-busy','true');out.textContent='조건을 정리하는 중이에요.';
    let data=null;
    try{data=await hbAiPost({action:'parse',text:value.slice(0,300)})}catch{data=null}
@@ -630,7 +642,7 @@ function hbAiMountParse(slot){
    if(!data||!['ok','empty'].includes(data.status)){hbAiDisable();document.getElementById('region')?.focus();return}
    const view=hbAiSuggestionPatch(data.suggestion,s);
    if(!view.rows.length){out.innerHTML='<p>문장에서 채울 조건을 찾지 못했어요. 아래에서 직접 골라 주세요.</p>';return}
-   out.innerHTML='<h3 id="hb-ai-preview-title" tabindex="-1">이렇게 채울까요?</h3><ul class="hb-ai-preview">'+
+   out.innerHTML='<h3 id="hb-ai-preview-title" tabindex="-1">이렇게 채울까요?</h3>'+hbAiLabelMarkup('AI가 입력한 문장을 정리한 제안이에요. 적용 전에 확인해 주세요')+'<ul class="hb-ai-preview">'+
     view.rows.map(r=>'<li><strong>'+safe(r.label)+'</strong> · '+safe(r.value)+'</li>').join('')+'</ul>'+
     (view.regionChange&&Array.isArray(s.chosen)&&s.chosen.length?'<p class="warn">여행 지역이 바뀌면 담은 장소 선택이 초기화돼요. 저장한 일정은 유지돼요.</p>':'')+
     '<p class="muted">적용하기 전에는 아무것도 바뀌지 않아요. 적용한 뒤에도 각 단계에서 고칠 수 있어요.</p>'+
@@ -3186,6 +3198,26 @@ function hbApplyScheduleFromSelection(){
 // is never reused as an origin.
 // Legacy saved values: a point with coordinates (e.g. an old list-picked 'place') is used
 // as is; a text-only 'label_only' value is read as "no origin" but stays in storage.
+// 위치 동의: 버튼을 눌러도 화면 안 확인에서 동의해야 geolocation 을 부른다. 동의 여부만 이 기기에 기억하고,
+// 출발지를 지우면 동의 기록도 지운다.
+const HB_LOCATION_CONSENT_KEY='hamkkebom-consent-location';
+function hbLocationConsentGiven(){try{return localStorage.getItem(HB_LOCATION_CONSENT_KEY)==='1'}catch{return false}}
+function hbLocationConsentSet(on){try{if(on)localStorage.setItem(HB_LOCATION_CONSENT_KEY,'1');else localStorage.removeItem(HB_LOCATION_CONSENT_KEY);return true}catch{return false}}
+function hbLocationConsentMarkup(label){
+ return '<div class="hb-consent-box" role="group" aria-labelledby="hb-location-consent-text"><p id="hb-location-consent-text">현재 위치를 '+label+'로 쓸까요? 위치는 이 기기에만 저장되고 가족 공유 링크에는 포함되지 않아요.</p>'+
+  '<div class="actions"><button type="button" data-hb-consent="agree">동의하고 위치 사용</button><button type="button" class="light" data-hb-consent="cancel">취소</button></div></div>';
+}
+function hbAskLocationConsent(button,status,onAgree){
+ const host=button.parentNode;
+ if(!host||typeof host.insertAdjacentHTML!=='function'){status.textContent='현재 위치를 사용하지 않았어요.';return}
+ const old=host.nextElementSibling;
+ if(old&&old.classList&&old.classList.contains('hb-consent-box'))old.remove();
+ host.insertAdjacentHTML('afterend',hbLocationConsentMarkup(button.dataset.hbTripGps==='return'?'귀가 위치':'출발지'));
+ const box=host.nextElementSibling,agree=box.querySelector('[data-hb-consent="agree"]');
+ agree.onclick=()=>{box.remove();hbLocationConsentSet(true);onAgree()};
+ box.querySelector('[data-hb-consent="cancel"]').onclick=()=>{box.remove();status.textContent='현재 위치를 사용하지 않았어요.';button.focus()};
+ agree.focus();
+}
 function hbTripEndpointState(){
  const stored=hbTripEndpointStoredState();
  const usable=point=>hbTripPointRoutable(point)?point:null;
@@ -3242,8 +3274,11 @@ function hbBindTripPointControls(root,status,rerender){
   if(next)next.textContent=(prefix==='return'?'귀가 위치':'출발지')+'를 이 기기에 저장했어요.';
  };
  root.querySelectorAll('[data-hb-trip-gps]').forEach(button=>button.onclick=()=>{
-  status.textContent='현재 위치를 확인하는 중이에요.';
-  hbLocateTripPoint((point,message)=>{if(root.isConnected)store(button.dataset.hbTripGps,point,message)});
+  const locate=()=>{
+   status.textContent='현재 위치를 확인하는 중이에요.';
+   hbLocateTripPoint((point,message)=>{if(root.isConnected)store(button.dataset.hbTripGps,point,message)});
+  };
+  if(hbLocationConsentGiven())locate();else hbAskLocationConsent(button,status,locate);
  });
  root.querySelectorAll('[data-hb-trip-place]').forEach(button=>button.onclick=()=>{
   const prefix=button.dataset.hbTripPlace,select=document.getElementById('hb-trip-'+prefix+'-place');
@@ -3267,6 +3302,7 @@ function hbBindTripOriginStep(rerender){
  const clear=section.querySelector('#hb-trip-origin-clear');
  if(clear)clear.onclick=()=>{
   if(!hbSaveTripEndpointState({origin:null,result:null})){status.textContent='지우지 못했어요.';return}
+  hbLocationConsentSet(false);
   rerender();
  };
 }
@@ -3298,6 +3334,7 @@ function hbRenderTripEndpoints(generator,now){
  if(clear)clear.onclick=()=>{
   const previous=s.hbTripEndpoints;delete s.hbTripEndpoints;
   try{save()}catch{s.hbTripEndpoints=previous;status.textContent='지우지 못했어요.';return}
+  hbLocationConsentSet(false);
   plan();
  };
  const desiredApply=section.querySelector('#hb-trip-desired-apply');
@@ -3360,14 +3397,14 @@ function hbAiItineraryFacts(stops,state,list){
  return {region:st.hbPlanInfo?.region||st.region||null,date:st.hbPlanInfo?.date||st.date||null,stops:out};
 }
 function hbAiSummaryResultMarkup(text){
- return '<div class="field"><label for="hb-ai-summary-text">설명 글 (복사해서 가족에게 보낼 수 있어요)</label><textarea id="hb-ai-summary-text" rows="7" readonly>'+safe(text)+'</textarea></div>'+
+ return hbAiLabelMarkup('AI가 일정 자료를 바탕으로 작성한 설명이에요')+'<div class="field"><label for="hb-ai-summary-text">설명 글 (복사해서 가족에게 보낼 수 있어요)</label><textarea id="hb-ai-summary-text" rows="7" readonly>'+safe(text)+'</textarea></div>'+
   '<div class="actions"><button type="button" id="hb-ai-summary-copy">설명 복사</button></div><p id="hb-ai-summary-copied" role="status" aria-live="polite"></p>';
 }
 function hbAiBindSummaryCopy(root){
  const button=root.querySelector('#hb-ai-summary-copy'),area=root.querySelector('#hb-ai-summary-text'),note=root.querySelector('#hb-ai-summary-copied');
  if(!button||!area)return;
  button.onclick=async()=>{
-  try{await navigator.clipboard.writeText(area.value);note.textContent='복사했어요.'}
+  try{await navigator.clipboard.writeText(hbAiShareText(area.value));note.textContent='복사했어요.'}
   catch{area.focus();area.select();note.textContent='글을 선택했어요. 길게 누르거나 Ctrl+C로 복사해 주세요.'}
  };
 }
@@ -3392,7 +3429,7 @@ function hbAiMountSummary(root,stops){
    if(!box.isConnected)return;
    make.disabled=false;make.removeAttribute('aria-busy');
    if(!data||data.status!=='ok'||!Array.isArray(data.lines)||!data.lines.length){hbAiDisable();return}
-   const text=data.lines.filter(x=>typeof x==='string').join('\n');
+   const text=hbAiShareText(data.lines.filter(x=>typeof x==='string').join('\n'));
    hbAiSummaryCache={key,text};
    out.innerHTML=hbAiSummaryResultMarkup(text);hbAiBindSummaryCopy(box);
    box.querySelector('#hb-ai-summary-text')?.focus();

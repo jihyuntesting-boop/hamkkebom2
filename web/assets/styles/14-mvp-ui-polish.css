@@ -647,3 +647,10 @@ html[data-large-type="true"] #app :is(button, .actions > a) { min-height: 52px; 
 .hb-ai-box textarea { width: 100%; min-height: 96px; resize: vertical; line-height: 1.6; padding: 12px; }
 .hb-ai-box .hb-ai-preview { margin: 8px 0 12px; padding-left: 20px; }
 .hb-ai-box .hb-ai-preview li { margin: 4px 0; }
+/* AI 생성 표시와 개인정보 동의: 큰 글씨(16px 이상)·진한 글자·44px 이상 터치 영역. */
+.hb-ai-label { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0 12px; font-size: 17px; line-height: 1.6; font-weight: 650; color: var(--hb-ink, #191F28); }
+.hb-ai-badge { display: inline-block; padding: 4px 12px; border-radius: 99px; background: var(--hb-ink, #191F28); color: var(--hb-surface, #FFFFFF); font-size: 16px; font-weight: 800; letter-spacing: .02em; }
+.hb-ai-consent, .hb-consent-box { margin: 12px 0; padding: 14px 16px; border: 2px solid var(--hb-control-line, #778391); border-radius: var(--hb-radius, 12px); background: var(--hb-surface, #FFFFFF); color: var(--hb-ink, #191F28); font-size: 17px; line-height: 1.6; }
+.hb-ai-consent p, .hb-consent-box p { margin: 0 0 8px; font-weight: 650; }
+.hb-ai-consent .hb-ai-consent-check { display: flex; align-items: center; gap: 10px; min-height: 44px; margin: 0; font-size: 17px; font-weight: 700; cursor: pointer; }
+.hb-ai-consent .hb-ai-consent-check input { width: 24px; height: 24px; min-height: 0; flex: none; margin: 0; padding: 0; }
