@@ -1,0 +1,31 @@
+# Prettier is applied only to the files named in `npm run format:check`
+# (package.json). Existing sources are NOT reformatted in bulk: several agents
+# edit them in parallel and a repo-wide reformat would conflict with every
+# open branch. These entries also keep an ad-hoc `prettier --check .` quiet on
+# generated, vendored or data files.
+
+node_modules/
+package-lock.json
+qa-unit-results/
+qa-screenshots/
+.qa-venv/
+
+# Generated classic-script bundle: rebuilt byte-for-byte from web/assets/core-src
+# by `python scripts/build_core_modules.py --write`; formatting it breaks --check.
+web/assets/scripts/00-app-core.js
+# Edit-time fragments of one shared IIFE (not standalone JavaScript).
+web/assets/core-src/
+
+# Data snapshots and catalogs (machine-written JSON, compared by hash/tests).
+web/catalog/
+web/*.json
+web/assets/source-layout.json
+tests/fixtures/
+
+# Canonical documents are validated by scripts/verify_context.py hashes.
+# Only the convention document written for this tooling is checked.
+*.md
+/docs/*
+!/docs/submission/
+/docs/submission/*
+!/docs/submission/CODE_CONVENTION.md

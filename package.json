@@ -1,0 +1,23 @@
+{
+  "name": "hamkkebom",
+  "version": "0.0.0",
+  "private": true,
+  "description": "HAMKKEBOM (함께봄) family trip planner: lint, format and test entry points.",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "format:check": "prettier --check --no-error-on-unmatched-pattern package.json eslint.config.mjs .prettierrc.json scripts/run_public_tests.mjs scripts/public_test_network_guard.cjs public-ci/ci.yml .github/workflows/ci.yml docs/submission/CODE_CONVENTION.md",
+    "test": "node scripts/run_public_tests.mjs",
+    "test:unit": "node --test --test-timeout=20000 tests/*.test.cjs",
+    "build:check": "python scripts/build_core_modules.py --check"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.14.0",
+    "globals": "17.13.0",
+    "prettier": "3.9.10"
+  }
+}

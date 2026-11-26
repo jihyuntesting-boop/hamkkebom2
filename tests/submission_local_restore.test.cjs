@@ -1,0 +1,15 @@
+'use strict';
+const test=require('node:test'), assert=require('node:assert/strict'), fs=require('node:fs'), path=require('node:path'), vm=require('node:vm');
+const source=fs.readFileSync(path.join(__dirname,'../web/assets/core-src/00-bootstrap.js'),'utf8');
+const first=source.indexOf('function hbRestoreLocalState('), last=source.indexOf('\nconst hbRestoredState=',first);
+assert.ok(first>=0 && last>first,'restore helper must exist');
+const restore=vm.runInNewContext('('+source.slice(first,last)+')');
+const defaults=()=>({region:'서울',date:'2026-11-25',walk:'15',stairs:'avoid',chosen:[],stops:[]});
+const protectedStop={id:'a',name:'경복궁',time:'10:00',must:true,reserved:true,done:true,custom:'legacy'};
+const json=x=>JSON.stringify(x);
+test('fresh browser has no warning',()=>{const r=restore(defaults(),()=>null);assert.equal(r.warning,'');assert.equal(json(r.state),json(defaults()))});
+test('valid legacy state including protected stops and past plan date is preserved',()=>{const stored={region:'경기',chosen:['a'],stops:[protectedStop],hbPlanInfo:{date:'2026-11-24'},unknown:'keep'};const r=restore(defaults(),()=>json(stored));assert.equal(r.warning,'');assert.equal(json(r.state),json({...defaults(),...stored}))});
+test('malformed arrays recover valid protected objects without fabricating stops',()=>{const r=restore(defaults(),()=>json({chosen:[null,'a',{}],stops:[null,42,protectedStop,[]]}));assert.ok(r.warning);assert.equal(json(r.state.stops),json([protectedStop]));assert.equal(json(r.state.chosen),json(['a']))});
+test('wrong collection shapes and invalid region fall back explicitly',()=>{const r=restore(defaults(),()=>json({region:'bad',stops:'bad',chosen:{}}));assert.ok(r.warning);assert.equal(json(r.state),json(defaults()))});
+test('invalid JSON, nonobject roots and blocked storage are safe',()=>{for(const read of [()=>'{',()=>null===null?'null':'',()=> '[]',()=> '42',()=>{throw new Error('blocked')}]){const r=restore(defaults(),read);assert.ok(r.warning);assert.equal(json(r.state),json(defaults()))}});
+test('read-only initialization does not write or modify original input',()=>{const raw=json({stops:[null,protectedStop]});const d=defaults();restore(d,()=>raw);assert.equal(json(d),json(defaults()));assert.equal(raw,json({stops:[null,protectedStop]}))});
