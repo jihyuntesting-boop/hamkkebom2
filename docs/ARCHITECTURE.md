@@ -19,10 +19,10 @@ flowchart LR
   SRV --> C[("저장소 내 카탈로그<br/>web/catalog/*.json<br/>web/photo-catalog.json")]
   API --> P["권리 확인된 사진<br/>web/images/places"]
   B -.->|"읽기 전용 공유 링크"| F["가족 브라우저"]
-  SRV --> AI["Anthropic Claude API<br/>(키 등록 시에만, 현재 운영 비활성)"]
+  SRV --> AI["Anthropic Claude API<br/>(운영 활성, 2026-11-26 키 등록)"]
 ```
 
-생성형 AI(자연어 조건 정리, 일정 설명)는 `/api/ai-assist` → `web/server/ai-assistant.cjs` → Claude API 경로입니다. 운영에는 `ANTHROPIC_API_KEY`가 아직 등록되지 않아 `{"enabled":false}`를 돌려주고 화면에 AI 영역이 나타나지 않습니다(2026-11-26 확인). 상세는 [AI_INTEGRATION.md](AI_INTEGRATION.md).
+생성형 AI(자연어 조건 정리, 일정 설명)는 `/api/ai-assist` → `web/server/ai-assistant.cjs` → Claude API 경로입니다. 2026-11-26 운영에 `ANTHROPIC_API_KEY`를 등록해 `{"enabled":true}`이고, 실제 호출 1건(자연어 조건 정리, 약 1.9초)이 정상 응답했습니다. 키가 없거나 실패하면 화면에서 AI 영역을 숨깁니다. 상세는 [AI_INTEGRATION.md](AI_INTEGRATION.md).
 
 구현 중(미병합, 2026-11-26): AI Agent 여행 초안(Claude 도구 호출 `search_places`·`get_place_facts`·`get_weather`·`estimate_travel`), RAG 장소 Q&A(카탈로그·공식 근거 검색 → 답변과 출처), Long-term Memory(동의한 선호를 기기에만 저장해 프롬프트에 사용), 앱 내 피드백 폼(`#/feedback`). 병합 전이라 이 문서의 구성도·API 표에는 넣지 않았고 병합 후 갱신합니다. 기술 선택 이유는 [TECH_STACK.md](TECH_STACK.md), 진행 과정은 [PROCESS.md](PROCESS.md).
 
@@ -123,4 +123,4 @@ flowchart LR
 | 접근성 자료 | 일부 장소만 공공자료 근거가 있음. 현장 검증 아님 |
 | 사진 | 권리 확인 사진 2건과 같은 장소 ID의 관광공사 공식 이미지만 사용 |
 | 자동차 경로 | 서버 플래그로 켜고 끔. 운영 키 등록·실제 경로 응답은 확인 안 됨 |
-| 생성형 AI | 코드·모킹 테스트만. 운영 키 미등록으로 비활성, 실제 모델 응답 품질 확인 안 됨 |
+| 생성형 AI | 운영 활성(실제 호출 1건 확인). 응답 품질·비용의 체계적 평가는 확인 안 됨 |

@@ -94,7 +94,7 @@
 | `/api/rich-tour?action=detail&contentId=126508&contentTypeId=12` (11:34 KST) | 200 | 경복궁 세부정보(저장소의 공식 출처 카탈로그에서 응답) |
 | `/api/featured.js?lat=999&lng=0` | 400 | `invalid_coordinates`(입력 검증) |
 | `/api/recommend` (GET) | 405 | `method_not_allowed`(POST 전용) |
-| `/api/ai-assist` (11:18 KST 확인) | 200 | `{"enabled":false}` — 운영에 `ANTHROPIC_API_KEY`가 등록되지 않아 AI 기능은 꺼져 있고 화면에 나타나지 않음 |
+| `/api/ai-assist` (11:18 KST 확인 → 키 등록 후 재확인) | 200 | 11:18에는 `{"enabled":false}`(키 미등록). 키 등록 후 `{"enabled":true}`, 자연어 조건 정리 실제 호출 1건 정상(약 1.9초) |
 
 대표 명소 API의 503은 외부 공급자 호출 한도에 걸린 상태를 그대로 알린 것이며, 화면은 "대표 관광지 자료를 불러오지 못했어요." 문구를 보여 주고 다른 기능은 계속 동작하도록 되어 있습니다(`web/assets/core-src/50-map-and-startup.js:623`). 원인이 일일 호출 한도 소진인지는 확인 안 됨. 장시간 측정 결과는 [STABILITY.md](STABILITY.md)에 있습니다.
 
@@ -113,7 +113,7 @@ POST API(`/api/recommend`, `/api/travel-times`, `/api/trip-endpoints`)의 운영
 | F05 일정 | 일정 엔진·편집·충돌, 집 출발·귀가 시각, 이동시간(실제/예상), 경로 공급자 실패 격리, 저장 스키마 | `frontend_itinerary_editor`, `itinerary_schema`, `itinerary_trip_endpoints`, `planner_home_times`, `planner_route_button`, `planner_travel_preview`, `planner_trip_endpoints`, `naver_provider_integration`, `agent_r_naver_route`, `agent_r_naver_handoff`, `endpoints_unify_indoor_weathertext` | 113/113 | 운영 경로 API 실응답, 서버 저장(미구현) |
 | F06 재조정 | 컨디션 하·중·상 변경안, 보호 일정 유지, 비교·적용·되돌리기 | `frontend_replan`, `mvp_condition_replan` | 14/14 | 서버 승인·동시성(미구현) |
 | F07·F14 날씨 | 예보 정규화, 공급자 오류·재시도·쿨다운, 특보 표시, 날씨 기반 제안 | `weather_normalizer`, `weather_provider`, `weather_recommendation_options`, `weather_suggestions`, `weather_time_candidates`, `agent_v_weather_reliability`, `agent_v_weather_ui_handoff`, `hide_remaining_notices` | 88/89 (1건 키 필요로 건너뜀) | 실제 특보 발효 사례 |
-| F19 생성형 AI | 키 없음 시 비노출·API 미호출, 구조화 출력 요청 형식, 모델 출력 재검증, 실패 8종·시간 초과 폴백, 프롬프트 인젝션 문장, 호출 제한, 안전 보장 표현·근거 없는 숫자 제거 (Anthropic API를 흉내 낸 모킹) | `ai_assistant` | 15/15 | 실제 Claude 응답 품질·지연·비용. 운영은 키 미등록으로 비활성 |
+| F19 생성형 AI | 키 없음 시 비노출·API 미호출, 구조화 출력 요청 형식, 모델 출력 재검증, 실패 8종·시간 초과 폴백, 프롬프트 인젝션 문장, 호출 제한, 안전 보장 표현·근거 없는 숫자 제거 (Anthropic API를 흉내 낸 모킹) | `ai_assistant` | 15/15 | 실제 Claude 응답 품질·지연·비용. 운영 활성 후 실제 호출 1건만 확인(2026-11-26) |
 | F09·F13 공유·큰 글씨 | 읽기 전용 링크, 개인정보 제외, 큰 글씨·인쇄 전환 | `frontend_family_share`, `mvp_family_share_completion` | 19/19 | 교차 기기 실기기 |
 | F10·F11·F12 도착·시설 | 시설 표시, 화장실 좌표 검수 자료만 표시, 지도 오버레이 경합 처리 | `agent_aa_rich_facilities_ui`, `agent_aa_walking_provider`, `agent_t_public_toilets`, `agent_t_toilet_overlay`, `agent_t_toilet_pilot` | 16/16 | 좌표 승인 범위 확대 |
 | F20·F21·F22 지도·탐색 | 위치 거부 폴백, 지도 정리, 중심 재검색, 핀·목록 연동, 대표 명소, 탐색 페이지 | `frontend_map_center_search`, `frontend_map_lifecycle`, `frontend_place_exploration`, `mvp_map_completion`, `nearby_location_search`, `featured_catalog`, `place_data_api`, `discovery-editorial`, `home_rich_discovery_hidden`, `header_home_nav` | 62/62 | 실제 GPS·SDK 실기기 |

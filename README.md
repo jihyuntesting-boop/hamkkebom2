@@ -77,14 +77,14 @@ flowchart LR
 
 | 요소 | 내용 | 상태 |
 | --- | --- | --- |
-| 자연어 조건 정리 | "엄마 무릎이 안 좋아 계단 적은 곳" 같은 문장을 기존 입력 계약의 허용 값으로 바꿔 미리보기 → 사용자가 적용 | 구현(#119)·모킹 테스트. 운영은 `ANTHROPIC_API_KEY` 미등록으로 비활성(2026-11-26 `/api/ai-assist` 응답 `{"enabled":false}` 확인) |
-| 일정 설명 | 이미 만든 일정 자료만으로 가족에게 보낼 3~6문장 설명. 자료에 없는 숫자·안전 보장 표현은 서버가 제거 | 구현(#119)·모킹 테스트, 운영 비활성 |
-| AI Agent | Claude 도구 호출(`search_places`, `get_place_facts`, `get_weather`, `estimate_travel`)로 여행 초안 작성 | 구현 중(미병합) |
-| RAG | 장소 카탈로그·공식 근거를 검색해 Claude 답변과 출처를 함께 제시하는 장소 Q&A | 구현 중(미병합) |
-| Long-term Memory | 사용자가 동의한 선호만 기기에 저장해 다음 요청 프롬프트에 사용 | 구현 중(미병합) |
+| 자연어 조건 정리 | "엄마 무릎이 안 좋아 계단 적은 곳" 같은 문장을 기존 입력 계약의 허용 값으로 바꿔 미리보기 → 사용자가 적용 | 구현(#119)·모킹 테스트. 운영 활성(2026-11-26 `ANTHROPIC_API_KEY` 등록 후 `/api/ai-assist` 응답 `{"enabled":true}`, 실제 호출 1건 정상 확인) |
+| 일정 설명 | 이미 만든 일정 자료만으로 가족에게 보낼 3~6문장 설명. 자료에 없는 숫자·안전 보장 표현은 서버가 제거 | 구현(#119)·모킹 테스트, 운영 활성(실제 호출 품질 확인 안 됨) |
+| AI Agent | Claude 도구 호출(`search_places`, `get_place_facts`, `get_weather`, `estimate_travel`)로 여행 초안 작성 | 설계만 함, 운영 미적용([AI_DESIGN.md](AI_DESIGN.md) §9) |
+| RAG | 장소 카탈로그·공식 근거를 검색해 Claude 답변과 출처를 함께 제시하는 장소 Q&A | 설계만 함, 운영 미적용([AI_DESIGN.md](AI_DESIGN.md) §9) |
+| Long-term Memory | 사용자가 동의한 선호만 기기에 저장해 다음 요청 프롬프트에 사용 | 설계만 함, 운영 미적용([AI_DESIGN.md](AI_DESIGN.md) §9) |
 | 프롬프트 설계 | 사용자 문장은 데이터 블록에만 넣고 지시로 취급하지 않음, JSON Schema 구조화 출력, 서버 재검증, 실패 시 AI 영역 숨김 | #119 기준 구현 |
 
-현재 구현 구조는 [AI_INTEGRATION.md](docs/AI_INTEGRATION.md), Agent·RAG·Memory 설계는 [AI_DESIGN.md](docs/AI_DESIGN.md)(작성 중, 해당 작업 병합 후 공개)에 있습니다.
+현재 구현 구조는 [AI_INTEGRATION.md](docs/AI_INTEGRATION.md), Agent·RAG·Memory 설계는 [AI_DESIGN.md](docs/AI_DESIGN.md)에 있습니다.
 
 ## 7. 자동화 워크플로우 (Python + GitHub Actions)
 
@@ -152,7 +152,7 @@ node scripts/stability_probe.mjs --minutes 35 --interval 10 --out stability-resu
 | 프로젝트 개요·팀원 역할·기술 스택·실행 방법·결과 | 이 README §1·3·4·9·10 |
 | 문제 정의 | §2, [REQUIREMENTS.md](docs/REQUIREMENTS.md) §1 |
 | 요구사항서·서비스 아키텍처 | [REQUIREMENTS.md](docs/REQUIREMENTS.md), [ARCHITECTURE.md](docs/ARCHITECTURE.md) |
-| AI 활용 방식(프롬프트·Agent·RAG·Memory) | §6, [AI_INTEGRATION.md](docs/AI_INTEGRATION.md), [AI_DESIGN.md](docs/AI_DESIGN.md)(작성 중) |
+| AI 활용 방식(프롬프트·Agent·RAG·Memory) | §6, [AI_INTEGRATION.md](docs/AI_INTEGRATION.md), [AI_DESIGN.md](docs/AI_DESIGN.md) |
 | 필수 기술 요소 2개 이상 | 자동화 워크플로우(§7, 운영 중), AI Agent·RAG·Long-term Memory(§6, 구현 중) |
 | 기술 스택 선정 이유 | [TECH_STACK.md](docs/TECH_STACK.md) |
 | 진행 과정 | [PROCESS.md](docs/PROCESS.md) |
